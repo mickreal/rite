@@ -18,8 +18,28 @@ async function complete(env: Env, model: string, system: string, user: string, m
     }),
   });
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
-  const data = (await res.json()) as { content: Array<{ type: string; text?: string }> };
-  return data.content.filter((c) => c.type === "text").map((c) => c.text ?? "").join("").trim();
+  const raw = await res.text();
+  const text = extractText(raw);
+  if (!text) throw new Error(`Anthropic: no text in response: ${raw.slice(0, 1500)}`);
+  return text;
+}
+
+/** Pull every text block out of a Messages API response, tolerant of nesting (content[], output[], message.content[]). */
+export function extractText(raw: string): string {
+  let data: unknown;
+  try { data = JSON.parse(raw); } catch { return ""; }
+  const out: string[] = [];
+  const walk = (v: unknown, depth = 0) => {
+    if (depth > 6 || v == null) return;
+    if (Array.isArray(v)) { v.forEach((x) => walk(x, depth + 1)); return; }
+    if (typeof v === "object") {
+      const o = v as Record<string, unknown>;
+      if (o.type === "text" && typeof o.text === "string") { out.push(o.text); return; }
+      for (const k of ["content", "output", "message", "blocks"]) if (k in o) walk(o[k], depth + 1);
+    }
+  };
+  walk(data);
+  return out.join("").trim();
 }
 
 export function writePreview(env: Env, inputs: unknown) {
