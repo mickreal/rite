@@ -11,6 +11,7 @@ const CSS = `
 .lock{display:flex;gap:14px;align-items:flex-start;padding:16px 0;border-top:1px solid rgba(20,17,10,.12);font-size:17px;line-height:1.45}
 .lock svg{flex:0 0 auto;margin-top:3px;color:#8A6A1E}
 .mk{opacity:0;animation:mk .5s ease forwards}@keyframes mk{to{opacity:1}}
+@media (prefers-reduced-motion: reduce){.mk{opacity:1}}
 `;
 
 const PASS3 = [

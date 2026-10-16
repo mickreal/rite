@@ -365,7 +365,9 @@ document.querySelectorAll('.faqb').forEach(function(b){b.addEventListener('click
 var AGES={29:['The first return','Usually somewhere between 27 and 30. The one most people mean when they say Saturn return.'],58:['The second return',${JSON.stringify(second ? `Usually between 56 and 60. Saturn checks back in on what you built after the first. Born between ${bornRanges(second.born)}: yours is open now.` : "Usually between 56 and 60. Saturn checks back in on what you built after the first.")}],87:['The third return','Around 87 or 88, for those who reach it.']};
 var FOCUS=${second ? 58 : 29};
 var counting=false;
-function startCount(){if(counting)return;counting=true;var btns=document.querySelectorAll('.age');var seq=[[0,29],[29,58],[58,87]],dur=[1200,950,950],stage=0,t0=null;
+function startCount(){if(counting)return;counting=true;var btns=document.querySelectorAll('.age');
+if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches){btns.forEach(function(b){b.style.display='';b.textContent=b.dataset.age});showAge(FOCUS);return}
+var seq=[[0,29],[29,58],[58,87]],dur=[1200,950,950],stage=0,t0=null;
 function step(ts){if(t0===null)t0=ts;var p=Math.min(1,(ts-t0)/dur[stage]),e=1-Math.pow(1-p,3);btns[stage].style.display='';btns[stage].textContent=Math.round(seq[stage][0]+(seq[stage][1]-seq[stage][0])*e);btns.forEach(function(b,i){b.classList.toggle('on',i===stage)});if(p<1){requestAnimationFrame(step);return}if(stage<2){stage++;t0=null;setTimeout(function(){requestAnimationFrame(step)},260)}else{showAge(FOCUS)}}
 setTimeout(function(){requestAnimationFrame(step)},350)}
 function showAge(a){document.querySelectorAll('.age').forEach(function(b){b.classList.toggle('on',+b.dataset.age===a)});$('#ageTitle').textContent=AGES[a][0];$('#ageBody').textContent=AGES[a][1];var i=$('#ageInfo');i.style.display='flex';i.classList.remove('swap');void i.offsetWidth;i.classList.add('swap')}
@@ -399,7 +401,7 @@ document.querySelectorAll('a[href="/gift"]').forEach(function(a){a.addEventListe
 document.querySelectorAll('a[href="#start"]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();var form=$('#start'),d=$('#bd'),pl=$('#bp');
  if(d.value&&pl.value.trim()){form.requestSubmit?form.requestSubmit():$('#go').click();return}
  var mobile=window.innerWidth<=900;var top=mobile?Math.max(0,form.getBoundingClientRect().top+window.pageYOffset-24):0;
- window.scrollTo({top:top,behavior:'smooth'});var f=!d.value?d:pl;setTimeout(function(){f.focus({preventScroll:true})},mobile?500:700)})});
+ window.scrollTo({top:top,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});var f=!d.value?d:pl;setTimeout(function(){f.focus({preventScroll:true})},mobile?500:700)})});
 })();`;
 
   return shell({

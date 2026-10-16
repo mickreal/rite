@@ -340,7 +340,7 @@ function setStage(t,label){clearTimeout(timer);timer=setTimeout(function(){fetch
  var c=$('#stageCard');c.classList.remove('swap');void c.offsetWidth;c.classList.add('swap');
  if(s.slider!=null)$('#scrub').value=s.slider;document.querySelectorAll('#jumps .qchip').forEach(function(q){q.classList.toggle('on',q.dataset.t===label)})}).catch(function(){})},120)}
 $('#scrub').addEventListener('input',function(e){var v=+e.target.value;setStage((2025+Math.floor(v/12))+'-'+String(v%12+1).padStart(2,'0')+'-15','')});
-document.querySelectorAll('#jumps .qchip,.tile').forEach(function(b){b.addEventListener('click',function(){setStage(b.dataset.t,b.dataset.t);if(b.classList.contains('tile'))document.getElementById('c0').scrollIntoView({behavior:'smooth'})})});
+document.querySelectorAll('#jumps .qchip,.tile').forEach(function(b){b.addEventListener('click',function(){setStage(b.dataset.t,b.dataset.t);if(b.classList.contains('tile'))document.getElementById('c0').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})})});
 setStage('today','today');
 // narration: chapters 0..8 play back to back; each MP3 is generated on first request and cached
 var CH=9,cur=0,au=new Audio(),playing=false,ready=false,durs=[];

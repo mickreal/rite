@@ -68,7 +68,7 @@ footer.bottom a{color:#EDE6D6;text-decoration:none;font-weight:600;font-size:18p
 .rv{animation:rv linear both;animation-timeline:view();animation-range:entry 0% cover 25%}
 @keyframes rv{from{opacity:0;transform:translateY(48px)}to{opacity:1;transform:none}}
 }
-@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}.w,.fade,.a,.f,.swap{opacity:1;transform:none}.draw{stroke-dashoffset:0}}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}.w,.fade,.a,.f,.swap{opacity:1;transform:none}.draw{stroke-dashoffset:0}}
 @media print{body{background:#fff;color:#111}header.top,footer.bottom,.noprint{display:none!important}.card,.stat{background:#f4f2ec;color:#111}.muted{color:#555}a{color:#111}}
 `;
 
