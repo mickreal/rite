@@ -1,0 +1,23 @@
+{
+  "id": "evt_1Rite0SubDeleted",
+  "object": "event",
+  "api_version": "2026-09-30.endive",
+  "created": 0,
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": { "id": null, "idempotency_key": null },
+  "type": "customer.subscription.deleted",
+  "data": {
+    "object": {
+      "id": "sub_test_0001",
+      "object": "subscription",
+      "status": "canceled",
+      "customer": "cus_test_0001",
+      "cancel_at_period_end": false,
+      "canceled_at": 1792000000,
+      "ended_at": 1792000000,
+      "metadata": { "purchase_id": "tok_test_purchase_000000000000001", "plan": "month" },
+      "items": { "object": "list", "data": [] }
+    }
+  }
+}

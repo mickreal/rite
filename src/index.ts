@@ -827,7 +827,9 @@ app.post("/webhook/stripe", async (c) => {
       const subId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
       const purchaseId = session.metadata.purchase_id;
       const plan = session.metadata.plan === "year" ? "year" : "month";
-      await c.env.DB.prepare("INSERT OR REPLACE INTO subscriptions (id, purchase_id, created_at, status, plan) VALUES (?,?,?,'active',?)").bind(subId, purchaseId, now(), plan).run();
+      // OR IGNORE, not OR REPLACE: a redelivered event must not reset last_sent_at (a second welcome note) or revive a cancelled row
+      const ins = await c.env.DB.prepare("INSERT OR IGNORE INTO subscriptions (id, purchase_id, created_at, status, plan) VALUES (?,?,?,'active',?)").bind(subId, purchaseId, now(), plan).run();
+      if (!ins.meta.changes) return c.text("ok");
       await log(c.env, "season_start", purchaseId, { plan });
       // Welcome note: the first Saturn Season note goes out now, not next Monday. sendSeasonNote sets last_sent_at, so the
       // Monday cron skips this subscriber for the next six days.
@@ -858,7 +860,11 @@ app.post("/webhook/stripe", async (c) => {
   } else if (event.type === "charge.refunded") {
     const ch = event.data.object as Stripe.Charge;
     const pi = typeof ch.payment_intent === "string" ? ch.payment_intent : ch.payment_intent?.id;
-    if (pi) await c.env.DB.prepare("UPDATE purchases SET status='refunded' WHERE stripe_payment_intent=?").bind(pi).run();
+    if (pi) {
+      await c.env.DB.prepare("UPDATE purchases SET status='refunded' WHERE stripe_payment_intent=?").bind(pi).run();
+      // a refunded, unredeemed gift code stops working (same marker as /admin/refund); a redeemed one keeps its reading
+      await c.env.DB.prepare("UPDATE gifts SET redeemed_at='refunded' WHERE stripe_payment_intent=? AND redeemed_at IS NULL").bind(pi).run();
+    }
   }
   return c.text("ok");
 });

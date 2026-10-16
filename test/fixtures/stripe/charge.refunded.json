@@ -1,0 +1,25 @@
+{
+  "id": "evt_1Rite0ChargeRefunded",
+  "object": "event",
+  "api_version": "2026-09-30.endive",
+  "created": 0,
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": { "id": null, "idempotency_key": null },
+  "type": "charge.refunded",
+  "data": {
+    "object": {
+      "id": "ch_test_0001",
+      "object": "charge",
+      "amount": 2900,
+      "amount_captured": 2900,
+      "amount_refunded": 2900,
+      "currency": "usd",
+      "paid": true,
+      "refunded": true,
+      "status": "succeeded",
+      "customer": null,
+      "payment_intent": "pi_test_reading_0001"
+    }
+  }
+}
