@@ -89,11 +89,53 @@ On ${p.onDate}: ${p.label.toLowerCase()}.
 ${what[p.stageKey] ?? "A new stage of your Saturn cycle opens."}
 
 Your reading has a chapter for it, with the prompts for this phase now open: ${p.readingUrl}#c7
-
 — Rite
 
 Sent once, a week before each stage of your cycle. Reply to stop these.`;
   return { subject, text };
+}
+
+/** Day 3 after the reading: put the dates in a calendar, open the workbook. Copy: docs/emails.md §2. */
+export function day3Email(p: { firstName: string | null; readingUrl: string }) {
+  return {
+    subject: "Did you put the dates in your calendar?",
+    text: `${p.firstName ?? "Hi"},
+
+Three days ago you opened your reading. The part people skip is the part that does the most: the dates.
+
+At the top of chapter three there's a calendar button. One file per date (each exact pass, the closest turn, the day your window closes), or all of them at once: ${p.readingUrl}#c3
+
+Put them in whatever calendar you actually look at. A pass you didn't see coming is just a hard week. A pass you've dated is a week you can plan around.
+
+Then open the workbook: ${p.readingUrl}#c7. The prompts for the phase you're in now are unlocked. The rest open when their phase does, so there's nothing to do early.
+
+— Rite
+
+Sent once. Reply to this and a person answers.`,
+  };
+}
+
+/**
+ * Day 10 after the reading, to owners without Saturn Season: what a Monday note looks like, with a sample built by code
+ * for their own chart (position, orb, motion, the code-only paragraph, the 30-day list). Copy: docs/emails.md §3.
+ */
+export function day10Email(p: { firstName: string | null; windowEnd: string; position: string; body: string; comingUp: string; seasonUrl: string; monthlyPrice: number; yearlyPrice: number | null }) {
+  const lines = [p.position, "", ...p.body.split("\n").flatMap((l, i) => (i === 0 ? [l] : ["", l])), "", ...p.comingUp.split("\n")];
+  const quote = lines.map((l) => (l ? `> ${l}` : ">")).join("\n");
+  return {
+    subject: "What a Monday note looks like",
+    text: `${p.firstName ?? "Hi"},
+
+Your reading is the map. Saturn Season is the "you are here" dot, once a week, until your window closes on ${p.windowEnd}.
+
+Here's the note you'd have got this Monday:
+
+${quote}
+
+Every Monday, 7am your time. $${p.monthlyPrice} a month${p.yearlyPrice ? ` or $${p.yearlyPrice} a year` : ""}. It stops itself the week Saturn leaves your sign, so you can't forget to cancel: ${p.seasonUrl}
+
+— Rite`,
+  };
 }
 
 export function giftEmail(p: { code: string; link: string; from: string | null }) {
