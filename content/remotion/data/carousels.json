@@ -1,0 +1,110 @@
+{
+ "site": "rite.report",
+ "carousels": [
+  {
+   "id": "carousel-1-what-it-is",
+   "title": "What a Saturn return actually is",
+   "slides": [
+    {
+     "kind": "cover",
+     "head": "A Saturn return is not a birthday.",
+     "small": "Saturn in Aries until 12 Apr 2028",
+     "alt": "Cream card with a gold orbit dial. Large text: A Saturn return is not a birthday. Small text: Saturn in Aries until 12 Apr 2028."
+    },
+    {
+     "text": "Saturn takes about 29.5 years to go round the Sun. Your return is when it gets back to the degree it held the day you were born.",
+     "alt": "Text slide: Saturn takes about 29.5 years to go round the Sun. Your return is when it gets back to the degree it held the day you were born."
+    },
+    {
+     "text": "It spends two to three years in that sign while it does it. That's your window.",
+     "dial": "window",
+     "alt": "Text slide with an orbit dial whose gold arc runs from where Saturn enters your sign to where it leaves. Text: It spends two to three years in that sign while it does it. That's your window."
+    },
+    {
+     "text": "Inside the window: one exact pass, or three if Saturn goes backwards over your degree. Those are the dates.",
+     "alt": "Text slide: Inside the window: one exact pass, or three if Saturn goes backwards over your degree. Those are the dates."
+    },
+    {
+     "head": "Three phases.",
+     "list": [
+      [
+       "Approach",
+       "pressure, no verdict."
+      ],
+      [
+       "Contact",
+       "the pass."
+      ],
+      [
+       "Integration",
+       "what you chose becomes structure."
+      ]
+     ],
+     "alt": "Text slide headed Three phases, listing Approach: pressure, no verdict. Contact: the pass. Integration: what you chose becomes structure."
+    },
+    {
+     "text": "It happens around 27–30, again around 56–60, again around 85–88. Same maths, different question each time.",
+     "alt": "Text slide: It happens around 27 to 30, again around 56 to 60, again around 85 to 88. Same maths, different question each time."
+    },
+    {
+     "text": "Saturn describes the work, not what happens to you. Nothing here predicts an event.",
+     "alt": "Text slide: Saturn describes the work, not what happens to you. Nothing here predicts an event."
+    },
+    {
+     "kind": "cta",
+     "head": "Your window and your passes, free, in ten seconds.",
+     "alt": "Closing slide: Your window and your passes, free, in ten seconds. rite.report"
+    }
+   ]
+  },
+  {
+   "id": "carousel-2-window-by-birth-year",
+   "title": "Your window by birth year",
+   "slides": [
+    {
+     "kind": "cover",
+     "head": "Find your Saturn return by birth date.",
+     "alt": "Cream card with a gold orbit dial. Large text: Find your Saturn return by birth date."
+    },
+    {
+     "head": "Born 29 Jan 1994 – 7 Apr 1996",
+     "text": "Saturn in Pisces. Return window 8 Mar 2023 – 13 Feb 2026.",
+     "tag": "Done.",
+     "alt": "Born 29 January 1994 to 7 April 1996: Saturn in Pisces. Return window 8 March 2023 to 13 February 2026. Done."
+    },
+    {
+     "head": "Born 8 Apr 1996 – 9 Jun 1998, or 26 Oct 1998 – 1 Mar 1999",
+     "text": "Saturn in Aries. Window 25 May 2025 – 12 Apr 2028.",
+     "tag": "Now.",
+     "alt": "Born 8 April 1996 to 9 June 1998, or 26 October 1998 to 1 March 1999: Saturn in Aries. Window 25 May 2025 to 12 April 2028. Now."
+    },
+    {
+     "head": "Born 10 Jun – 25 Oct 1998, 2 Mar 1999 – 10 Aug 2000, or 17 Oct 2000 – 20 Apr 2001",
+     "text": "Saturn in Taurus. Window 13 Apr 2028 – 31 May 2030.",
+     "tag": "Next.",
+     "alt": "Born 10 June to 25 October 1998, 2 March 1999 to 10 August 2000, or 17 October 2000 to 20 April 2001: Saturn in Taurus. Window 13 April 2028 to 31 May 2030. Next."
+    },
+    {
+     "head": "Born 4 Mar 1967 – 29 Apr 1969",
+     "text": "Saturn in Aries. Second return, window 25 May 2025 – 12 Apr 2028.",
+     "tag": "Now.",
+     "alt": "Born 4 March 1967 to 29 April 1969: Saturn in Aries. Second return, window 25 May 2025 to 12 April 2028. Now."
+    },
+    {
+     "head": "Born 30 Apr 1969 – 18 Jun 1971",
+     "text": "Saturn in Taurus. Second return opens 13 Apr 2028.",
+     "alt": "Born 30 April 1969 to 18 June 1971: Saturn in Taurus. Second return opens 13 April 2028."
+    },
+    {
+     "text": "Born on a boundary day? Your birth time decides the sign. The site checks.",
+     "alt": "Text slide: Born on a boundary day? Your birth time decides the sign. The site checks."
+    },
+    {
+     "kind": "cta",
+     "head": "Exact passes to the day.",
+     "alt": "Closing slide: Exact passes to the day. rite.report"
+    }
+   ]
+  }
+ ]
+}

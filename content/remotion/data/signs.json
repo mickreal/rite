@@ -1,5 +1,5 @@
 {
- "today": "2026-10-16",
+ "today": "2026-10-19",
  "site": "rite.report",
  "signs": [
   {
@@ -8,7 +8,7 @@
    "glyph": "♈",
    "status": "now",
    "statusLine": "Saturn is in Aries until 12 Apr 2028",
-   "angle": 355.3,
+   "angle": 355.1,
    "transit": {
     "from": "25 May 2025",
     "to": "12 Apr 2028",
@@ -36,7 +36,7 @@
    "glyph": "♉",
    "status": "next",
    "statusLine": "Saturn enters Taurus on 13 Apr 2028",
-   "angle": 325.3,
+   "angle": 325.1,
    "transit": {
     "from": "13 Apr 2028",
     "to": "31 May 2030",
@@ -66,7 +66,7 @@
    "glyph": "♊",
    "status": "next",
    "statusLine": "Saturn enters Gemini on 1 Jun 2030",
-   "angle": 295.3,
+   "angle": 295.1,
    "transit": {
     "from": "1 Jun 2030",
     "to": "13 Jul 2032",
@@ -96,7 +96,7 @@
    "glyph": "♋",
    "status": "next",
    "statusLine": "Saturn enters Cancer on 14 Jul 2032",
-   "angle": 265.3,
+   "angle": 265.1,
    "transit": {
     "from": "14 Jul 2032",
     "to": "10 May 2035",
@@ -125,7 +125,7 @@
    "glyph": "♌",
    "status": "next",
    "statusLine": "Saturn enters Leo on 27 Aug 2034",
-   "angle": 235.3,
+   "angle": 235.1,
    "transit": {
     "from": "27 Aug 2034",
     "to": "6 Jul 2037",
@@ -155,7 +155,7 @@
    "glyph": "♍",
    "status": "next",
    "statusLine": "Saturn enters Virgo on 16 Oct 2036",
-   "angle": 205.3,
+   "angle": 205.1,
    "transit": {
     "from": "16 Oct 2036",
     "to": "4 Sep 2039",
@@ -185,7 +185,7 @@
    "glyph": "♎",
    "status": "next",
    "statusLine": "Saturn enters Libra on 5 Sep 2039",
-   "angle": 175.3,
+   "angle": 175.1,
    "transit": {
     "from": "5 Sep 2039",
     "to": "13 Jul 2042",
@@ -215,7 +215,7 @@
    "glyph": "♏",
    "status": "recent",
    "statusLine": "Saturn left Scorpio on 17 Sep 2015",
-   "angle": 145.3,
+   "angle": 145.1,
    "transit": {
     "from": "5 Oct 2012",
     "to": "17 Sep 2015",
@@ -245,7 +245,7 @@
    "glyph": "♐",
    "status": "recent",
    "statusLine": "Saturn left Sagittarius on 19 Dec 2017",
-   "angle": 115.3,
+   "angle": 115.1,
    "transit": {
     "from": "23 Dec 2014",
     "to": "19 Dec 2017",
@@ -275,7 +275,7 @@
    "glyph": "♑",
    "status": "recent",
    "statusLine": "Saturn left Capricorn on 16 Dec 2020",
-   "angle": 85.3,
+   "angle": 85.1,
    "transit": {
     "from": "20 Dec 2017",
     "to": "16 Dec 2020",
@@ -303,7 +303,7 @@
    "glyph": "♒",
    "status": "recent",
    "statusLine": "Saturn left Aquarius on 6 Mar 2023",
-   "angle": 55.3,
+   "angle": 55.1,
    "transit": {
     "from": "22 Mar 2020",
     "to": "6 Mar 2023",
@@ -333,7 +333,7 @@
    "glyph": "♓",
    "status": "recent",
    "statusLine": "Saturn left Pisces on 13 Feb 2026",
-   "angle": 25.3,
+   "angle": 25.1,
    "transit": {
     "from": "7 Mar 2023",
     "to": "13 Feb 2026",
