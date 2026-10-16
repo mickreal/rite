@@ -48,7 +48,7 @@ const token = () => id(32);
 const now = () => new Date().toISOString();
 const adminOk = (env: Env, auth: string | undefined) => !!env.STRIPE_WEBHOOK_SECRET && env.STRIPE_WEBHOOK_SECRET.length > 10 && auth === `Bearer ${env.STRIPE_WEBHOOK_SECRET}`;
 const stripe = (env: Env) => new Stripe(env.STRIPE_SECRET_KEY, { httpClient: Stripe.createFetchHttpClient() });
-const FUNNEL = new Set(["preview", "checkout", "paid", "generated", "gift_paid", "gift_redeemed", "season_start", "season_sent", "ask", "narrated", "refund", "error"]);
+const FUNNEL = new Set(["preview", "checkout", "paid", "generated", "gift_paid", "gift_redeemed", "season_start", "season_sent", "ask", "narrated", "refund", "story", "error"]);
 async function log(env: Env, kind: string, ref?: string | null, detail?: unknown) {
   try { await env.DB.prepare("INSERT INTO events (at, kind, ref, detail) VALUES (?,?,?,?)").bind(now(), kind, ref ?? null, detail ? JSON.stringify(detail).slice(0, 2000) : null).run(); } catch (e) { console.error("log", e); }
   if (env.POSTHOG_KEY && FUNNEL.has(kind)) {
@@ -459,6 +459,30 @@ app.post("/r/:tok/ask", async (c) => {
     await log(c.env, "error", pu.id, { where: "ask", e: String(e) });
     return c.json({ error: "Couldn't answer just now. Try again in a moment.", left: ASK_CAP - used }, 502);
   }
+});
+
+// Share your story: opt-in, one per purchase per day, copied to the admin inbox. Quoting only with can_quote.
+const STORY_MAX = 2000;
+app.post("/r/:tok/story", async (c) => {
+  const pu = await getPurchase(c.env, c.req.param("tok"));
+  if (!pu) return c.json({ error: "Not found" }, 404);
+  const body = await c.req.json<{ text?: string; can_quote?: boolean }>().catch(() => ({} as { text?: string; can_quote?: boolean }));
+  const text = String(body.text ?? "").trim();
+  if (!text) return c.json({ error: "Write something first." }, 400);
+  if (text.length > STORY_MAX) return c.json({ error: `That's over ${STORY_MAX.toLocaleString("en")} characters. Trim it a little?` }, 400);
+  const canQuote = body.can_quote === true ? 1 : 0;
+  const day = now().slice(0, 10);
+  const recent = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM stories WHERE purchase_id = ? AND created_at >= ?").bind(pu.id, day).first<{ n: number }>();
+  if ((recent?.n ?? 0) > 0) return c.json({ error: "We've already got one from you today. Send another tomorrow, or reply to any of our emails." }, 429);
+  await c.env.DB.prepare("INSERT INTO stories (purchase_id, created_at, text, can_quote) VALUES (?,?,?,?)").bind(pu.id, now(), text, canQuote).run();
+  await log(c.env, "story", pu.id, { can_quote: !!canQuote, len: text.length });
+  c.executionCtx.waitUntil((async () => {
+    const p = await getPreview(c.env, pu.preview_id);
+    const ok = await sendEmail(c.env, c.env.ADMIN_EMAIL || c.env.SUPPORT_EMAIL, `Rite story${canQuote ? " (can quote)" : ""}: ${pu.first_name ?? "no name"}, Saturn in ${p?.natal_sign ?? "?"}`,
+      `${text}\n\n---\nFirst name: ${pu.first_name ?? "(none)"}\nCan quote (first name only): ${canQuote ? "YES" : "no"}\nReader email: ${pu.email}\nSaturn in ${p?.natal_sign ?? "?"}, born ${p?.birth_date.slice(0, 4) ?? "?"}\nReading: ${c.env.SITE_URL}/r/${pu.id}`);
+    if (!ok) await log(c.env, "error", pu.id, { where: "story-email" });
+  })());
+  return c.json({ ok: true });
 });
 
 app.get("/r/:tok/status", async (c) => {

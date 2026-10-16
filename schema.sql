@@ -119,3 +119,14 @@ CREATE TABLE IF NOT EXISTS followups (
   UNIQUE(purchase_id, kind)
 );
 CREATE INDEX IF NOT EXISTS idx_followups_due ON followups(send_on, sent_at);
+
+-- "Tell us how your return is going" at the end of a reading. Opt-in; can_quote = 1 only when the reader ticked
+-- "Rite can quote this, first name only". One per purchase per day.
+CREATE TABLE IF NOT EXISTS stories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  purchase_id TEXT NOT NULL REFERENCES purchases(id),
+  created_at TEXT NOT NULL,
+  text TEXT NOT NULL,               -- up to 2,000 characters
+  can_quote INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_stories_purchase ON stories(purchase_id, created_at);
