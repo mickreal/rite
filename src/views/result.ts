@@ -56,7 +56,7 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
       <line x1="40" y1="${chart.y0.toFixed(1)}" x2="960" y2="${chart.y0.toFixed(1)}" stroke="rgba(237,230,214,.4)" stroke-dasharray="4 6"/>
       <text x="958" y="${(chart.y0 - 10).toFixed(1)}" text-anchor="end" fill="#A7A196" font-size="13" font-family="Hanken Grotesk, sans-serif">your natal Saturn, ${Math.floor(c.degree)}° ${c.sign}</text>
       <line x1="40" y1="260" x2="960" y2="260" stroke="rgba(237,230,214,.15)"/>
-      ${chart.yearTicks.map((t) => html`<text x="${t.x.toFixed(1)}" y="288" text-anchor="middle" fill="#6B675F" font-size="13" font-family="Hanken Grotesk, sans-serif">${t.label}</text>`)}
+      ${chart.yearTicks.map((t) => html`<text x="${t.x.toFixed(1)}" y="288" text-anchor="middle" fill="#8A857B" font-size="13" font-family="Hanken Grotesk, sans-serif">${t.label}</text>`)}
       ${chart.todayX > 0 ? html`<line x1="${chart.todayX.toFixed(1)}" y1="16" x2="${chart.todayX.toFixed(1)}" y2="260" stroke="#EDE6D6" stroke-width="1.5" stroke-dasharray="2 4"/><rect x="${(chart.todayX - 32).toFixed(1)}" y="2" width="64" height="24" rx="12" fill="#EDE6D6"/><text x="${chart.todayX.toFixed(1)}" y="18" text-anchor="middle" fill="#0E1014" font-size="12" font-weight="600" font-family="Hanken Grotesk, sans-serif">Today</text>` : ""}
       <path class="draw" pathLength="1000" d="${chart.path}" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
       ${passes.map((p, i) => html`<g class="mk" style="animation-delay:${(1.6 + i * 0.5).toFixed(1)}s"><circle class="pulse pp" data-i="${i}" cx="${p.x.toFixed(1)}" cy="${chart.y0.toFixed(1)}" r="10" fill="#F2B544" style="opacity:${i === 0 ? 1 : 0}"/><circle cx="${p.x.toFixed(1)}" cy="${chart.y0.toFixed(1)}" r="8" fill="#0E1014" stroke="#F2B544" stroke-width="3"/></g>`)}
@@ -93,7 +93,7 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
 </section>
 
 <section class="wrap" style="padding-bottom:120px">
-  <div class="rv" style="background:#EDE6D6;color:#14110A;border-radius:40px;padding:clamp(32px,5vw,72px);display:flex;flex-wrap:wrap;gap:48px 72px">
+  <div class="rv cream" style="background:#EDE6D6;color:#14110A;border-radius:40px;padding:clamp(32px,5vw,72px);display:flex;flex-wrap:wrap;gap:48px 72px">
     <div style="flex:1 1 380px;display:flex;flex-direction:column;gap:20px">
       <h2 class="disp" style="margin:0;font-size:clamp(40px,4.6vw,64px);line-height:1;letter-spacing:-.03em;font-weight:700">Your full reading</h2>
       <p style="margin:0;font-size:18px;line-height:1.6;color:rgba(20,17,10,.72);max-width:440px">Everything above, plus the exact days, ${opts.hasTime ? "your Saturn house" : "every month of your window"} and what to do in each phase. Built from this chart, ready the moment you pay.</p>

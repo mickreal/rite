@@ -36,7 +36,7 @@ const CSS = `
 .hero{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:104px clamp(16px,4vw,48px);min-height:100svh;display:flex;align-items:center}
 .heroText{width:fit-content;max-width:min(620px,52%);display:flex;flex-direction:column;gap:clamp(18px,3.4vh,32px)}
 .linger{height:28vh}
-.hint{color:#6B675F;font-size:14px;line-height:1.6;text-align:center;margin:-8px 0 0}
+.hint{color:#8A857B;font-size:14px;line-height:1.6;text-align:center;margin:-8px 0 0}
 .ctaRow{display:flex;flex-wrap:wrap;align-items:center;gap:16px}
 .topbar{position:absolute;top:0;left:0;right:0;z-index:3}
 @media (max-width:900px){
@@ -281,7 +281,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
 </section>
 
 <section id="price" data-rv class="wrap" style="padding-bottom:140px">
-  <div class="f pcard" style="position:relative;overflow:hidden;background:#EDE6D6;color:#14110A;border-radius:40px;padding:clamp(40px,5.5vw,80px) clamp(28px,5vw,72px);display:flex;flex-wrap:wrap;gap:56px 72px;align-items:center">
+  <div class="f pcard cream" style="position:relative;overflow:hidden;background:#EDE6D6;color:#14110A;border-radius:40px;padding:clamp(40px,5.5vw,80px) clamp(28px,5vw,72px);display:flex;flex-wrap:wrap;gap:56px 72px;align-items:center">
     <svg aria-hidden="true" viewBox="0 0 600 600" class="echo" style="position:absolute;right:-180px;top:calc(50% - 340px);width:680px;height:680px;pointer-events:none;overflow:visible">
       <g class="vb pdial"><g class="vb pspin"><circle cx="300" cy="300" r="266" fill="none" stroke="rgba(20,17,10,.16)" stroke-width="10" stroke-dasharray="1.2 22.0126" stroke-dashoffset="0.6"/><circle cx="300" cy="300" r="266" fill="none" stroke="rgba(20,17,10,.22)" stroke-width="18" stroke-dasharray="1.6 137.6739" stroke-dashoffset="0.8"/></g></g>
       <circle class="vb pring" cx="300" cy="300" r="230" fill="none" stroke="rgba(20,17,10,.14)" stroke-dasharray="2 7"/><circle class="vb pring" cx="300" cy="300" r="168" fill="none" stroke="rgba(20,17,10,.06)" style="animation-delay:.15s"/>
@@ -312,12 +312,12 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
       <div><a href="/season" class="ghost">See a sample note ${raw(ARROW)}</a></div>
     </div>
     <a href="/season" class="mininote" aria-label="A sample Saturn Season note">
-      <span style="display:flex;justify-content:space-between;align-items:center;gap:12px"><span class="mtag">Monday, 7am</span><span style="font-size:13px;color:rgba(20,17,10,.5)">Saturn Season</span></span>
+      <span style="display:flex;justify-content:space-between;align-items:center;gap:12px"><span class="mtag">Monday, 7am</span><span style="font-size:13px;color:rgba(20,17,10,.62)">Saturn Season</span></span>
       <span class="disp" style="font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15">${sea.saturnNow ? `Saturn is at ${sea.saturnNow} this week.` : "Where Saturn is this week."}</span>
       <span class="bar" style="width:94%"></span><span class="bar" style="width:86%"></span><span class="bar" style="width:62%"></span>
       <span style="font-size:14px;font-weight:600;margin-top:6px">One thing this week</span><span class="bar" style="width:72%"></span>
       <span style="font-size:14px;font-weight:600;margin-top:6px">Coming up in the next 30 days</span><span class="bar" style="width:48%"></span><span class="bar" style="width:56%"></span>
-      <span style="margin-top:auto;padding-top:14px;border-top:1px solid rgba(20,17,10,.14);font-size:13px;color:rgba(20,17,10,.55)">Stops itself when your window closes.</span>
+      <span style="margin-top:auto;padding-top:14px;border-top:1px solid rgba(20,17,10,.14);font-size:13px;color:rgba(20,17,10,.62)">Stops itself when your window closes.</span>
     </a>
   </div>
 </section>
@@ -336,7 +336,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
 
 <section id="faq" data-rv style="max-width:920px;margin:0 auto;padding:0 clamp(16px,4vw,48px) 160px;display:flex;flex-direction:column;gap:24px">
   <h2 class="disp f" style="margin:0 0 12px;font-size:clamp(40px,4.6vw,68px);line-height:1;letter-spacing:-.03em;font-weight:700">Questions</h2>
-  <div>${faq.map(([q, a], i) => html`<div class="row" style="border-bottom:1px solid rgba(237,230,214,.14);${i === 0 ? "border-top:1px solid rgba(237,230,214,.14);" : ""}animation-delay:${(0.25 + i * 0.12).toFixed(2)}s"><button type="button" class="faqb ${i === 0 ? "open" : ""}" aria-expanded="${i === 0}">${q}<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4v14M4 11h14"/></svg></button><p class="faqa ${i === 0 ? "open" : ""}">${a}</p></div>`)}</div>
+  <div>${faq.map(([q, a], i) => html`<div class="row" style="border-bottom:1px solid rgba(237,230,214,.14);${i === 0 ? "border-top:1px solid rgba(237,230,214,.14);" : ""}animation-delay:${(0.25 + i * 0.12).toFixed(2)}s"><button type="button" class="faqb ${i === 0 ? "open" : ""}" aria-expanded="${i === 0}" aria-controls="faq-a${i}">${q}<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4v14M4 11h14"/></svg></button><p class="faqa ${i === 0 ? "open" : ""}" id="faq-a${i}">${a}</p></div>`)}</div>
 </section>
 
 <section data-rv style="padding:0 0 120px;overflow:hidden">

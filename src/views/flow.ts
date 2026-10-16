@@ -66,17 +66,17 @@ export function flowPage(opts: { siteUrl: string; ref?: string; form?: { date?: 
         <h2 class="disp" style="margin:0;font-size:40px;line-height:1;letter-spacing:-.035em;font-weight:700">When were you born?</h2>
         <p style="margin:0;font-size:16px;line-height:1.5;color:#A7A196">Use the local date where you were born.</p>
         <label for="fd" style="position:absolute;left:-9999px">Birth date</label><input id="fd" class="finp" type="date" name="date" value="${f.date ?? ""}" min="1930-01-01" max="2012-12-31" required>
-        <p class="err" id="e1">Enter your birth date.</p>
+        <p class="err" id="e1" role="alert">Enter your birth date.</p>
         <div style="margin-top:auto"><button type="button" class="fcta" data-go="2">Continue</button></div></div>` : n === 2 ? html`<div class="in" style="flex:1;display:flex;flex-direction:column;gap:18px;padding-top:44px">
         <h2 class="disp" style="margin:0;font-size:40px;line-height:1;letter-spacing:-.035em;font-weight:700">Where were you born?</h2>
         <p style="margin:0;font-size:16px;line-height:1.5;color:#A7A196">We look up the coordinates and time zone for you.</p>
         <label for="fp" style="position:absolute;left:-9999px">Birth place</label><input id="fp" class="finp" type="text" name="place" placeholder="Town or city" autocomplete="off" value="${f.place ?? ""}" required>
-        <p class="err" id="e2">Enter the town or city you were born in.</p>
+        <p class="err" id="e2" role="alert">Enter the town or city you were born in.</p>
         <div style="margin-top:auto"><button type="button" class="fcta" data-go="3">Continue</button></div></div>` : html`<div class="in" style="flex:1;display:flex;flex-direction:column;gap:18px;padding-top:44px">
         <h2 class="disp" style="margin:0;font-size:40px;line-height:1;letter-spacing:-.035em;font-weight:700">What time?</h2>
         <p style="margin:0;font-size:16px;line-height:1.5;color:#A7A196">Optional. Your dates stay accurate without it; a time adds your Saturn house.</p>
         <label for="ft" style="position:absolute;left:-9999px">Birth time</label><input id="ft" class="finp" type="time" name="time" value="${f.time ?? ""}">
-        <p class="err" id="e3">Something went wrong. Try again.</p>
+        <p class="err" id="e3" role="alert">Something went wrong. Try again.</p>
         <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px;align-items:center"><button type="submit" class="fcta">Show my Saturn return</button><button type="button" class="txt" id="notime">I don't know my birth time</button></div></div>`}
     </section>`)}
   </form>

@@ -42,10 +42,15 @@ nav.main a{color:#BDB6A8;text-decoration:none;font-weight:500}nav.main a:hover{c
 .field input{height:52px;border-radius:14px;border:1px solid rgba(237,230,214,.18);background:#14171D;color:#EDE6D6;font:500 17px 'Hanken Grotesk',sans-serif;padding:0 16px;color-scheme:dark;transition:border-color .2s,box-shadow .2s;width:100%}
 .field input:focus{outline:none;border-color:#F2B544;box-shadow:0 0 0 4px rgba(242,181,68,.18)}
 .inp{flex:1 1 220px;min-width:0;min-height:52px;border-radius:999px;border:1px solid rgba(237,230,214,.2);background:#0E1014;color:#EDE6D6;font:500 16px 'Hanken Grotesk',sans-serif;padding:0 20px;color-scheme:dark}
-.inp:focus{outline:none;border-color:#F2B544}
+.inp:focus{outline:none;border-color:#F2B544;box-shadow:0 0 0 4px rgba(242,181,68,.18)}
 .ta{width:100%;min-height:96px;border-radius:16px;border:1px solid rgba(237,230,214,.16);background:#0E1014;color:#EDE6D6;font:400 16px/1.55 'Hanken Grotesk',sans-serif;padding:14px 16px;resize:vertical}
-.ta:focus{outline:none;border-color:#F2B544}.ta::placeholder{color:#6B675F}
+.ta:focus{outline:none;border-color:#F2B544;box-shadow:0 0 0 4px rgba(242,181,68,.18)}.ta::placeholder{color:#8A857B}
 .err{color:#E08A7A;margin:0;font-size:15px}
+/* keyboard focus: one amber ring everywhere (inputs keep their own border + glow above); dark ring on cream surfaces */
+:focus-visible{outline:2px solid #F2B544;outline-offset:3px}
+.cream :focus-visible{outline-color:#14110A}
+.cream .inp:focus{border-color:#14110A;box-shadow:0 0 0 4px rgba(20,17,10,.16)}
+.field input:focus-visible,.inp:focus-visible,.ta:focus-visible,.finp:focus-visible{outline:none}
 footer.bottom{border-top:1px solid rgba(237,230,214,.1)}
 footer.bottom .in{max-width:1240px;margin:0 auto;padding:36px clamp(16px,4vw,48px);display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;font-size:15px;color:#A7A196}
 footer.bottom a{color:#EDE6D6;text-decoration:none;font-weight:600;font-size:18px;font-family:'Bricolage Grotesque',serif}
