@@ -53,7 +53,7 @@ const CSS = `
 .nowrow{display:grid;grid-template-columns:120px minmax(0,1fr);gap:16px;padding:14px 0;border-top:1px solid rgba(237,230,214,.1);font-size:16px;line-height:1.55}
 .tile{display:flex;flex-direction:column;gap:8px;padding:22px;border-radius:24px;background:#14171D;border:1px solid transparent;text-decoration:none;color:#EDE6D6;transition:border-color .25s,transform .25s;cursor:pointer;text-align:left;font-family:inherit}
 .tile:hover{color:#EDE6D6;border-color:rgba(242,181,68,.5);transform:translateY(-3px)}.tile.now{border-color:#F2B544;background:#1A1D23}.tile.past{opacity:.82}
-.st{font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;width:fit-content}.st.past{background:rgba(237,230,214,.08);color:#A7A196}.st.now{background:#F2B544;color:#14110A}.st.ahead{background:rgba(242,181,68,.12);color:#F2B544}
+.st{font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;width:fit-content}.st.past{background:rgba(237,230,214,.08);color:#BDB6A8}.st.now{background:#F2B544;color:#14110A}.st.ahead{background:rgba(242,181,68,.12);color:#F2B544}
 .wsat{transition:transform 1s cubic-bezier(.3,.7,.2,1)}.warc,.wseg{transition:stroke-dasharray 1s,transform 1s}
 .eq span{display:inline-block;width:3px;margin-right:2px;border-radius:2px;background:#14110A;animation:eq 1s ease-in-out infinite}@keyframes eq{0%,100%{height:5px}50%{height:15px}}
 .ans{border-top:1px solid rgba(237,230,214,.1);padding-top:16px;display:flex;flex-direction:column;gap:8px}.ans b{color:#F2B544;font-weight:600}
