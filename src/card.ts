@@ -1,13 +1,20 @@
 // Share card (1080×1920, Stories) and link-preview image (1200×630) as SVG, in the Rite design.
-// Pure SVG: no rasteriser in the Worker. Fonts fall back to the viewer's system fonts when the
-// Google fonts aren't reachable (e.g. opened as a file); the layout is sized to survive that.
+// The SVG is served as-is and rasterised to PNG by src/png.ts (resvg, in the Worker) and
+// scripts/gen-og.ts. resvg can't fetch Google Fonts, so it is handed the subset TTFs in
+// src/fonts/, whose family names match FONT_DISPLAY / FONT_TEXT below. Browsers opening the SVG
+// load the same families via @import, falling back to system fonts offline.
 import type { Computed } from "./compute";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const monYY = (iso: string) => `${MON[parseInt(iso.slice(5, 7), 10) - 1]} ${iso.slice(2, 4)}`;
 
-const FONTS = `<style>@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap');.d{font-family:'Bricolage Grotesque','Helvetica Neue',Arial,sans-serif}.h{font-family:'Hanken Grotesk','Helvetica Neue',Arial,sans-serif}</style>`;
+/** Family names of the bundled fonts in src/fonts/ (must match their name tables). The @import sits in
+ *  its own <style>: resvg's CSS parser stops at the ';' inside the Google Fonts URL and would drop
+ *  any rule after it in the same sheet. */
+export const FONT_DISPLAY = "Bricolage Grotesque";
+export const FONT_TEXT = "Hanken Grotesk";
+const FONTS = `<style>@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap');</style><style>.d{font-family:'${FONT_DISPLAY}','Helvetica Neue',Arial,sans-serif}.h{font-family:'${FONT_TEXT}','Helvetica Neue',Arial,sans-serif}</style>`;
 const MARK = (x: number, y: number, s: number) => `<g transform="translate(${x} ${y}) scale(${s / 30})"><circle cx="15" cy="15" r="6.5" fill="#EDE6D6"/><ellipse cx="15" cy="15" rx="13.5" ry="4" fill="none" stroke="#F2B544" stroke-width="1.8" transform="rotate(-22 15 15)"/></g>`;
 
 /** The orbit dial: progress arc = how far round the cycle Saturn is (0–360°). */
@@ -51,5 +58,17 @@ ${dial(680, -5, 640, 275)}
 ${MARK(80, 150, 42)}<text class="d" x="136" y="184" font-size="38" font-weight="700" letter-spacing="-1" fill="#EDE6D6">Rite</text>
 <text class="d" font-size="84" font-weight="800" letter-spacing="-4" fill="#EDE6D6"><tspan x="80" y="300">When does your</tspan><tspan x="80" y="378"><tspan fill="#F2B544">Saturn</tspan> return hit?</tspan></text>
 <text class="h" x="80" y="460" font-size="26" fill="#BDB6A8">Your sign, window and every pass. Free in ten seconds.</text>
+</svg>`;
+}
+
+/** Link preview for a sign page (1200×630). `years` is the current or next stretch, e.g. "2025–2028". */
+export function signOgSvg(sign: string, years: string, now: boolean): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">${FONTS}
+<rect width="1200" height="630" fill="#0E1014"/>
+${dial(680, -5, 640, 275)}
+${MARK(80, 150, 42)}<text class="d" x="136" y="184" font-size="38" font-weight="700" letter-spacing="-1" fill="#EDE6D6">Rite</text>
+<text class="d" font-size="84" font-weight="800" letter-spacing="-4" fill="#EDE6D6"><tspan x="80" y="300">Saturn return</tspan><tspan x="80" y="378">in <tspan fill="#F2B544">${esc(sign)}</tspan></tspan></text>
+<text class="h" x="80" y="460" font-size="30" font-weight="600" fill="#EDE6D6">${now ? "Saturn is here" : "Saturn arrives"} ${esc(years)}</text>
+<text class="h" x="80" y="506" font-size="26" fill="#BDB6A8">Your exact passes, free in ten seconds.</text>
 </svg>`;
 }

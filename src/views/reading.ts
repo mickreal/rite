@@ -89,7 +89,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
   const saturnPast = cy.turn ? (((saturnLongitude(new Date(cy.turn.date + 'T12:00:00Z')) - c.natalLon + 540) % 360) - 180) > 0 : false;
   const stageText = (k: string) => STAGES[k as keyof typeof STAGES];
 
-  const nav = html`<nav class="main" style="gap:10px"><a href="javascript:window.print()" class="ghost">Printable PDF</a><a href="/card/r/${opts.token}.svg" class="ghost" download="rite-saturn-return.svg">Share card</a></nav>`;
+  const nav = html`<nav class="main" style="gap:10px"><a href="javascript:window.print()" class="ghost">Printable PDF</a><a href="/card/r/${opts.token}.png" class="ghost" download="rite-saturn-return.png">Share card</a></nav>`;
 
   const body = html`
 <div class="prog" aria-hidden="true"></div>
