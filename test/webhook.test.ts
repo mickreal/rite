@@ -341,7 +341,7 @@ describe("charge.refunded", () => {
     expect(h.calls).toHaveLength(0);
   });
 
-  it.fails("voids an unredeemed gift code, so it can no longer be redeemed", async () => {
+  it("voids an unredeemed gift code, so it can no longer be redeemed", async () => {
     await h.webhook(stripeEvent("checkout.session.completed.gift"));
     const code = gifts()[0].code as string;
     await h.webhook(stripeEvent("charge.refunded", { payment_intent: "pi_test_gift_0001" }));

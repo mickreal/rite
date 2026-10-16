@@ -860,7 +860,11 @@ app.post("/webhook/stripe", async (c) => {
   } else if (event.type === "charge.refunded") {
     const ch = event.data.object as Stripe.Charge;
     const pi = typeof ch.payment_intent === "string" ? ch.payment_intent : ch.payment_intent?.id;
-    if (pi) await c.env.DB.prepare("UPDATE purchases SET status='refunded' WHERE stripe_payment_intent=?").bind(pi).run();
+    if (pi) {
+      await c.env.DB.prepare("UPDATE purchases SET status='refunded' WHERE stripe_payment_intent=?").bind(pi).run();
+      // a refunded, unredeemed gift code stops working (same marker as /admin/refund); a redeemed one keeps its reading
+      await c.env.DB.prepare("UPDATE gifts SET redeemed_at='refunded' WHERE stripe_payment_intent=? AND redeemed_at IS NULL").bind(pi).run();
+    }
   }
   return c.text("ok");
 });
