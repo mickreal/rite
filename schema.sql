@@ -81,3 +81,28 @@ CREATE TABLE IF NOT EXISTS asks (
   a TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_asks_purchase ON asks(purchase_id);
+
+CREATE TABLE IF NOT EXISTS stage_reminders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  purchase_id TEXT NOT NULL REFERENCES purchases(id),
+  stage_key TEXT NOT NULL,          -- contact | integration | close | p2 | p4 | p6 | return
+  label TEXT NOT NULL,              -- human name of what opens
+  on_date TEXT NOT NULL,            -- YYYY-MM-DD the stage opens
+  send_on TEXT NOT NULL,            -- on_date - 7 days
+  sent_at TEXT,
+  UNIQUE(purchase_id, stage_key)
+);
+CREATE INDEX IF NOT EXISTS idx_stage_reminders_due ON stage_reminders(send_on, sent_at);
+
+CREATE TABLE IF NOT EXISTS gifts (
+  code TEXT PRIMARY KEY,            -- short code the recipient enters / link they open
+  created_at TEXT NOT NULL,
+  buyer_email TEXT NOT NULL,
+  buyer_name TEXT,
+  message TEXT,                     -- optional note from the buyer
+  stripe_session_id TEXT UNIQUE,
+  stripe_payment_intent TEXT,
+  amount_cents INTEGER NOT NULL,
+  redeemed_purchase_id TEXT REFERENCES purchases(id),
+  redeemed_at TEXT
+);

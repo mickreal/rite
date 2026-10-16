@@ -12,6 +12,7 @@ PRICE_SEASON_YEARLY_CENTS = "5900"
 CURRENCY = "usd"
 MODEL_REPORT = "claude-sonnet-5-5"
 MODEL_PREVIEW = "claude-haiku-5-5"
+TTS_VOICE = "luna"
 FROM_EMAIL = "Rite <hello@rite.report>"
 SUPPORT_EMAIL = "hello@rite.report"
 
@@ -35,3 +36,6 @@ enabled = true
 
 [assets]
 directory = "./public"
+
+[ai]
+binding = "AI"

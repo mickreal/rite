@@ -27,13 +27,15 @@ src/
   views/result.ts   /p/:id       Free result: window chart, passes, remind-me, offer
   views/reading.ts  /r/:tok      Paid reading, ten chapters (see below)
   views/sign.ts     /saturn-return/saturn-in/:sign   Public SEO pages, all dates computed
+  views/gift.ts     /gift        Buy a gift code; /gift/thanks/:code after payment
+  narration.ts      Per-chapter narration script for the TTS endpoint
 public/og.png       Link-preview image served as a static asset
 test/
   astro.test.ts     21 tests: Saturn vs Swiss Ephemeris (0.02°), all 12 Placidus cusps (0.05°), the four acceptance cases
   cycle.test.ts     Chart, month table, stage wheel and tension points
   geo.test.ts       local→UTC conversions incl. DST
   reference.json    Swiss Ephemeris reference values the tests compare against
-schema.sql          D1 schema (previews, purchases, subscriptions, reminders, asks, events)
+schema.sql          D1 schema (previews, purchases, subscriptions, reminders, stage_reminders, asks, gifts, events)
 wrangler.toml       Worker config (vars, bindings, cron)
 docs/               Launch kit (content, prompts, cohort data) and this build's notes
 ```
@@ -102,10 +104,15 @@ Every number comes from code. The model only writes prose and is told it may not
 - `/start` — the mobile stepper. Same `POST /preview` underneath; the "building" screen runs while the server geocodes and writes the preview.
 - Remind-me (`POST /remind` on the result page) stores a row in `reminders`; the hourly cron emails it seven days before the pass.
 
+## Gifts, reminders, narration
+
+- **Gift** (`/gift`): `POST /checkout` with `gift=1` runs a $29 Stripe Checkout with optional "from" and note fields. Fulfilment writes a `gifts` row with an 8-character code and emails it to the buyer; `/gift/thanks/:code` shows it. The recipient opens `/gift/:code` (landing with a gift banner), enters their own details, and the result page offers **Open my reading** (`POST /redeem`: creates a $0 purchase, marks the code used, writes the reading). `/admin/refund` also refunds an unredeemed gift by buyer email.
+- **Stage reminders**: when a reading is written, `stage_reminders` gets one row per future stage opening (contact, integration, window close, then the first square / opposition / closing square ahead). The hourly cron emails each one seven days before (`stageReminderEmail`), once. Workbook prompts for a phase stay locked until that phase opens.
+- **Narration**: `GET /r/:tok/audio/:ch.mp3` (chapters 0–8) builds a plain-text script from the same computed data + report JSON (`src/narration.ts`), sends it in ≤1800-char sentence-aligned chunks to Workers AI `@cf/deepgram/aura-1` (voice `TTS_VOICE`, default `luna`), concatenates the MP3 and caches it in KV for a year. The player on the reading page plays chapters back to back and prefetches the next. Cost is about $0.015 per 1,000 characters, so roughly 30 cents per reading, once. Needs the `[ai]` binding in `wrangler.toml` (no dashboard setup); the binding only works deployed or with `wrangler dev --remote`.
+
 ## Not built yet
 
 - PNG share card (Cloudflare Browser Rendering or resvg-wasm) — SVG is served now; the OG image is a pre-rendered PNG because social crawlers won't render SVG.
 - Real PDF attachment — print stylesheet instead.
-- Audio narration of the reading (in the design) — left out rather than faked.
 - Annual Saturn Season price ($59) — only monthly is wired; the card mentions it.
 - Second-return landing variant.

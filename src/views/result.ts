@@ -20,7 +20,7 @@ const PASS3 = [
 const PASS1 = [["The pass", "Saturn crosses your natal degree once, cleanly. There is no retrograde second look this time: what you decide here is what you build on. It tends to feel quieter than people expect, and more binding."]];
 const ORD = ["first", "second", "third"];
 
-export function resultPage(opts: { siteUrl: string; id: string; c: Computed; text: string; placeLabel: string; birthLabel: string; hasTime: boolean; reminded?: boolean; today?: Date }) {
+export function resultPage(opts: { siteUrl: string; id: string; c: Computed; text: string; placeLabel: string; birthLabel: string; hasTime: boolean; reminded?: boolean; gift?: { code: string; state: "ok" | "used" | "bad"; from: string | null; message: string | null } | null; today?: Date }) {
   const { c } = opts; const w = c.window; const today = opts.today ?? new Date();
   const now = today.getTime(), open = Date.parse(w.windowStart), close = Date.parse(w.windowEnd);
   const frac = (now - open) / (close - open);
@@ -79,7 +79,7 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
     <p style="margin:0;font-size:16px;line-height:1.55;color:#BDB6A8">A card with your sign and passes. No birth details on it.</p>
     <div><a href="/card/${opts.id}.svg" download="rite-saturn-return.svg" class="ghost"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v10M5 6l4-4 4 4M3 11v4h12v-4"/></svg>Make my card</a></div>
   </div>
-  <div class="rv" style="flex:1 1 440px;background:#14171D;border-radius:28px;padding:32px;display:flex;flex-direction:column;gap:16px">
+  <div id="remind" class="rv" style="flex:1 1 440px;background:#14171D;border-radius:28px;padding:32px;display:flex;flex-direction:column;gap:16px;scroll-margin-top:24px">
     <h3 class="disp" style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Get a heads-up before each pass</h3>
     ${opts.reminded ? html`<p class="swap" style="margin:0;font-size:17px;line-height:1.55">Done. ${nextHit ? `The first one lands a week before your ${fmtMonYrL(Date.parse(nextHit))} pass.` : "Nothing ahead to remind you of — your passes are behind you."}</p>` : html`
     <form method="post" action="/remind" style="display:flex;flex-wrap:wrap;gap:12px"><input type="hidden" name="preview" value="${opts.id}"><label for="em" style="position:absolute;left:-9999px">Email</label><input id="em" name="email" class="inp" type="email" required placeholder="you@example.com"><button type="submit" class="ghost" style="min-height:52px">Remind me</button></form>
@@ -93,8 +93,13 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
       <h2 class="disp" style="margin:0;font-size:clamp(40px,4.6vw,64px);line-height:1;letter-spacing:-.03em;font-weight:700">Your full reading</h2>
       <p style="margin:0;font-size:18px;line-height:1.6;color:rgba(20,17,10,.72);max-width:440px">Everything above, plus the exact days, ${opts.hasTime ? "your Saturn house" : "every month of your window"} and what to do in each phase. Built from this chart, ready the moment you pay.</p>
       <div style="display:flex;align-items:baseline;gap:14px;margin-top:8px"><span class="disp" style="font-size:88px;font-weight:800;letter-spacing:-.05em;line-height:.85">$${price}</span><span style="font-size:16px;color:rgba(20,17,10,.7)">once, no subscription</span></div>
-      <form method="post" action="/checkout" style="display:flex;flex-wrap:wrap;gap:14px 20px;align-items:center"><input type="hidden" name="preview" value="${opts.id}"><button type="submit" class="cta dark">Unlock the full reading</button></form>
-      <p style="margin:0;font-size:14px;color:rgba(20,17,10,.6)">Not useful? Full refund within 14 days.${opts.hasTime ? "" : " Add a birth time first and the house chapter comes with it, $29."}</p>
+      ${opts.gift?.state === "ok" ? html`<form method="post" action="/redeem" style="display:flex;flex-direction:column;gap:12px;max-width:440px"><input type="hidden" name="preview" value="${opts.id}"><input type="hidden" name="gift" value="${opts.gift.code}">
+        <p style="margin:0;font-size:16px;line-height:1.5;color:#14110A"><b>This one's a gift${opts.gift.from ? ` from ${opts.gift.from}` : ""}.</b> Nothing to pay. Where should the link go?</p>
+        <div style="display:flex;flex-wrap:wrap;gap:10px"><label for="gfn" style="position:absolute;left:-9999px">First name</label><input id="gfn" name="first_name" class="inp" type="text" placeholder="First name (optional)" style="flex:1 1 160px;background:#fff;color:#14110A;border-color:rgba(20,17,10,.25)"><label for="gem" style="position:absolute;left:-9999px">Email</label><input id="gem" name="email" class="inp" type="email" required placeholder="Your email" style="flex:2 1 220px;background:#fff;color:#14110A;border-color:rgba(20,17,10,.25)"></div>
+        <div><button type="submit" class="cta dark">Open my reading</button></div></form>`
+      : html`<form method="post" action="/checkout" style="display:flex;flex-wrap:wrap;gap:14px 20px;align-items:center"><input type="hidden" name="preview" value="${opts.id}"><button type="submit" class="cta dark">Unlock the full reading</button><a href="/gift" style="color:#14110A;font-weight:500">Buy one as a gift</a></form>
+      ${opts.gift?.state === "used" ? html`<p style="margin:0;font-size:15px;color:#8A3B1E">That gift code has already been used.</p>` : opts.gift?.state === "bad" ? html`<p style="margin:0;font-size:15px;color:#8A3B1E">That gift code doesn't match anything. Check it and try the link again.</p>` : ""}
+      <p style="margin:0;font-size:14px;color:rgba(20,17,10,.6)">Not useful? Full refund within 14 days.${opts.hasTime ? "" : " Add a birth time first and the house chapter comes with it, $29."}</p>`}
     </div>
     <div style="flex:1 1 380px;display:flex;flex-direction:column">
       <div class="lock">${raw(LOCK)}<span><strong>Your Saturn.</strong> Sign${opts.hasTime ? ", house" : ""} and the exact degree your return is measured against.</span></div>

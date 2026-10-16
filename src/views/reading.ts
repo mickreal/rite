@@ -44,6 +44,7 @@ const CSS = `
 .tile:hover{color:#EDE6D6;border-color:rgba(242,181,68,.5);transform:translateY(-3px)}.tile.now{border-color:#F2B544;background:#1A1D23}.tile.past{opacity:.72}
 .st{font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;width:fit-content}.st.past{background:rgba(237,230,214,.08);color:#A7A196}.st.now{background:#F2B544;color:#14110A}.st.ahead{background:rgba(242,181,68,.12);color:#F2B544}
 .wsat{transition:transform 1s cubic-bezier(.3,.7,.2,1)}.warc,.wseg{transition:stroke-dasharray 1s,transform 1s}
+.eq span{display:inline-block;width:3px;margin-right:2px;border-radius:2px;background:#14110A;animation:eq 1s ease-in-out infinite}@keyframes eq{0%,100%{height:5px}50%{height:15px}}
 .ans{border-top:1px solid rgba(237,230,214,.1);padding-top:16px;display:flex;flex-direction:column;gap:8px}.ans b{color:#F2B544;font-weight:600}
 .carry{font-family:'Bricolage Grotesque',serif;font-size:clamp(26px,3vw,38px);line-height:1.2;letter-spacing:-.02em;color:#F2B544;border-left:3px solid #F2B544;padding:8px 0 8px 24px;margin:0}
 @media (max-width:720px){.mrow{grid-template-columns:1fr;gap:6px}.nowrow{grid-template-columns:1fr;gap:4px}}
@@ -77,7 +78,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
   const saturnPast = cy.turn ? (((saturnLongitude(new Date(cy.turn.date + 'T12:00:00Z')) - c.natalLon + 540) % 360) - 180) > 0 : false;
   const stageText = (k: string) => STAGES[k as keyof typeof STAGES];
 
-  const nav = html`<nav class="main" style="gap:10px"><a href="/r/${opts.token}/calendar.ics" class="ghost" download="rite-saturn-return.ics">Add every date to my calendar</a><a href="javascript:window.print()" class="ghost">Printable PDF</a><a href="/card/r/${opts.token}.svg" class="ghost" download="rite-saturn-return.svg">Share card</a></nav>`;
+  const nav = html`<nav class="main" style="gap:10px"><a href="javascript:window.print()" class="ghost">Printable PDF</a><a href="/card/r/${opts.token}.svg" class="ghost" download="rite-saturn-return.svg">Share card</a></nav>`;
 
   const body = html`
 <div class="prog" aria-hidden="true"></div>
@@ -94,6 +95,17 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
     ${w.hits.map((h, i) => html`<div class="stat"><span>${w.hits.length === 1 ? "Exact pass" : `Pass ${i + 1}`}</span><b style="color:#F2B544">${fmtDay(h)}</b></div>`)}
     ${cy.turn ? html`<div class="stat"><span>Closest turn</span><b>${fmtDay(cy.turn.date)}</b></div>` : ""}
     <div class="stat"><span>Where you are</span><b>${whereNow}</b></div>
+  </div>
+  <div class="card noprint" style="display:flex;flex-wrap:wrap;align-items:center;gap:20px 28px">
+    <button type="button" id="playBtn" class="solid" aria-label="Play narration" style="width:56px;height:56px;padding:0;justify-content:center;flex:0 0 auto">
+      <span id="playEq" class="eq" aria-hidden="true" style="display:none;align-items:center;height:16px"><span></span><span style="animation-delay:.2s"></span><span style="animation-delay:.4s"></span></span>
+      <svg id="playIco" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M5 3l10 6-10 6z" fill="#14110A"/></svg>
+    </button>
+    <div style="flex:1 1 280px;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span class="disp" style="font-size:20px;font-weight:600">Listen to your reading</span><span id="playMeta" class="muted" style="font-size:14px">Narrated, about 20 minutes</span></div>
+      <div style="height:6px;border-radius:3px;background:rgba(237,230,214,.1);overflow:hidden"><div id="playBar" style="height:100%;width:0;background:#F2B544;transition:width .4s linear"></div></div>
+    </div>
+    <a href="/r/${opts.token}/calendar.ics" class="ghost" download="rite-saturn-return.ics">Add every date to my calendar</a>
   </div>
 </section>
 
@@ -231,16 +243,22 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
 
 <section id="c7" class="ch rv">
   <span class="kicker">Chapter seven</span><h2>Workbook</h2>
-  <p class="body">Prompts for each phase. Start with the one you're in. Your answers stay in this browser.</p>
-  ${([["approach", "Approach prompts", r.workbook_approach], ["contact", "Contact prompts", r.workbook_contact], ["integration", "Integration prompts", r.workbook_integration]] as Array<[string, string, string[]]>).map(([k, title, qs]) => html`<div class="card" style="display:flex;flex-direction:column;gap:22px;${(stage.key === "ra" && k === "approach") || (stage.key === "rc" && k === "contact") || (stage.key === "ri" && k === "integration") ? "border:1px solid rgba(242,181,68,.45)" : ""}">
+  <p class="body">Prompts for the phase you are in now. The next set unlocks as each phase opens, and a reminder lands the week before. Your answers stay in this browser.</p>
+  ${([["approach", "Approach prompts", r.workbook_approach, w.windowStart], ["contact", "Contact prompts", r.workbook_contact, w.hits[0]], ["integration", "Integration prompts", r.workbook_integration, w.hits[w.hits.length - 1]]] as Array<[string, string, string[], string]>).map(([k, title, qs, opens]) => {
+    const open = k === "approach" || d >= opens;
+    const isCur = (stage.key === "ra" && k === "approach") || (stage.key === "rc" && k === "contact") || (stage.key === "ri" && k === "integration");
+    return open ? html`<div class="card" style="display:flex;flex-direction:column;gap:22px;${isCur ? "border:1px solid rgba(242,181,68,.45)" : ""}">
     <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h3>${title}</h3><span class="muted" style="font-size:14px"><span data-count="${k}">0</span> of ${qs.length} answered</span></div>
     ${qs.map((q, i) => html`<div style="display:flex;flex-direction:column;gap:10px"><label for="w${k}${i}" style="font-size:17px;line-height:1.5">${q}</label><textarea id="w${k}${i}" class="ta" data-store="w${k}${i}" data-group="${k}" placeholder="Write as much or as little as you like"></textarea></div>`)}
-  </div>`)}
+  </div>` : html`<div class="card" style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center;opacity:.7">
+    <div style="display:flex;flex-direction:column;gap:6px"><h3>${title}</h3><span class="muted" style="font-size:15px">${qs.length} prompts. Unlocks ${fmtDay(opens)}; a reminder lands the week before.</span></div>
+    <span class="badge d" style="font-size:14px;padding:6px 14px">Locked until ${fmtMonYr(Date.parse(opens))}</span>
+  </div>`; })}
 </section>
 
 <section id="c8" class="ch rv">
   <span class="kicker">Chapter eight</span><h2>The long arc</h2>
-  <p class="body">Every turning point of your Saturn cycle, past and ahead. Tap one to see your reading as it will read then.</p>
+  <p class="body">Every turning point of your Saturn cycle, past and ahead. A reminder lands the week before each one opens. Tap one to see your reading as it will read then.</p>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px">
     ${arc.map((m) => { const st = d > m.to ? "past" : d >= m.from ? "now" : "ahead"; return html`<button type="button" class="tile ${st}" data-t="${m.from}"><span class="st ${st}">${st === "past" ? "Look back" : st === "now" ? "You are here" : "Opens " + untilText(today, Date.parse(m.from))}</span><span class="disp" style="font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1;margin-top:6px">Age ${m.age}</span><span class="disp" style="font-size:20px;font-weight:600">${m.name}</span><span class="muted" style="font-size:14px">${m.from === m.to ? fmtMonYr(Date.parse(m.from)) : `${fmtMonYr(Date.parse(m.from))} to ${fmtMonYr(Date.parse(m.to))}`}</span></button>`; })}
   </div>
@@ -291,6 +309,18 @@ function setStage(t,label){clearTimeout(timer);timer=setTimeout(function(){fetch
 $('#scrub').addEventListener('input',function(e){var v=+e.target.value;setStage((2025+Math.floor(v/12))+'-'+String(v%12+1).padStart(2,'0')+'-15','')});
 document.querySelectorAll('#jumps .qchip,.tile').forEach(function(b){b.addEventListener('click',function(){setStage(b.dataset.t,b.dataset.t);if(b.classList.contains('tile'))document.getElementById('c0').scrollIntoView({behavior:'smooth'})})});
 setStage('today','today');
+// narration: chapters 0..8 play back to back; each MP3 is generated on first request and cached
+var CH=9,cur=0,au=new Audio(),playing=false,ready=false,durs=[];
+var btn=$('#playBtn'),ico=$('#playIco'),eqEl=$('#playEq'),bar=$('#playBar'),meta=$('#playMeta');
+function src(i){return '/r/'+TOK+'/audio/'+i+'.mp3'}
+function setUI(){ico.style.display=playing?'none':'';eqEl.style.display=playing?'flex':'none';btn.setAttribute('aria-label',playing?'Pause narration':'Play narration')}
+function load(i,play){cur=i;au.src=src(i);meta.textContent='Chapter '+i+' of 8'+(i===0?', preparing':'');if(play){au.play().catch(function(){playing=false;setUI()})}if(i+1<CH){fetch(src(i+1)).catch(function(){})}}
+au.addEventListener('playing',function(){playing=true;setUI();meta.textContent='Chapter '+cur+' of 8'});
+au.addEventListener('pause',function(){playing=false;setUI()});
+au.addEventListener('timeupdate',function(){if(au.duration){bar.style.width=((cur+au.currentTime/au.duration)/CH*100).toFixed(1)+'%'}});
+au.addEventListener('ended',function(){if(cur+1<CH)load(cur+1,true);else{playing=false;setUI();bar.style.width='100%';meta.textContent='Finished'}});
+au.addEventListener('error',function(){playing=false;setUI();meta.textContent='Narration unavailable right now; try again in a moment.'});
+btn.addEventListener('click',function(){if(playing){au.pause();return}if(!ready){ready=true;meta.textContent='Preparing the first chapter\u2026';load(0,true)}else{au.play()}});
 // ask
 document.querySelectorAll('.askq').forEach(function(b){b.addEventListener('click',function(){$('#askq').value=b.textContent;$('#askq').focus()})});
 $('#askForm').addEventListener('submit',function(e){e.preventDefault();var q=$('#askq').value.trim();if(!q)return;var btn=$('#askBtn');btn.disabled=true;btn.textContent='Thinking\\u2026';

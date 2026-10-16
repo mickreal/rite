@@ -48,3 +48,33 @@ describe("reading inputs", () => {
     expect(cy.chart.x(Date.parse("2027-04-28"))).toBeGreaterThan(cy.chart.todayX);
   });
 });
+
+describe("stage events", () => {
+  const c = compute({ date: "1997-08-14", time: "06:40", place: { label: "Melbourne", lat: -37.81, lon: 144.96, tz: "Australia/Melbourne" } }, new Date("2026-10-16T00:00:00Z"));
+  it("lists the stage openings in date order with the window edges", () => {
+    const ev = cycle(c, new Date("2026-10-16T00:00:00Z")).stageEvents;
+    expect(ev[0]).toMatchObject({ key: "approach", date: "2025-05-25" });
+    expect(ev.find((e) => e.key === "contact")?.date).toBe("2027-04-28");
+    expect(ev.find((e) => e.key === "close")?.date).toBe("2028-04-12");
+    expect(ev.map((e) => e.date)).toEqual([...ev.map((e) => e.date)].sort());
+    expect(ev.some((e) => e.key === "square1")).toBe(true);
+  });
+});
+
+import { narrationText, splitForTts, CHAPTERS } from "../src/narration";
+describe("narration", () => {
+  const c = compute({ date: "1997-08-14", time: "06:40", place: { label: "Melbourne", lat: -37.81, lon: 144.96, tz: "Australia/Melbourne" } }, new Date("2026-10-16T00:00:00Z"));
+  const cy = cycle(c, new Date("2026-10-16T00:00:00Z"));
+  const r = { cover_line: "Saturn in Aries.", saturn_p1: "P1.", saturn_p2: "P2.", house_h3: "In your eighth house", house_p: "HP.", chips_warm: ["a", "b", "c"], chips_cool: ["d", "e", "f"], phase_approach: "A.", phase_contact: "C.", phase_integration: "I.", passes: [{ name: "N", body: "B.", before: "Bf.", day: "D.", after: "Af." }], turn: { name: "T", body: "TB.", before: "x", day: "y", after: "z" }, areas: [{ h3: "H", p: "P." }, { h3: "H2", p: "P2." }], history_q: ["q1?", "q2?", "q3?"], workbook_approach: ["w1"], workbook_contact: ["w2"], workbook_integration: ["w3"], carry: "Carry." };
+  it("builds a script for every chapter, degrees spelled out, dates spoken", () => {
+    let total = 0;
+    for (let i = 0; i < CHAPTERS; i++) { const t = narrationText(i, c, cy, r, "Sam"); expect(t.length).toBeGreaterThan(40); expect(t).not.toMatch(/°/); total += t.length; }
+    expect(narrationText(3, c, cy, r, null)).toContain("28 April 2027");
+    expect(total).toBeGreaterThan(3000);
+  });
+  it("splits on sentence boundaries under the TTS limit", () => {
+    const parts = splitForTts(narrationText(5, c, cy, r, null), 600);
+    expect(parts.every((p) => p.length <= 600)).toBe(true);
+    expect(parts.join(" ").replace(/\s+/g, " ")).toBe(narrationText(5, c, cy, r, null).replace(/\s+/g, " "));
+  });
+});

@@ -117,6 +117,7 @@ export interface Cycle {
   areas: ReturnType<typeof areaWeights>;
   turn: { date: string; orb: number } | null; // nearest station to the natal degree that did NOT cross (the "closest turn")
   pct: number;               // how far round the cycle Saturn is today (0–100)
+  stageEvents: Array<{ key: string; label: string; date: string }>; // every stage opening, in date order (past and future)
 }
 
 export function cycle(c: Computed, today = new Date()): Cycle {
@@ -136,5 +137,12 @@ export function cycle(c: Computed, today = new Date()): Cycle {
     if (o < 5 && (!turn || o < Math.abs(turn.orb))) turn = { date: s.date, orb: Math.round(o * 10) / 10 };
   }
   const pct = Math.round(stage.wa / 360 * 100);
-  return { chart, months, history, ahead, stage, areas, turn, pct };
+  const stageEvents: Cycle["stageEvents"] = [
+    { key: "approach", label: "Approach: your window opens", date: w.windowStart },
+    { key: "contact", label: "Contact: your first exact pass", date: w.hits[0] },
+    ...(w.hits.length > 1 ? [{ key: "integration", label: "Integration: your last exact pass", date: w.hits[w.hits.length - 1] }] : []),
+    { key: "close", label: `Saturn leaves ${c.sign}: your window closes`, date: w.windowEnd },
+    ...ahead.filter((p) => p.kind !== "return").map((p) => ({ key: p.kind, label: `${p.name}, around age ${p.ageApprox}`, date: p.from })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
+  return { chart, months, history, ahead, stage, areas, turn, pct, stageEvents };
 }

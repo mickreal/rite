@@ -131,7 +131,7 @@ const FAQ: Array<[string, string]> = [
   ["What if it isn't useful?", "Email us within 14 days for a full refund."],
 ];
 
-export function landingPage(opts: { siteUrl: string; ref?: string; error?: string; form?: { date?: string; place?: string; time?: string } }) {
+export function landingPage(opts: { siteUrl: string; ref?: string; error?: string; form?: { date?: string; place?: string; time?: string }; gift?: { code: string; from: string | null; message: string | null } | null }) {
   const f = opts.form ?? {};
   const body = html`
 <div class="heroWrap" style="position:relative">
@@ -156,8 +156,9 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
       <span aria-hidden="true" style="display:block;overflow:hidden;font-size:1.62em;font-weight:800;letter-spacing:-.06em;line-height:.8;margin-top:-.04em;padding:.02em 0;color:#F2B544;white-space:nowrap"><span class="w" style="animation-delay:.38s">dated.</span></span>
     </h1>
     <p class="fade" style="margin:0;font-size:19px;line-height:1.6;color:#BDB6A8;animation-delay:.6s;text-wrap:pretty">Born between April 1996 and June 1998? You're in it now. Get your Saturn sign, your window and every pass, free, in about ten seconds.</p>
+    ${opts.gift ? html`<div class="card" style="border:1px solid rgba(242,181,68,.5);display:flex;flex-direction:column;gap:6px;padding:18px 22px"><span class="kicker" style="color:#F2B544;font-size:14px">A gift${opts.gift.from ? ` from ${opts.gift.from}` : ""}</span><span style="font-size:16px;line-height:1.5">Someone bought you the full reading. Put in your own birth details below and it\'s yours; nothing to pay.</span>${opts.gift.message ? html`<span class="muted" style="font-size:15px;font-style:italic">“${opts.gift.message}”</span>` : ""}</div>` : ""}
     <form id="start" class="fade" method="post" action="/preview" style="animation-delay:.8s;background:#14171D;border:1px solid rgba(237,230,214,.1);border-radius:28px;padding:clamp(20px,2.8vh,28px);display:flex;flex-direction:column;gap:clamp(12px,2vh,18px)">
-      <input type="hidden" name="ref" value="${opts.ref ?? ""}">
+      <input type="hidden" name="ref" value="${opts.ref ?? ""}">${opts.gift ? html`<input type="hidden" name="gift" value="${opts.gift.code}">` : ""}
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
         <div class="field"><label for="bd">Birth date</label><input id="bd" name="date" type="date" required value="${f.date ?? ""}" min="1930-01-01" max="2012-12-31"></div>
         <div class="field"><label for="bt">Birth time, if you know it</label><input id="bt" name="time" type="time" value="${f.time ?? ""}"></div>
@@ -259,7 +260,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
     </div>
     <div style="flex:1 1 360px;display:flex;flex-direction:column;gap:18px;position:relative">
       ${["Nine chapters built from your chart", "Every pass and turn dated to the day", "A month-by-month forecast and a workbook", "Five follow-up questions, plus a reminder before each pass"].map((t) => html`<div class="tick">${raw(SATURN_TICK)}<span>${t}</span></div>`)}
-      <div style="display:flex;flex-wrap:wrap;gap:14px 20px;align-items:center;margin-top:12px"><a href="#start" class="cta dark">Start with the free preview</a></div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px 20px;align-items:center;margin-top:12px"><a href="#start" class="cta dark">Start with the free preview</a><a href="/gift" style="color:#14110A;font-weight:500">Buy it as a gift</a></div>
     </div>
   </div>
 </section>

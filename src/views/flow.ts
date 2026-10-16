@@ -22,6 +22,10 @@ header.top,footer.bottom{display:none}
 .halo{animation:halo 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes halo{0%,100%{opacity:.1;transform:scale(1)}50%{opacity:.28;transform:scale(1.25)}}
 .ln{opacity:0;animation:ln .6s ease forwards}@keyframes ln{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .err{color:#F2B544;font-size:15px;margin:0;display:none}
+.pop{animation:pop .8s cubic-bezier(.2,1.3,.3,1) both}@keyframes pop{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
+.fill{transform-origin:left center;animation:fill 1.3s cubic-bezier(.4,.1,.2,1) .5s both}@keyframes fill{from{transform:scaleX(0)}}
+.fghost{height:52px;border-radius:999px;border:1px solid rgba(237,230,214,.25);background:none;color:#EDE6D6;font:500 16px 'Hanken Grotesk',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;flex:1;text-decoration:none}
+.fghost:hover{color:#EDE6D6;border-color:#F2B544}
 @media (prefers-reduced-motion: reduce){*{animation:none!important}.w,.fade,.ln{opacity:1;transform:none}}
 `;
 
@@ -92,6 +96,43 @@ export function flowPage(opts: { siteUrl: string; ref?: string; form?: { date?: 
       <span class="ln" id="bl2" style="animation-delay:3.1s;color:#F2B544"></span>
     </div>
   </section>
+
+  <section id="s5" class="step" style="gap:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="disp" style="display:flex;align-items:center;gap:9px;font-size:22px;font-weight:700">${raw(MARK)}Rite</div>
+      <button type="button" class="txt" data-go="1">Start again</button>
+    </div>
+    <div class="pop" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
+      <h2 class="disp" style="margin:0;font-size:46px;letter-spacing:-.045em;font-weight:700">
+        <span style="display:block;font-size:.36em;font-weight:500;font-style:italic;color:#BDB6A8;line-height:1;padding:0 0 .12em .1em">Your</span>
+        <span style="display:block;line-height:.86">Saturn in</span>
+        <span id="r_sign" style="display:block;font-size:1.5em;font-weight:800;letter-spacing:-.06em;line-height:.82;color:#F2B544"></span>
+      </h2>
+      <span id="r_glyph" class="disp" aria-hidden="true" style="font-size:64px;color:#F2B544;line-height:1;opacity:.9"></span>
+    </div>
+    <div class="pop" style="animation-delay:.1s;display:flex;align-items:center;gap:14px">
+      <span class="disp" style="font-size:52px;font-weight:800;letter-spacing:-.04em;line-height:.9;color:#F2B544"><span id="r_pct"></span><span style="font-size:24px">%</span></span>
+      <span style="display:flex;flex-direction:column;gap:2px;font-size:15px;line-height:1.3"><span>of the way round</span><span id="r_next" class="muted"></span></span>
+    </div>
+    <div class="pop" style="animation-delay:.2s;background:#14171D;border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:14px">
+      <span id="r_wtitle" class="disp" style="font-size:20px;font-weight:600"></span>
+      <div style="position:relative;height:10px;border-radius:5px;background:rgba(237,230,214,.1)">
+        <div id="r_fill" class="fill" style="position:absolute;left:0;top:0;bottom:0;width:0;border-radius:5px;background:#F2B544"></div>
+        <div id="r_ticks"></div>
+        <div id="r_dot" style="position:absolute;left:0;top:50%;box-sizing:border-box;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:#0E1014;border:3px solid #EDE6D6;display:none"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;color:#A7A196"><span id="r_open"></span><span id="r_mid" style="color:#EDE6D6"></span><span id="r_close"></span></div>
+    </div>
+    <div class="pop" style="animation-delay:.3s;display:flex;flex-direction:column;gap:10px">
+      <span id="r_hits" class="disp" style="font-size:20px;font-weight:600"></span>
+      <div id="r_chips" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      <span style="font-size:14px;color:#8F897E">Exact days are in the full reading.</span>
+    </div>
+    <div class="pop" style="animation-delay:.4s;display:flex;flex-direction:column;gap:10px;margin-top:4px">
+      <a id="r_cta" href="#" class="fcta">See my full result</a>
+      <div style="display:flex;gap:10px"><a id="r_remind" href="#" class="fghost">Remind me</a><a id="r_share" href="#" class="fghost" download="rite-saturn-return.svg">Share</a></div>
+    </div>
+  </section>
 </div>`;
   const script = `
 (function(){var $=function(s){return document.querySelector(s)};var cur=0;
@@ -101,11 +142,12 @@ document.querySelectorAll('[data-go]').forEach(function(b){b.addEventListener('c
 document.querySelectorAll('.finp').forEach(function(i){i.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var n=i.id==='fd'?2:i.id==='fp'?3:4;if(n===4)build();else if(ok(n))show(n)}})});
 $('#notime').addEventListener('click',function(){$('#ft').value='';build()});
 $('#flowForm').addEventListener('submit',function(e){e.preventDefault();build()});
-var busy=false;
+var busy=false;var calcData=null,resultUrl=null;var GL=['\u2648','\u2649','\u264A','\u264B','\u264C','\u264D','\u264E','\u264F','\u2650','\u2651','\u2652','\u2653'];var SG=['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];var ORD=['first','second','third'];
+function summary(){var c=calcData,url=resultUrl;if(!c||!url){location.href=url;return}var id=url.split('/p/')[1]||'';$('#r_sign').textContent=c.sign+'.';$('#r_glyph').textContent=(GL[SG.indexOf(c.sign)]||'')+'\uFE0E';$('#r_pct').textContent=c.pct;$('#r_next').textContent=c.inside?'Inside your '+ORD[c.returnNumber-1]+' return now':'Your '+ORD[c.returnNumber-1]+' return '+(c.opensIn||'').toLowerCase();$('#r_wtitle').textContent='Your '+ORD[c.returnNumber-1]+' return window';$('#r_fill').style.width=(c.frac*100).toFixed(1)+'%';$('#r_ticks').innerHTML=(c.ticks||[]).map(function(t){return '<div style="position:absolute;left:'+t+'%;top:-5px;bottom:-5px;width:2px;margin-left:-1px;background:#EDE6D6;opacity:.6;border-radius:1px"></div>'}).join('');if(c.inside){$('#r_dot').style.display='';$('#r_dot').style.left=(c.frac*100).toFixed(1)+'%'}$('#r_open').textContent=c.windowOpen;$('#r_close').textContent=c.windowClose;$('#r_mid').textContent=c.inside?'You are here':c.opensIn;var n=(c.hits||[]).length,NWl=['','one','two','three','four'];$('#r_hits').textContent=n===1?'One exact pass':(NWl[n]||n).replace(/^./,function(x){return x.toUpperCase()})+' exact passes';$('#r_chips').innerHTML=(c.hits||[]).map(function(h,i){return '<span style="display:inline-flex;gap:8px;align-items:baseline;padding:11px 16px;border-radius:999px;border:1px solid rgba(237,230,214,.2);font-size:14px"><span style="color:#A7A196">'+(['Pass one','Pass two','Pass three'][i]||'Pass')+'</span><span style="color:#F2B544;font-weight:600">'+h+'</span></span>'}).join('');$('#r_cta').href=url;$('#r_remind').href=url+'#remind';$('#r_share').href='/card/'+id+'.svg';busy=false;show(5)}
 function build(){if(busy||!ok(3))return;busy=true;show(4);var NW=['','One','Two','Three','Four'];
- fetch('/api/calc?date='+encodeURIComponent($('#fd').value)+'&time='+encodeURIComponent($('#ft').value||'')).then(function(r){return r.ok?r.json():null}).then(function(c){if(!c)return;$('#bl1').textContent='Saturn in '+c.sign+', '+c.degree+'\\u00B0';var n=(c.hits||[]).length;$('#bl2').textContent=n===1?'One exact pass found':(NW[n]||n)+' exact passes found';$('#bsat').classList.remove('spin');$('#bsat').style.transition='transform 3s cubic-bezier(.5,0,.2,1)';$('#bsat').style.transform='rotate('+c.angle+'deg)';$('#barc').style.strokeDasharray=(c.angle/360*2*Math.PI*230).toFixed(1)+' 2000'}).catch(function(){});
+ fetch('/api/calc?date='+encodeURIComponent($('#fd').value)+'&time='+encodeURIComponent($('#ft').value||'')).then(function(r){return r.ok?r.json():null}).then(function(c){if(!c)return;calcData=c;$('#bl1').textContent='Saturn in '+c.sign+', '+c.degree+'\\u00B0';var n=(c.hits||[]).length;$('#bl2').textContent=n===1?'One exact pass found':(NW[n]||n)+' exact passes found';$('#bsat').classList.remove('spin');$('#bsat').style.transition='transform 3s cubic-bezier(.5,0,.2,1)';$('#bsat').style.transform='rotate('+c.angle+'deg)';$('#barc').style.strokeDasharray=(c.angle/360*2*Math.PI*230).toFixed(1)+' 2000'}).catch(function(){});
  var t0=Date.now();fetch('/preview',{method:'POST',body:new FormData($('#flowForm')),redirect:'follow'}).then(function(r){var wait=Math.max(0,3600-(Date.now()-t0));var url=r.redirected?r.url:null;
-  if(!url)return r.text().then(function(h){var m=h.match(/<p class="err">([^<]*)</);var msg=m?m[1]:'Something went wrong. Try again.';var n=/place|city|find/i.test(msg)?2:/date/i.test(msg)?1:3;$('#e'+n).textContent=msg;$('#e'+n).style.display='';busy=false;show(n)});setTimeout(function(){location.href=url},wait)}).catch(function(){$('#e3').style.display='';busy=false;show(3)})}
+  if(!url)return r.text().then(function(h){var m=h.match(/<p class="err">([^<]*)</);var msg=m?m[1]:'Something went wrong. Try again.';var n=/place|city|find/i.test(msg)?2:/date/i.test(msg)?1:3;$('#e'+n).textContent=msg;$('#e'+n).style.display='';busy=false;show(n)});resultUrl=url;setTimeout(summary,wait)}).catch(function(){$('#e3').style.display='';busy=false;show(3)})}
 })();`;
   return shell({ title: "Your Saturn return, dated · Rite", body, extraCss: CSS, script, canonical: `${opts.siteUrl}/start`, og: `${opts.siteUrl}/og.png`, noFooter: true, nav: html`` });
 }
