@@ -16,6 +16,7 @@ import { smallChart, fmtMonYr, fmtMonYrL, untilText } from "./astro/cycle";
 import { landingPage } from "./views/landing";
 import { flowPage } from "./views/flow";
 import { giftPage } from "./views/gift";
+import { writingPage } from "./views/writing";
 import { narrationText, splitForTts, CHAPTERS } from "./narration";
 import { resultPage } from "./views/result";
 import { SIGN_NOTES } from "./content/notes";
@@ -350,11 +351,9 @@ app.get("/r/:tok", async (c) => {
   if (!r) {
     const stale = pu.status === "writing" && Date.now() - Date.parse(pu.delivered_at ?? "0") > 4 * 60000; // delivered_at doubles as the writing lock timestamp
     if (pu.status === "paid" || stale || (pu.status === "failed" && c.req.query("retry") === "1")) kickGenerate(c.env, c.executionCtx, pu.id);
-    {
-      const again = pu;
-      if (again?.status === "failed" && c.req.query("retry") !== "1") return c.html(`<!doctype html><meta charset="utf-8"><title>One moment</title><body style="background:#0E1014;color:#EDE6D6;font-family:sans-serif;padding:48px;line-height:1.6"><p>Your reading didn't write cleanly. It's paid for and nothing is lost; <a href="/r/${pu.id}?retry=1" style="color:#F2B544">try again</a>, or email <a href="mailto:${c.env.SUPPORT_EMAIL}" style="color:#F2B544">${c.env.SUPPORT_EMAIL}</a> and we'll sort it by hand.</p></body>`, 500);
-      return c.html(`<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="6"><title>Writing your reading</title><body style="background:#0E1014;color:#EDE6D6;font-family:sans-serif;padding:48px"><p>Writing your reading. This page refreshes itself; it usually takes under a minute.</p></body>`);
-    }
+    const comp0 = recompute(p);
+    const failed = pu.status === "failed" && c.req.query("retry") !== "1";
+    return c.html(writingPage({ token: pu.id, c: comp0, state: failed ? "failed" : "writing", supportEmail: c.env.SUPPORT_EMAIL }), failed ? 500 : 200, { "cache-control": "no-store" });
   }
   const comp = recompute(p); const cy = cycle(comp);
   const askRows = await c.env.DB.prepare("SELECT q, a FROM asks WHERE purchase_id = ? ORDER BY id").bind(pu.id).all<{ q: string; a: string }>();
@@ -384,6 +383,12 @@ app.post("/r/:tok/ask", async (c) => {
     await log(c.env, "error", pu.id, { where: "ask", e: String(e) });
     return c.json({ error: "Couldn't answer just now. Try again in a moment.", left: ASK_CAP - used }, 502);
   }
+});
+
+app.get("/r/:tok/status", async (c) => {
+  const pu = await getPurchase(c.env, c.req.param("tok"));
+  if (!pu) return c.json({ error: "not found" }, 404);
+  return c.json({ ready: !!parseReport(pu.report_md), failed: pu.status === "failed", status: pu.status }, 200, { "cache-control": "no-store" });
 });
 
 app.get("/r/:tok/stage", async (c) => {
@@ -488,7 +493,17 @@ async function fulfil(env: Env, session: Stripe.Checkout.Session): Promise<strin
 
 /** Ask the worker to write a reading in a fresh invocation (own CPU budget). Fire-and-forget. */
 function kickGenerate(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, tok: string) {
-  ctx.waitUntil(fetch(`${env.SITE_URL}/internal/generate/${tok}`, { method: "POST", headers: { authorization: `Bearer ${env.STRIPE_WEBHOOK_SECRET}` } }).catch(() => {}));
+  ctx.waitUntil((async () => {
+    // Preferred: a fresh invocation via the worker's own URL. Cloudflare refuses some self-calls (error 1042 on
+    // workers.dev), so if that fails for any reason we write the reading inline instead of silently doing nothing.
+    try {
+      const res = await fetch(`${env.SITE_URL}/internal/generate/${tok}`, { method: "POST", headers: { authorization: `Bearer ${env.STRIPE_WEBHOOK_SECRET}` } });
+      if (res.ok) return;
+      await log(env, "error", tok, { where: "kick-generate", status: res.status, body: (await res.text()).slice(0, 200) });
+    } catch (e) { await log(env, "error", tok, { where: "kick-generate", e: String(e) }); }
+    const lock = await env.DB.prepare("UPDATE purchases SET status='writing', delivered_at=? WHERE id=? AND (status='paid' OR status='failed' OR (status='writing' AND delivered_at < ?))").bind(now(), tok, new Date(Date.now() - 4 * 60000).toISOString()).run();
+    if (lock.meta.changes) await generateReport(env, tok);
+  })());
 }
 
 /** Gift purchase: no birth details yet. Store a code, email it to the buyer. Returns the code. */
