@@ -8,7 +8,8 @@ import SIGN_PERIODS from "./content/sign-periods.json";
 import { signPage, type SignPageData } from "./views/sign";
 import { SIGNS, type Sign } from "./astro/saturn";
 import { writePreview, writeReport, writeSeason, datesAreGrounded, parseJsonReply, answerQuestion } from "./llm";
-import { sendEmail, deliveryEmail, seasonEmail, seasonCompleteEmail, stageReminderEmail, giftEmail } from "./email";
+import { sendEmail, deliveryEmail, seasonEmail, seasonCompleteEmail, stageReminderEmail, giftEmail, day3Email, day10Email } from "./email";
+import { followupSchedule, followupDue, followupSkip, stageSeasonLine, type FollowupKind } from "./followups";
 import { readingPage, type ReportJson } from "./views/reading";
 import { shareCardSvg, ogSvg } from "./card";
 import { svgToPng } from "./png";
@@ -22,9 +23,10 @@ import { legalPage } from "./views/legal";
 import { narrationText, splitForTts, CHAPTERS } from "./narration";
 import { resultPage } from "./views/result";
 import { seasonManagePage, type SeasonManageData } from "./views/season";
-import { nextNoteDate, yearlyAllowed, unusedMonths, yearlyRefundCents, seasonPhase, rereadChapter, upcomingDates, comingUpText, windowOpenSendOn, type SeasonPlan } from "./season";
+import { seasonLandingPage } from "./views/season-landing";
+import { nextNoteDate, yearlyAllowed, unusedMonths, yearlyRefundCents, comingUpText, windowOpenSendOn, noteFacts, seasonFallbackBody, sampleNote, lastMondayLocal, type SeasonPlan } from "./season";
 import { SIGN_NOTES } from "./content/notes";
-import { localHour } from "./geo";
+import { localHour, localToUtc } from "./geo";
 
 export interface Env {
   DB: D1Database;
@@ -47,7 +49,7 @@ const token = () => id(32);
 const now = () => new Date().toISOString();
 const adminOk = (env: Env, auth: string | undefined) => !!env.STRIPE_WEBHOOK_SECRET && env.STRIPE_WEBHOOK_SECRET.length > 10 && auth === `Bearer ${env.STRIPE_WEBHOOK_SECRET}`;
 const stripe = (env: Env) => new Stripe(env.STRIPE_SECRET_KEY, { httpClient: Stripe.createFetchHttpClient() });
-const FUNNEL = new Set(["preview", "checkout", "paid", "generated", "gift_paid", "gift_redeemed", "season_start", "season_sent", "ask", "narrated", "refund", "error"]);
+const FUNNEL = new Set(["preview", "checkout", "paid", "generated", "gift_paid", "gift_redeemed", "season_start", "season_sent", "ask", "narrated", "refund", "story", "error"]);
 async function log(env: Env, kind: string, ref?: string | null, detail?: unknown) {
   try { await env.DB.prepare("INSERT INTO events (at, kind, ref, detail) VALUES (?,?,?,?)").bind(now(), kind, ref ?? null, detail ? JSON.stringify(detail).slice(0, 2000) : null).run(); } catch (e) { console.error("log", e); }
   if (env.POSTHOG_KEY && FUNNEL.has(kind)) {
@@ -99,8 +101,14 @@ async function getPurchase(env: Env, tok: string) {
 // ---------- pages ----------
 app.get("/", async (c) => {
   await log(c.env, "visit", c.req.query("r") ?? null);
-  return c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? c.req.query("ref") ?? undefined }));
+  return c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? c.req.query("ref") ?? undefined, season: seasonTeaser(c.env) }));
 });
+
+/** The landing's Saturn Season teaser: prices from config, and Saturn's position this week (one table lookup). */
+function seasonTeaser(env: Env) {
+  const lon = saturnLongitude(new Date());
+  return { monthly: Math.round(parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100), yearly: Math.round(parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10) / 100), saturnNow: `${Math.floor(degreeInSign(lon))}° ${signOf(lon)}` };
+}
 
 /** Live numbers for the landing widget: date (+ optional time), no place → noon UTC, sign-level only. */
 app.get("/start", (c) => c.html(flowPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? undefined, form: { date: c.req.query("d") ?? undefined } })));
@@ -160,11 +168,34 @@ app.get("/saturn-return/saturn-in/:sign", async (c) => {
   return c.html(signPage({ siteUrl: c.env.SITE_URL, d }), 200, { "cache-control": "public, max-age=3600" });
 });
 app.get("/saturn-return", (c) => c.redirect("/", 301));
+// Second-return landing: whoever is having their second return in the sign Saturn is in now (dates from sign-periods.json).
+app.get("/second", async (c) => {
+  await log(c.env, "visit", c.req.query("r") ?? "second");
+  const sign = signOf(saturnLongitude(new Date()));
+  const d = signData(sign);
+  return c.html(landingPage({ siteUrl: c.env.SITE_URL, season: seasonTeaser(c.env), ref: c.req.query("r") ?? c.req.query("utm_source") ?? "second", variant: "second",
+    second: { sign, born: d.secondBorn, until: d.current[d.current.length - 1].to } }), 200, { "cache-control": "public, max-age=3600" });
+});
 app.get("/privacy", (c) => c.html(legalPage({ siteUrl: c.env.SITE_URL, page: "privacy", supportEmail: c.env.SUPPORT_EMAIL })));
 app.get("/terms", (c) => c.html(legalPage({ siteUrl: c.env.SITE_URL, page: "terms", supportEmail: c.env.SUPPORT_EMAIL })));
 app.get("/refunds", (c) => c.html(legalPage({ siteUrl: c.env.SITE_URL, page: "refunds", supportEmail: c.env.SUPPORT_EMAIL })));
+/** /season: what Saturn Season is, with a sample note computed this week for a real chart in the current Aries cohort. */
+const SEASON_SAMPLE = { date: "1997-06-01", label: "1 Jun 1997, Melbourne", place: { label: "Melbourne", lat: -37.81, lon: 144.96, tz: "Australia/Melbourne" } };
+app.get("/season", (c) => {
+  const tz = SEASON_SAMPLE.place.tz;
+  const day = lastMondayLocal(tz, new Date());
+  const at = localToUtc(day, "07:00", tz);
+  const comp = compute({ date: SEASON_SAMPLE.date, time: null, place: SEASON_SAMPLE.place }, at);
+  const sn = sampleNote(comp, at);
+  return c.html(seasonLandingPage({
+    siteUrl: c.env.SITE_URL,
+    monthlyPrice: Math.round(parseInt(c.env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100), yearlyPrice: Math.round(parseInt(c.env.PRICE_SEASON_YEARLY_CENTS, 10) / 100),
+    sample: { bornLabel: SEASON_SAMPLE.label, noteDate: `Mon ${fmtDay(day)}`, windowEnd: fmtDay(comp.window.windowEnd), position: sn.position, body: sn.body,
+      upcoming: sn.facts.upcoming.map((u) => ({ date: fmtDay(u.date), label: u.label })), reread: sn.facts.reread.name },
+  }), 200, { "cache-control": "public, max-age=3600" });
+});
 app.get("/sitemap.xml", (c) => {
-  const urls = ["/", "/gift", "/privacy", "/terms", "/refunds", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
+  const urls = ["/", "/second", "/season", "/gift", "/privacy", "/terms", "/refunds", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
   return c.body(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join("")}</urlset>`, 200, { "content-type": "application/xml" });
 });
 app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\nDisallow: /p/\nDisallow: /r/\nDisallow: /admin/\nSitemap: ${c.env.SITE_URL}/sitemap.xml\n`));
@@ -178,7 +209,7 @@ app.post("/preview", async (c) => {
   const time = String(form.time ?? "").trim() || null;
   const ref = String(form.ref ?? "").trim() || null;
   const gift = String(form.gift ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "") || null;
-  const back = (error: string) => c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: ref ?? undefined, error, form: { date, place: placeQ, time: time ?? "" } }), 400);
+  const back = (error: string) => c.html(landingPage({ siteUrl: c.env.SITE_URL, season: seasonTeaser(c.env), ref: ref ?? undefined, error, form: { date, place: placeQ, time: time ?? "" } }), 400);
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return back("Enter your birth date.");
   if (!placeQ) return back("Enter the city you were born in.");
@@ -334,9 +365,9 @@ app.get("/gift/thanks/:code", async (c) => {
 });
 app.get("/gift/:code", async (c) => {
   const g = await getGift(c.env, c.req.param("code"));
-  if (!g) return c.html(landingPage({ siteUrl: c.env.SITE_URL, error: "That gift code doesn't match anything. Check it and try again." }), 404);
+  if (!g) return c.html(landingPage({ siteUrl: c.env.SITE_URL, season: seasonTeaser(c.env), error: "That gift code doesn't match anything. Check it and try again." }), 404);
   if (g.redeemed_at) return c.redirect(`/r/${g.redeemed_purchase_id}`);
-  return c.html(landingPage({ siteUrl: c.env.SITE_URL, gift: { code: g.code, from: g.buyer_name, message: g.message } }));
+  return c.html(landingPage({ siteUrl: c.env.SITE_URL, season: seasonTeaser(c.env), gift: { code: g.code, from: g.buyer_name, message: g.message } }));
 });
 app.post("/redeem", async (c) => {
   const form = await c.req.parseBody();
@@ -458,6 +489,30 @@ app.post("/r/:tok/ask", async (c) => {
   }
 });
 
+// Share your story: opt-in, one per purchase per day, copied to the admin inbox. Quoting only with can_quote.
+const STORY_MAX = 2000;
+app.post("/r/:tok/story", async (c) => {
+  const pu = await getPurchase(c.env, c.req.param("tok"));
+  if (!pu) return c.json({ error: "Not found" }, 404);
+  const body = await c.req.json<{ text?: string; can_quote?: boolean }>().catch(() => ({} as { text?: string; can_quote?: boolean }));
+  const text = String(body.text ?? "").trim();
+  if (!text) return c.json({ error: "Write something first." }, 400);
+  if (text.length > STORY_MAX) return c.json({ error: `That's over ${STORY_MAX.toLocaleString("en")} characters. Trim it a little?` }, 400);
+  const canQuote = body.can_quote === true ? 1 : 0;
+  const day = now().slice(0, 10);
+  const recent = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM stories WHERE purchase_id = ? AND created_at >= ?").bind(pu.id, day).first<{ n: number }>();
+  if ((recent?.n ?? 0) > 0) return c.json({ error: "We've already got one from you today. Send another tomorrow, or reply to any of our emails." }, 429);
+  await c.env.DB.prepare("INSERT INTO stories (purchase_id, created_at, text, can_quote) VALUES (?,?,?,?)").bind(pu.id, now(), text, canQuote).run();
+  await log(c.env, "story", pu.id, { can_quote: !!canQuote, len: text.length });
+  c.executionCtx.waitUntil((async () => {
+    const p = await getPreview(c.env, pu.preview_id);
+    const ok = await sendEmail(c.env, c.env.ADMIN_EMAIL || c.env.SUPPORT_EMAIL, `Rite story${canQuote ? " (can quote)" : ""}: ${pu.first_name ?? "no name"}, Saturn in ${p?.natal_sign ?? "?"}`,
+      `${text}\n\n---\nFirst name: ${pu.first_name ?? "(none)"}\nCan quote (first name only): ${canQuote ? "YES" : "no"}\nReader email: ${pu.email}\nSaturn in ${p?.natal_sign ?? "?"}, born ${p?.birth_date.slice(0, 4) ?? "?"}\nReading: ${c.env.SITE_URL}/r/${pu.id}`);
+    if (!ok) await log(c.env, "error", pu.id, { where: "story-email" });
+  })());
+  return c.json({ ok: true });
+});
+
 app.get("/r/:tok/status", async (c) => {
   const pu = await getPurchase(c.env, c.req.param("tok"));
   if (!pu) return c.json({ error: "not found" }, 404);
@@ -531,6 +586,7 @@ app.get("/r/:tok/calendar.ics", async (c) => {
   if (!p) return c.notFound();
   const comp = recompute(p); const cy = cycle(comp); const w = comp.window;
   const only = c.req.query("only");
+  c.executionCtx.waitUntil(log(c.env, "calendar", pu.id, only ? { only } : undefined)); // day-3 follow-up skips readers who already did this
   const r = parseReport(pu.report_md);
   const ev: Array<{ date: string; title: string; desc: string }> = [];
   w.hits.forEach((h, i) => ev.push({ date: h, title: w.hits.length === 1 ? "Saturn return: exact pass" : `Saturn return: pass ${i + 1} of ${w.hits.length}`, desc: r?.passes[i]?.day ?? `Saturn crosses your natal degree (${Math.floor(comp.degree)}° ${comp.sign}).` }));
@@ -622,6 +678,7 @@ async function generateReport(env: Env, tok: string) {
   await env.DB.prepare("UPDATE purchases SET report_md=?, report_json=?, status='generated' WHERE id=?").bind(md, JSON.stringify(inputs), tok).run();
   await log(env, "generated", tok);
   await scheduleStageReminders(env, tok, comp);
+  await scheduleFollowups(env, tok, p.tz);
 
   if (pu.email) {
     const m = deliveryEmail({
@@ -879,25 +936,17 @@ async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: s
     }
     return "complete";
   }
-  const tl = saturnLongitude(today);
+  // Everything dated is decided by code (noteFacts), not by the model: the 30-day list, the chapter link, and the list of
+  // dates the model is allowed to repeat. If the model invents a date twice, the note goes out with the code-only parts.
+  const f = noteFacts(comp, today);
   const st = comp.nextStation;
   const todayIso = today.toISOString().slice(0, 10);
-  const nextHit = comp.window.hits.find((h) => h >= todayIso);
-  const motion = comp.retrograde
-    ? `It's retrograde${st ? ` until ${fmtDay(st.date)}` : ""}${comp.window.hits.length === 3 && todayIso > comp.window.hits[0] && todayIso < comp.window.hits[1] ? `, backing over your degree for the second pass on ${fmtDay(comp.window.hits[1])}` : Math.abs(o) > 3 ? ", moving away from your degree for now" : ""}.`
-    : `It's direct${nextHit ? ` and closing in; your next exact pass is ${fmtDay(nextHit)}` : ""}.`;
-  // Everything dated is decided here, not by the model: the 30-day list, the chapter link, and the list of dates the
-  // model is allowed to repeat. If the model invents a date twice, the note goes out with the code-only parts.
-  const cy = cycle(comp, today);
-  const sPhase = seasonPhase(comp, today);
-  const up = upcomingDates(comp, cy, today);
-  const reread = rereadChapter(sPhase);
-  const allowed = [todayIso, ...(nextHit ? [nextHit] : []), ...(st ? [st.date] : []), ...up.map((u) => u.date)].map(fmtDay);
   const inputs: SeasonInputs = {
-    sign: comp.sign, house: comp.house, orb: Math.round(Math.abs(o) * 10) / 10, direction: o < 0 ? "applying" : "separating", retrograde: comp.retrograde,
-    next_hit: nextHit ? fmtDay(nextHit) : null, next_station: st ? `${fmtDay(st.date)} (${st.to})` : null, phase: comp.phase, season_phase: sPhase,
-    coming_up: up.map((u) => ({ date: fmtDay(u.date), what: u.label })), reread_chapter: reread.name, today: fmtDay(todayIso),
+    sign: comp.sign, house: comp.house, orb: f.orb, direction: o < 0 ? "applying" : "separating", retrograde: comp.retrograde,
+    next_hit: f.nextHit ? fmtDay(f.nextHit) : null, next_station: st ? `${fmtDay(st.date)} (${st.to})` : null, phase: comp.phase, season_phase: f.phase,
+    coming_up: f.upcoming.map((u) => ({ date: fmtDay(u.date), what: u.label })), reread_chapter: f.reread.name, today: fmtDay(todayIso),
   };
+  const allowed = f.allowed;
   let body = "";
   for (let attempt = 0; attempt < 2 && !body; attempt++) {
     try {
@@ -906,11 +955,11 @@ async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: s
       else await log(env, "error", r.purchase_id, { where: "season-dates-ungrounded", attempt });
     } catch (e) { await log(env, "error", r.purchase_id, { where: "season-llm", e: String(e), attempt }); }
   }
-  if (!body) body = seasonFallbackBody(sPhase, comp.sign); // never send nothing
+  if (!body) body = seasonFallbackBody(f.phase, comp.sign); // never send nothing
   const m = seasonEmail({
-    firstName: r.first_name, transitDeg: `${Math.floor(degreeInSign(tl))}°`, transitSign: signOf(tl),
-    orb: `${Math.round(Math.abs(o) * 10) / 10}°`, dir: o < 0 ? "from" : "past", motionSentence: motion, body,
-    comingUp: comingUpText(up), rereadName: reread.name, rereadUrl: `${env.SITE_URL}/r/${r.purchase_id}${reread.hash}`,
+    firstName: r.first_name, transitDeg: f.transitDeg, transitSign: f.transitSign,
+    orb: f.orbText, dir: f.dir, motionSentence: f.motion, body,
+    comingUp: comingUpText(f.upcoming), rereadName: f.reread.name, rereadUrl: `${env.SITE_URL}/r/${r.purchase_id}${f.reread.hash}`,
     manageUrl: `${env.SITE_URL}/season/manage/${r.purchase_id}`, welcome: !r.last_sent_at && !to,
   });
   const ok = await sendEmail(env, dest, m.subject, m.text);
@@ -919,16 +968,6 @@ async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: s
     await log(env, "season_sent", r.purchase_id);
   }
   return ok ? "sent" : "email-failed";
-}
-
-/** Code-only paragraph for the week when the model is down or keeps inventing dates. Phase-specific, no dates. */
-function seasonFallbackBody(phase: ReturnType<typeof seasonPhase>, sign: string): string {
-  const work = SIGN_NOTES[sign as keyof typeof SIGN_NOTES]?.work ?? "the work this sign asks for";
-  switch (phase) {
-    case "approach": return `Saturn is still applying, so this week is for setting up. Saturn in ${sign} asks for ${work}; decide what the return is going to test before the first exact pass makes the decision for you.\nOne thing this week: write down the one commitment you keep putting off deciding.\nOne line to carry: Build the thing before it is tested.`;
-    case "contact": return `Saturn is on your degree, so this week is for holding. Saturn in ${sign} asks for ${work}; keep the commitment you made and let the second look revise it, not undo it.\nOne thing this week: do the unglamorous next step on the thing you committed to.\nOne line to carry: Hold, and let it be revised, not dropped.`;
-    default: return `The last pass is behind you, so this week is for consolidating. Saturn in ${sign} asks for ${work}; the job now is making what you decided routine, small and often, before the window closes.\nOne thing this week: repeat one kept promise at the same time, three days running.\nOne line to carry: Routine is how a decision becomes a structure.`;
-  }
 }
 
 /**
@@ -992,12 +1031,64 @@ async function scheduleStageReminders(env: Env, tok: string, comp: Computed) {
   if (stmts.length) await env.DB.batch(stmts);
 }
 
+/** Day-3 and day-10 follow-ups (docs/emails.md §2, §3), one row each, keyed on the reader's local date. Idempotent. */
+async function scheduleFollowups(env: Env, tok: string, tz: string) {
+  const stmts = followupSchedule(tz, new Date()).map((f) => env.DB.prepare("INSERT OR IGNORE INTO followups (purchase_id, kind, send_on) VALUES (?,?,?)").bind(tok, f.kind, f.sendOn));
+  await env.DB.batch(stmts);
+}
+
+/**
+ * Sends due follow-ups. Each row is claimed (sent_at set) before the email goes out, so overlapping runs can't double-send;
+ * a failed send releases the claim for the next hour. Skips are recorded as sent_at = 'skipped:<reason>', so they never retry.
+ */
+async function runFollowups(env: Env) {
+  const nowD = new Date();
+  const horizon = new Date(nowD.getTime() + 86400000).toISOString().slice(0, 10); // send_on is a local date; zones run up to a day ahead of UTC
+  type Row = PreviewRow & { purchase_id: string; kind: FollowupKind; send_on: string; email: string; first_name: string | null; pstatus: string; subscribed: number; calendar: number };
+  const due = await env.DB.prepare(`SELECT pv.*, f.purchase_id, f.kind, f.send_on, p.email, p.first_name, p.status AS pstatus,
+      EXISTS (SELECT 1 FROM subscriptions s WHERE s.purchase_id = f.purchase_id AND s.status IN ('active','past_due')) AS subscribed,
+      EXISTS (SELECT 1 FROM events e WHERE e.kind = 'calendar' AND e.ref = f.purchase_id) AS calendar
+    FROM followups f JOIN purchases p ON p.id = f.purchase_id JOIN previews pv ON pv.id = p.preview_id
+    WHERE f.sent_at IS NULL AND f.send_on <= ? LIMIT 200`).bind(horizon).all<Row>();
+  for (const r of due.results) {
+    try {
+      const when = followupDue(r.send_on, r.tz, nowD);
+      if (when === "wait") continue;
+      const mark = (v: string | null, cond = "sent_at IS NULL") => env.DB.prepare(`UPDATE followups SET sent_at=? WHERE purchase_id=? AND kind=? AND ${cond}`).bind(v, r.purchase_id, r.kind).run();
+      if (when === "expired") { await mark("expired"); continue; }
+      const comp = recompute(r, nowD);
+      const skip = followupSkip({ kind: r.kind, today: nowD.toISOString().slice(0, 10), email: r.email, purchaseStatus: r.pstatus, windowEnd: comp.window.windowEnd, subscribed: !!r.subscribed, calendarAdded: !!r.calendar });
+      if (skip) { await mark(`skipped:${skip}`); await log(env, "followup_skipped", r.purchase_id, { kind: r.kind, reason: skip }); continue; }
+      const claimed = now();
+      if (!(await mark(claimed)).meta.changes) continue; // another run got it
+      const readingUrl = `${env.SITE_URL}/r/${r.purchase_id}`;
+      let m: { subject: string; text: string };
+      if (r.kind === "day3") m = day3Email({ firstName: r.first_name, readingUrl });
+      else {
+        // The note they'd have got this Monday (07:00 local), built by code only: no model call in a nudge.
+        const monday = localToUtc(lastMondayLocal(r.tz, nowD), "07:00", r.tz);
+        const sn = sampleNote(recompute(r, monday), monday);
+        m = day10Email({ firstName: r.first_name, windowEnd: fmtDay(comp.window.windowEnd), position: sn.position, body: sn.body, comingUp: sn.comingUp, seasonUrl: `${readingUrl}#season`,
+          monthlyPrice: Math.round(parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100), yearlyPrice: yearlyAllowed(comp.window.windowEnd, nowD) ? Math.round(parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10) / 100) : null });
+      }
+      const ok = await sendEmail(env, r.email, m.subject, m.text);
+      if (ok) await log(env, "followup_sent", r.purchase_id, { kind: r.kind });
+      else await env.DB.prepare("UPDATE followups SET sent_at=NULL WHERE purchase_id=? AND kind=? AND sent_at=?").bind(r.purchase_id, r.kind, claimed).run(); // retry next hour
+    } catch (e) { await log(env, "error", r.purchase_id, { where: "followup", kind: r.kind, e: String(e) }); }
+  }
+}
+
 async function runStageReminders(env: Env) {
   const today = now().slice(0, 10);
-  const due = await env.DB.prepare("SELECT r.id, r.purchase_id, r.stage_key, r.label, r.on_date, p.email, p.first_name FROM stage_reminders r JOIN purchases p ON p.id = r.purchase_id WHERE r.sent_at IS NULL AND r.send_on <= ? AND r.on_date >= ? AND p.status != 'refunded'").bind(today, today).all<{ id: number; purchase_id: string; stage_key: string; label: string; on_date: string; email: string; first_name: string | null }>();
+  const due = await env.DB.prepare(`SELECT r.id, r.purchase_id, r.stage_key, r.label, r.on_date, p.email, p.first_name, pv.window_end,
+      EXISTS (SELECT 1 FROM subscriptions s WHERE s.purchase_id = r.purchase_id AND s.status IN ('active','past_due')) AS subscribed
+    FROM stage_reminders r JOIN purchases p ON p.id = r.purchase_id JOIN previews pv ON pv.id = p.preview_id
+    WHERE r.sent_at IS NULL AND r.send_on <= ? AND r.on_date >= ? AND p.status != 'refunded'`).bind(today, today).all<{ id: number; purchase_id: string; stage_key: string; label: string; on_date: string; email: string; first_name: string | null; window_end: string; subscribed: number }>();
   for (const r of due.results) {
     if (!r.email) continue;
-    const m = stageReminderEmail({ firstName: r.first_name, label: r.label, onDate: fmtDay(r.on_date), readingUrl: `${env.SITE_URL}/r/${r.purchase_id}`, stageKey: r.stage_key });
+    const subscribed = !!r.subscribed;
+    const m = stageReminderEmail({ firstName: r.first_name, label: r.label, onDate: fmtDay(r.on_date), readingUrl: `${env.SITE_URL}/r/${r.purchase_id}`, stageKey: r.stage_key,
+      subscribed, seasonUrl: stageSeasonLine(subscribed, r.window_end, r.on_date) ? `${env.SITE_URL}/r/${r.purchase_id}#season` : null, monthlyPrice: Math.round(parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100) });
     const ok = await sendEmail(env, r.email, m.subject, m.text);
     if (ok) { await env.DB.prepare("UPDATE stage_reminders SET sent_at=? WHERE id=?").bind(now(), r.id).run(); await log(env, "stage_reminder", r.purchase_id, { stage: r.stage_key }); }
   }
@@ -1043,5 +1134,5 @@ You asked for this one email. There is nothing to unsubscribe from.`);
 
 export default {
   fetch: app.fetch,
-  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runErrorDigest(env), runCleanup(env)])); },
+  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runFollowups(env), runErrorDigest(env), runCleanup(env)])); },
 };

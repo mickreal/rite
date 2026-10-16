@@ -108,3 +108,25 @@ CREATE TABLE IF NOT EXISTS gifts (
   redeemed_purchase_id TEXT REFERENCES purchases(id),
   redeemed_at TEXT
 );
+
+-- Day-3 and day-10 follow-up emails to reading owners (docs/emails.md §2, §3). Scheduled when a reading is written;
+-- send_on is the reader's local date. sent_at: ISO time sent, or 'skipped:<reason>' / 'expired'.
+CREATE TABLE IF NOT EXISTS followups (
+  purchase_id TEXT NOT NULL REFERENCES purchases(id),
+  kind TEXT NOT NULL,               -- day3 | day10
+  send_on TEXT NOT NULL,            -- YYYY-MM-DD, local to the birthplace zone
+  sent_at TEXT,
+  UNIQUE(purchase_id, kind)
+);
+CREATE INDEX IF NOT EXISTS idx_followups_due ON followups(send_on, sent_at);
+
+-- "Tell us how your return is going" at the end of a reading. Opt-in; can_quote = 1 only when the reader ticked
+-- "Rite can quote this, first name only". One per purchase per day.
+CREATE TABLE IF NOT EXISTS stories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  purchase_id TEXT NOT NULL REFERENCES purchases(id),
+  created_at TEXT NOT NULL,
+  text TEXT NOT NULL,               -- up to 2,000 characters
+  can_quote INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_stories_purchase ON stories(purchase_id, created_at);

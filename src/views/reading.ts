@@ -301,6 +301,24 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
     <form method="post" action="/season/${opts.token}" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><button type="submit" name="plan" value="month" class="solid">$7 a month</button>${yearlyAllowed(w.windowEnd, today) ? html`<button type="submit" name="plan" value="year" class="ghost">$59 for the year</button>` : ""}<span class="muted" style="font-size:14px">Cancel any time. It stops itself when your window closes${yearlyAllowed(w.windowEnd, today) ? ", and a yearly plan refunds the unused months then" : ""}.</span></form>
   </div>`}
 </section>
+
+<section id="story" class="ch rv noprint" style="padding-bottom:80px">
+  <div class="card" style="display:flex;flex-direction:column;gap:16px">
+    <span class="kicker">Optional</span>
+    <h3>Tell us how your return is going.</h3>
+    <p style="margin:0;color:#CFC8BA;line-height:1.6;max-width:620px">What's changed, what you're deciding, what the dates lined up with. A person reads every one. Nothing is published unless you tick the box.</p>
+    <form id="storyForm" style="display:flex;flex-direction:column;gap:14px">
+      <label for="storyText" style="position:absolute;left:-9999px">Your story</label>
+      <textarea id="storyText" class="ta" maxlength="2000" rows="5" placeholder="A few lines is plenty" required></textarea>
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">
+        <label style="display:flex;gap:10px;align-items:center;font-size:15px;color:#CFC8BA;cursor:pointer;min-height:44px"><input id="storyQuote" type="checkbox" style="width:20px;height:20px;accent-color:#F2B544;margin:0"> Rite can quote this, first name only</label>
+        <span class="muted" style="font-size:13px"><span id="storyCount">0</span> / 2,000</span>
+      </div>
+      <div><button id="storyBtn" type="submit" class="solid">Send it</button></div>
+    </form>
+    <p id="storyMsg" class="swap" style="margin:0;font-size:16px;line-height:1.6;display:none"></p>
+  </div>
+</section>
 </main>
 </div>`;
 
@@ -336,6 +354,11 @@ au.addEventListener('timeupdate',function(){if(au.duration){bar.style.width=((cu
 au.addEventListener('ended',function(){if(cur+1<CH)load(cur+1,true);else{playing=false;setUI();bar.style.width='100%';meta.textContent='Finished'}});
 au.addEventListener('error',function(){playing=false;setUI();meta.textContent='Narration unavailable right now; try again in a moment.'});
 btn.addEventListener('click',function(){if(playing){au.pause();return}if(!ready){T('play');ready=true;meta.textContent='Preparing the first chapter\u2026';load(0,true)}else{au.play()}});
+// share your story (opt-in; quoting only with the box ticked)
+var sf=$('#storyForm'),st=$('#storyText');st.addEventListener('input',function(){$('#storyCount').textContent=st.value.length});
+sf.addEventListener('submit',function(e){e.preventDefault();var t=st.value.trim();if(!t)return;var q=$('#storyQuote').checked,b=$('#storyBtn'),m=$('#storyMsg');T('story_submit',{can_quote:q,len:t.length});b.disabled=true;b.textContent='Sending\u2026';
+ fetch('/r/'+TOK+'/story',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:t,can_quote:q})}).then(function(r){return r.json()}).then(function(d){m.style.display='';if(d.error){b.disabled=false;b.textContent='Send it';m.style.color='#E08A7A';m.textContent=d.error;return}
+ sf.style.display='none';m.style.color='#F2B544';m.textContent=q?'Thank you. We read every one, and if we quote you it will be your first name only.':'Thank you. We read every one; this stays between us.'}).catch(function(){b.disabled=false;b.textContent='Send it';m.style.display='';m.style.color='#E08A7A';m.textContent="Couldn't reach the server. Check your connection and try again."})});
 // ask
 document.querySelectorAll('.askq').forEach(function(b){b.addEventListener('click',function(){$('#askq').value=b.textContent;$('#askq').focus()})});
 $('#askForm').addEventListener('submit',function(e){e.preventDefault();var q=$('#askq').value.trim();if(!q)return;T('ask_submit');var btn=$('#askBtn');btn.disabled=true;btn.textContent='Thinking\\u2026';
