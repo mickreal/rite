@@ -135,7 +135,10 @@ async function record(browser: import("playwright").Browser, base: string, c: Co
   const [y, m, d] = c.date.split("-");
   await page.click("#fd");
   await page.keyboard.type(`${d}${m}${y}`, { delay: 170 });  // en-GB date field: dd/mm/yyyy
-  if ((await page.inputValue("#fd")) !== c.date) await page.fill("#fd", c.date); // other locales/field orders
+  if ((await page.inputValue("#fd")) !== c.date) { // other locales/field orders: correct it, but the typing on screen was wrong
+    console.warn(`\n  ${c.id}: typed date didn't land as dd/mm/yyyy (got "${await page.inputValue("#fd")}"); fixed with fill(), re-check the clip`);
+    await page.fill("#fd", c.date);
+  }
   await sleep(700);
   await page.click('#s1 [data-go="2"]');
   await sleep(650);
@@ -240,8 +243,10 @@ try {
   let base = process.env.BASE_URL?.replace(/\/$/, "");
   if (!base) ({ base, child } = await startLocal());
   else console.log(`Recording ${base} (note: every clip writes a real preview row there, tagged ref=content-render)`);
-  // --lang makes the native date field dd/mm/yyyy (the context locale alone doesn't change it)
-  const browser = await chromium.launch({ args: ["--lang=en-GB"], executablePath: process.env.CHROMIUM ?? (existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined) });
+  // --lang makes the native date field dd/mm/yyyy (the context locale alone doesn't change it). On Linux Chromium
+  // ignores --lang for the field order and follows LC_ALL/LANG, so set those too (otherwise it records mm/dd/yyyy
+  // and "01/04/1997" reads as 4 January on screen).
+  const browser = await chromium.launch({ args: ["--lang=en-GB"], env: { ...process.env, LC_ALL: "en_GB.UTF-8", LANG: "en_GB.UTF-8", LANGUAGE: "en_GB" } as Record<string, string>, executablePath: process.env.CHROMIUM ?? (existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined) });
   for (const c of cohorts) {
     process.stdout.write(`● ${c.id}: recording… `);
     const { video, marks } = await record(browser, base!, c);
