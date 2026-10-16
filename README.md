@@ -87,7 +87,7 @@ Every number comes from code. The model only writes prose and is told it may not
 
 ## Accuracy
 
-- Saturn: `astronomy-engine` geocentric apparent longitude, true ecliptic of date. Tested against Swiss Ephemeris to 0.02° across 1984–2026.
+- Saturn: `astronomy-engine` geocentric apparent longitude, true ecliptic of date, sampled daily 1920–2080 into `content/saturn-daily.json` (306 KB base64 Int32; `scripts/gen-saturn-table.ts`) and linearly interpolated at runtime (< 0.0005° error; Saturn moves ≤ 0.13°/day). Outside the table it falls back to the live ephemeris. Tested against Swiss Ephemeris to 0.02° across 1984–2026. This keeps every request well under the Workers free plan's 10 ms CPU cap (a full page is ~4 ms; the live ephemeris was 50 µs per sample and daily scans were blowing the cap intermittently with error 1102).
 - Houses: Placidus by semi-arc iteration, tested against `swe_houses('P')` to 0.05° on all twelve cusps for seven charts across both hemispheres.
 - Exact hits: daily scan, linear interpolation of the crossing instant; reported as the UTC date. Agrees with Swiss Ephemeris bisection to the hour for every celebrity in the launch kit.
 - Why not `swisseph` on Workers: it needs a `.wasm` file shipped alongside the bundle, which is exactly what broke the Polsia build. Pure JS has no such failure mode.

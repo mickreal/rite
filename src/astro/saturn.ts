@@ -3,6 +3,7 @@
 // Library: astronomy-engine (pure JS, VSOP87-based; agrees with JPL DE421 to ~0.01° for Saturn).
 
 import * as A from "astronomy-engine";
+import TABLE from "../content/saturn-daily.json";
 
 export const SIGNS = [
   "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
@@ -12,8 +13,27 @@ export type Sign = (typeof SIGNS)[number];
 
 const DAY_MS = 86_400_000;
 
-/** Tropical ecliptic longitude of Saturn (0–360) at a UTC instant. */
+/** Tropical ecliptic longitude of Saturn (0–360) at a UTC instant. Table lookup with linear interpolation
+ *  (daily samples, scripts/gen-saturn-table.ts); falls back to the full ephemeris outside 1920–2080. */
 export function saturnLongitude(date: Date): number {
+  const i = (date.getTime() - TBL.start) / DAY_MS;
+  if (!(i >= 0 && i < TBL.days - 1)) return saturnLongitudeExact(date);
+  const k = Math.floor(i), f = i - k;
+  const a = tbl()[k] / 1e5, b = tbl()[k + 1] / 1e5;
+  let d = b - a; if (d > 180) d -= 360; else if (d < -180) d += 360; // never happens for Saturn, but keep it safe
+  return (((a + d * f) % 360) + 360) % 360;
+}
+const TBL = TABLE as { start: number; days: number; b64: string };
+let _tbl: Int32Array | null = null;
+function tbl(): Int32Array {
+  if (_tbl) return _tbl;
+  const bin = atob(TBL.b64); const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  _tbl = new Int32Array(u8.buffer); return _tbl;
+}
+
+/** Full ephemeris computation (astronomy-engine). ~50µs a call; used to build the table and outside its range. */
+export function saturnLongitudeExact(date: Date): number {
   const t = A.MakeTime(date);
   const geo = A.GeoVector(A.Body.Saturn, t, true); // aberration-corrected
   const rot = A.Rotation_EQJ_ECT(t); // J2000 equatorial → true ecliptic of date
