@@ -477,7 +477,7 @@ async function runSeason(env: Env) {
 
     const comp = recompute(r, today);
     const o = comp.todayOrb;
-    if (comp.phase === "complete" || (Math.abs(o) > 5 && o > 0)) {
+    if (comp.phase === "complete") { // Saturn has left the natal sign: the window everyone was shown is closed
       const m = seasonCompleteEmail({ firstName: r.first_name });
       await sendEmail(env, r.email, m.subject, m.text);
       try { await stripe(env).subscriptions.cancel(r.sub_id); } catch (e) { console.error(e); }

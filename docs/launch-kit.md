@@ -1,5 +1,7 @@
 # Rite Launch Kit
 
+> **Status (16 Oct 2026):** this kit was written for the Polsia build and is kept for the content (positioning, cohorts, celebrity table, email copy, social posts). The product spec parts are superseded by the Cloudflare build — see `README.md` and `docs/build-notes.md`. Two things changed since: the **window is now Saturn-in-natal-sign** (first ingress to final exit, incl. a retrograde dip), not ±5°; and the reading is a **JSON-slotted ten-chapter page**, not a markdown report. Dates in the tables below were re-verified against the current code.
+
 Oct 16, 2026 · @Mick
 
 Everything Polsia would otherwise spend credits producing — ephemeris-checked cohort data, 24 content posts, the report prompt, landing copy, emails and the Reddit post — ready to paste into its task briefs. Saturn is at 10° Aries today and stays in Aries until 14 Apr 2028; the live first-return cohort is anyone born Apr 1996–Jun 1998 or Oct 1998–Feb 1999.

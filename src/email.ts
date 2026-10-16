@@ -53,7 +53,7 @@ export function seasonCompleteEmail(p: { firstName: string | null }) {
     subject: "Your Saturn return is over",
     text: `${p.firstName ?? "Hi"},
 
-As of this week Saturn is more than 5° past your natal degree. The window's closed.
+As of this week Saturn has left your natal sign. The window's closed.
 
 What you built in it is yours now. What you let go stays gone.
 
