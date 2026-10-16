@@ -67,3 +67,41 @@ KV, and never edits `wrangler.toml` or anything under `.dev.vars`.** Mick review
   `AI` binding and secrets aren't available and that's fine.
 - If a step needs a decision (a dependency, a design change), write the options in the PR and move on.
 - Stop at four hours of work. A half-finished PR with a clear summary beats an unfinished one with none.
+
+## Status (17 Oct 2026, morning)
+
+Night 1 and Night 2 were both done in the 17 Oct morning session and are on `main`: Season completion, notify-me capture,
+sign pages, content kit v2, emails, creators, follow-up emails, `/season`, `/second`, share-your-story, PNG share cards,
+per-sign OG images, the content engine (`content/`). The QA sweep (Night 1 item 4) was not done; it moves to Night 3.
+
+## Night 3 (17 Oct 2026, 23:30 Brisbane)
+
+1. **Full QA sweep** (old Night 1 item 4, now bigger): `npm test`, `npx tsc -p .`, then Playwright at 390 and 1280 px of
+   `/`, `/start` (every step + summary), `/p/:id` (seed via local `/preview`), `/r/:tok` (seed a purchase with a canned
+   `report_md`; see `docs/qa/2026-10-17/night2/` notes), `/gift`, `/gift/thanks/:code`, `/season`, `/season/manage/:tok`,
+   `/second`, `/privacy`, `/terms`, `/refunds`, all twelve sign pages, the writing page (`status='writing'`), and the
+   failed page. Compare `/`, `/start`, `/p/:id`, `/r/:tok` against `docs/design/*.dc.html` for anything that regressed.
+   Report in `docs/qa/2026-10-18/report.md`. Fix clear defects only; describe the rest.
+2. **Accessibility pass** (WCAG 2.1 AA): contrast of every text/background pair in `theme.ts` and page CSS (compute the
+   ratios), focus states on every button/link/input, labels, `aria-expanded` on FAQs, reduced-motion coverage, keyboard
+   path through `/start` and the reading's scrubber, alt text / `aria-hidden` on decorative SVGs. Fix what's clearly
+   wrong; list the rest with severity.
+3. **Two evergreen SEO pages** in the site design: `/saturn-return/when` ("When is my Saturn return?": how it's
+   calculated, the age range, a live mini-calculator posting to `/preview`, the current cohort from the ephemeris) and
+   `/saturn-return/first-vs-second` (first vs second vs third return, cohorts computed). Both in the sitemap, FAQ JSON-LD,
+   internal links from the landing FAQ and sign pages. Copy follows `VOICE`; every date from code.
+4. **Admin page**: `GET /admin` (bearer-gated like `/admin/stats`, or `?key=` query for the browser, same secret) — an HTML
+   view of `/admin/stats` (funnel, by ref, by sign, daily table, gifts, Season) plus the last 20 errors, the last 20
+   stories (with `can_quote`), and pending follow-ups/reminders counts. Plain, readable, the site's dark theme.
+5. **Webhook tests**: fixture-driven tests for `/webhook/stripe` paths (checkout payment, gift, subscription start,
+   `invoice.payment_failed`, `invoice.paid`, `customer.subscription.deleted`, `charge.refunded`) with Stripe signature
+   generation in the test and D1/Stripe stubbed, so these paths are covered before real traffic.
+6. **Content batch for weeks 1–2**: using `content/` (`docs/launch-kit-v2.md` calendar, days 1–14), render every asset
+   the calendar calls for (dial clips silent, sign/cohort/quote cards), name them with `scripts/export-batch.ts`, and
+   upload the batch to Google Drive in a folder "Rite content / 2026-10 weeks 1-2" if the Google Drive connector is
+   available (otherwise attach a zip to the PR as a release asset is not possible — instead list the render command in
+   the PR). Do not post anything anywhere.
+7. **Morning summary** as the PR description.
+
+Open decisions for Mick (do not decide these overnight): voiceover voice for clips; whether far-off sign pages lead with
+the previous stretch; reading-page design updates (Mick to send); domain switch to rite.report.
