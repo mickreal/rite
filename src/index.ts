@@ -254,13 +254,13 @@ app.get("/card/:id{[^/]+\\.png}", async (c) => {
   if (!p) return c.notFound();
   return c.body(await cardPng(c.env, c.executionCtx, p), 200, { "content-type": "image/png", "cache-control": "public, max-age=3600" });
 });
-app.get("/card/:id{.+\\.svg}", async (c) => {
+app.get("/card/:id{[^/]+\\.svg}", async (c) => {
   const pid = c.req.param("id").replace(/\.svg$/, "");
   const p = await getPreview(c.env, pid);
   if (!p) return c.notFound();
   return c.body(cardSvg(c.env, p), 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=3600" });
 });
-app.get("/card/r/:tok{.+\\.svg}", async (c) => {
+app.get("/card/r/:tok{[^/]+\\.svg}", async (c) => {
   const tok = c.req.param("tok").replace(/\.svg$/, "");
   const pu = await getPurchase(c.env, tok);
   if (!pu) return c.notFound();
