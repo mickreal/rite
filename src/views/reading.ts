@@ -272,6 +272,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
     <div id="askList" style="display:flex;flex-direction:column;gap:16px">${opts.asks.map((a) => html`<div class="ans"><b>${a.q}</b><span style="color:#CFC8BA;line-height:1.6">${a.a}</span></div>`)}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">${[w.hits[0] ? `What should I do before ${fmtMonYr(Date.parse(w.hits[0]))}?` : "", cy.turn ? `Why does ${fmtMonYr(Date.parse(cy.turn.date))} matter?` : "", "How do I use the retrograde months?"].filter(Boolean).map((q) => html`<button type="button" class="chip askq" style="background:none;cursor:pointer;font-family:inherit">${q}</button>`)}</div>
     <form id="askForm" style="display:flex;gap:10px;flex-wrap:wrap"><label for="askq" style="position:absolute;left:-9999px">Your question</label><input id="askq" class="inp" type="text" maxlength="300" placeholder="Ask anything about your return"><button id="askBtn" type="submit" class="solid" ${opts.askLeft <= 0 ? "disabled" : ""}>Ask</button></form>
+    <p id="askErr" class="swap" style="margin:0;font-size:15px;color:#F2B544;display:none"></p>
     <span class="muted" style="font-size:14px"><span id="askLeft">${opts.askLeft}</span> questions left</span>
   </div>
 </section>
@@ -284,7 +285,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
     <span class="kicker">Saturn Season</span>
     <h3>A weekly note through your window.</h3>
     <p style="margin:0;color:#CFC8BA;line-height:1.6;max-width:620px">Every Monday: where Saturn is this week relative to your chart, whether it's applying or separating, and one thing to do. It stops itself when your window closes.</p>
-    <form method="post" action="/season/${opts.token}" style="display:flex;gap:14px;flex-wrap:wrap;align-items:center"><button type="submit" class="solid">Start Saturn Season, $7 a month</button><span class="muted" style="font-size:14px">Or $59 for the year. Cancel any time.</span></form>
+    <form method="post" action="/season/${opts.token}" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><button type="submit" name="plan" value="month" class="solid">$7 a month</button><button type="submit" name="plan" value="year" class="ghost">$59 for the year</button><span class="muted" style="font-size:14px">Cancel any time. It stops itself when your window closes.</span></form>
   </div>`}
 </section>
 </main>
@@ -324,8 +325,8 @@ btn.addEventListener('click',function(){if(playing){au.pause();return}if(!ready)
 // ask
 document.querySelectorAll('.askq').forEach(function(b){b.addEventListener('click',function(){$('#askq').value=b.textContent;$('#askq').focus()})});
 $('#askForm').addEventListener('submit',function(e){e.preventDefault();var q=$('#askq').value.trim();if(!q)return;var btn=$('#askBtn');btn.disabled=true;btn.textContent='Thinking\\u2026';
- fetch('/r/'+TOK+'/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q:q})}).then(function(r){return r.json()}).then(function(d){btn.textContent='Ask';if(d.error){btn.disabled=d.left<=0;alert(d.error);return}
- var el=document.createElement('div');el.className='ans swap';el.innerHTML='<b></b><span style="color:#CFC8BA;line-height:1.6"></span>';el.querySelector('b').textContent=q;el.querySelector('span').textContent=d.a;$('#askList').appendChild(el);$('#askq').value='';$('#askLeft').textContent=d.left;btn.disabled=d.left<=0}).catch(function(){btn.textContent='Ask';btn.disabled=false})});
+ fetch('/r/'+TOK+'/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q:q})}).then(function(r){return r.json()}).then(function(d){btn.textContent='Ask';var er=$('#askErr');if(d.error){btn.disabled=d.left<=0;er.textContent=d.error;er.style.display='';return}er.style.display='none';
+ var el=document.createElement('div');el.className='ans swap';el.innerHTML='<b></b><span style="color:#CFC8BA;line-height:1.6"></span>';el.querySelector('b').textContent=q;el.querySelector('span').textContent=d.a;$('#askList').appendChild(el);$('#askq').value='';$('#askLeft').textContent=d.left;btn.disabled=d.left<=0}).catch(function(){btn.textContent='Ask';btn.disabled=false;var er=$('#askErr');er.textContent='Couldn\'t reach the server. Check your connection and try again.';er.style.display=''})});
 })();`;
 
   return shell({ title: `Your Saturn return · Rite`, body, extraCss: CSS, script, nav, description: r.cover_line });

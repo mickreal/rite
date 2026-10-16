@@ -349,7 +349,7 @@ app.get("/r/:tok", async (c) => {
   if (!p) return c.notFound();
   const r = parseReport(pu.report_md);
   if (!r) {
-    const stale = pu.status === "writing" && Date.now() - Date.parse(pu.delivered_at ?? "0") > 4 * 60000; // delivered_at doubles as the writing lock timestamp
+    const stale = pu.status === "writing" && Date.now() - Date.parse(pu.delivered_at ?? "0") > 3 * 60000; // delivered_at doubles as the writing lock timestamp
     if (pu.status === "paid" || stale || (pu.status === "failed" && c.req.query("retry") === "1")) kickGenerate(c.env, c.executionCtx, pu.id);
     const comp0 = recompute(p);
     const failed = pu.status === "failed" && c.req.query("retry") !== "1";
@@ -501,7 +501,7 @@ function kickGenerate(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, t
       if (res.ok) return;
       await log(env, "error", tok, { where: "kick-generate", status: res.status, body: (await res.text()).slice(0, 200) });
     } catch (e) { await log(env, "error", tok, { where: "kick-generate", e: String(e) }); }
-    const lock = await env.DB.prepare("UPDATE purchases SET status='writing', delivered_at=? WHERE id=? AND (status='paid' OR status='failed' OR (status='writing' AND delivered_at < ?))").bind(now(), tok, new Date(Date.now() - 4 * 60000).toISOString()).run();
+    const lock = await env.DB.prepare("UPDATE purchases SET status='writing', delivered_at=? WHERE id=? AND (status='paid' OR status='failed' OR (status='writing' AND delivered_at < ?))").bind(now(), tok, new Date(Date.now() - 3 * 60000).toISOString()).run();
     if (lock.meta.changes) await generateReport(env, tok);
   })());
 }
@@ -564,11 +564,14 @@ async function generateReport(env: Env, tok: string) {
 app.post("/season/:tok", async (c) => {
   const pu = await getPurchase(c.env, c.req.param("tok")); if (!pu) return c.notFound();
   const s = stripe(c.env);
+  const form = await c.req.parseBody().catch(() => ({} as Record<string, unknown>));
+  const yearly = String(form.plan ?? "") === "year";
   const session = await s.checkout.sessions.create({
     mode: "subscription",
     customer_email: pu.email || undefined,
-    line_items: [{ quantity: 1, price_data: { currency: c.env.CURRENCY, unit_amount: parseInt(c.env.PRICE_SEASON_MONTHLY_CENTS, 10), recurring: { interval: "month" }, product_data: { name: "Rite — Saturn Season (weekly)" } } }],
-    metadata: { purchase_id: pu.id },
+    line_items: [{ quantity: 1, price_data: { currency: c.env.CURRENCY, unit_amount: parseInt(yearly ? c.env.PRICE_SEASON_YEARLY_CENTS : c.env.PRICE_SEASON_MONTHLY_CENTS, 10), recurring: { interval: yearly ? "year" : "month" }, product_data: { name: `Rite — Saturn Season (weekly note, ${yearly ? "yearly" : "monthly"})`, description: "A note every Monday until your Saturn return window closes. Stops itself then." } } }],
+    allow_promotion_codes: true,
+    metadata: { purchase_id: pu.id, plan: yearly ? "year" : "month" },
     success_url: `${c.env.SITE_URL}/r/${pu.id}`,
     cancel_url: `${c.env.SITE_URL}/r/${pu.id}`,
   });
