@@ -13,6 +13,9 @@ CURRENCY = "usd"
 MODEL_REPORT = "claude-sonnet-5-5"
 MODEL_PREVIEW = "claude-haiku-5-5"
 TTS_VOICE = "luna"
+ADMIN_EMAIL = ""          # where the daily error digest goes; blank = SUPPORT_EMAIL
+POSTHOG_KEY = ""          # phc_... project key; blank = analytics off
+POSTHOG_HOST = "https://us.i.posthog.com"
 FROM_EMAIL = "Rite <hello@rite.report>"
 SUPPORT_EMAIL = "hello@rite.report"
 

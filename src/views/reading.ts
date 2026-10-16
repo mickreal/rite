@@ -305,7 +305,8 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
 
   const script = `
 (function(){
-var TOK=${JSON.stringify(opts.token)};var $=function(s){return document.querySelector(s)};var Cw=${Cw.toFixed(3)};
+var TOK=${JSON.stringify(opts.token)};var $=function(s){return document.querySelector(s)};function T(n,p){try{window.rite&&window.rite.track(n,p)}catch(e){}}var Cw=${Cw.toFixed(3)};
+document.querySelectorAll('a[href$="calendar.ics"]').forEach(function(a){a.addEventListener('click',function(){T('calendar')})});document.querySelectorAll('form[action^="/season/"]').forEach(function(f){f.addEventListener('submit',function(){T('season_click')})});
 // month tabs
 document.querySelectorAll('.tab').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x===b)});document.querySelectorAll('.mrow').forEach(function(r){r.style.display=r.dataset.y===b.dataset.y?'':'none'})})});
 // localStorage for textareas
@@ -333,10 +334,10 @@ au.addEventListener('pause',function(){playing=false;setUI()});
 au.addEventListener('timeupdate',function(){if(au.duration){bar.style.width=((cur+au.currentTime/au.duration)/CH*100).toFixed(1)+'%'}});
 au.addEventListener('ended',function(){if(cur+1<CH)load(cur+1,true);else{playing=false;setUI();bar.style.width='100%';meta.textContent='Finished'}});
 au.addEventListener('error',function(){playing=false;setUI();meta.textContent='Narration unavailable right now; try again in a moment.'});
-btn.addEventListener('click',function(){if(playing){au.pause();return}if(!ready){ready=true;meta.textContent='Preparing the first chapter\u2026';load(0,true)}else{au.play()}});
+btn.addEventListener('click',function(){if(playing){au.pause();return}if(!ready){T('play');ready=true;meta.textContent='Preparing the first chapter\u2026';load(0,true)}else{au.play()}});
 // ask
 document.querySelectorAll('.askq').forEach(function(b){b.addEventListener('click',function(){$('#askq').value=b.textContent;$('#askq').focus()})});
-$('#askForm').addEventListener('submit',function(e){e.preventDefault();var q=$('#askq').value.trim();if(!q)return;var btn=$('#askBtn');btn.disabled=true;btn.textContent='Thinking\\u2026';
+$('#askForm').addEventListener('submit',function(e){e.preventDefault();var q=$('#askq').value.trim();if(!q)return;T('ask_submit');var btn=$('#askBtn');btn.disabled=true;btn.textContent='Thinking\\u2026';
  fetch('/r/'+TOK+'/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q:q})}).then(function(r){return r.json()}).then(function(d){btn.textContent='Ask';var er=$('#askErr');if(d.error){btn.disabled=d.left<=0;er.textContent=d.error;er.style.display='';return}er.style.display='none';
  var el=document.createElement('div');el.className='ans swap';el.innerHTML='<b></b><span style="color:#CFC8BA;line-height:1.6"></span>';el.querySelector('b').textContent=q;el.querySelector('span').textContent=d.a;$('#askList').appendChild(el);$('#askq').value='';$('#askLeft').textContent=d.left;btn.disabled=d.left<=0}).catch(function(){btn.textContent='Ask';btn.disabled=false;var er=$('#askErr');er.textContent="Couldn't reach the server. Check your connection and try again.";er.style.display=''})});
 })();`;

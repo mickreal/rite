@@ -112,6 +112,8 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
 </section>`;
 
   const script = `
+function T(n,p){try{window.rite&&window.rite.track(n,p)}catch(e){}}
+document.querySelectorAll('form[action="/checkout"]').forEach(function(f){f.addEventListener('submit',function(){T('checkout_click',{has_time:${opts.hasTime ? "true" : "false"}})})});document.querySelectorAll('form[action="/remind"]').forEach(function(f){f.addEventListener('submit',function(){T('remind_submit')})});document.querySelectorAll('a[href="/gift"]').forEach(function(a){a.addEventListener('click',function(){T('gift_click')})});document.querySelectorAll('a[download]').forEach(function(a){a.addEventListener('click',function(){T('share_card')})});
 (function(){var P=${JSON.stringify(passes.map((p) => ({ name: p.name, body: p.body })))};
 document.querySelectorAll('.pass').forEach(function(b){b.addEventListener('click',function(){var i=+b.dataset.i;document.querySelectorAll('.pass').forEach(function(x){x.classList.toggle('on',x===b);x.setAttribute('aria-pressed',x===b)});document.querySelectorAll('.pp').forEach(function(c){c.style.opacity=+c.dataset.i===i?1:0});document.getElementById('passName').textContent=P[i].name;document.getElementById('passBody').textContent=P[i].body;var el=document.getElementById('passInfo');el.classList.remove('swap');void el.offsetWidth;el.classList.add('swap')})});
 })();`;

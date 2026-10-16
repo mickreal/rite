@@ -97,7 +97,7 @@ ${opts.og ? html`<meta property="og:image" content="${opts.og}"><meta name="twit
   ${opts.nav ?? html`<nav class="main"><a href="/#reading">The reading</a><a href="/#price">Price</a><a href="/#faq">Questions</a><a href="/#start" class="ghost">Get my dates</a></nav>`}
 </header>
 ${opts.body}
-${opts.noFooter ? "" : html`<footer class="bottom"><div class="in"><a href="/">Rite: Saturn Return</a><span>Personal guidance for the transits that have names.</span></div></footer>`}
+${opts.noFooter ? "" : html`<footer class="bottom"><div class="in"><a href="/">Rite: Saturn Return</a><span style="display:flex;gap:18px;flex-wrap:wrap;align-items:center"><span>Personal guidance for the transits that have names.</span><a href="/privacy" style="font:inherit;color:#A7A196;font-weight:500">Privacy</a><a href="/terms" style="font:inherit;color:#A7A196;font-weight:500">Terms</a><a href="/refunds" style="font:inherit;color:#A7A196;font-weight:500">Refunds</a></span></div></footer>`}
 ${opts.script ? html`<script>${raw(opts.script)}</script>` : ""}
 </body>
 </html>`;

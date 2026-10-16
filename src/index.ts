@@ -17,6 +17,7 @@ import { landingPage } from "./views/landing";
 import { flowPage } from "./views/flow";
 import { giftPage } from "./views/gift";
 import { writingPage } from "./views/writing";
+import { legalPage } from "./views/legal";
 import { narrationText, splitForTts, CHAPTERS } from "./narration";
 import { resultPage } from "./views/result";
 import { SIGN_NOTES } from "./content/notes";
@@ -31,10 +32,11 @@ export interface Env {
   MODEL_REPORT: string; MODEL_PREVIEW: string;
   FROM_EMAIL: string; SUPPORT_EMAIL: string;
   STRIPE_SECRET_KEY: string; STRIPE_WEBHOOK_SECRET: string; ANTHROPIC_API_KEY: string; RESEND_API_KEY: string;
-  AI?: Ai; TTS_VOICE?: string;
+  AI?: Ai; TTS_VOICE?: string; ADMIN_EMAIL?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
+app.use("*", async (c, next) => { await next(); if (c.res && c.req.method === "GET") c.res = withAnalytics(c.env, c.res, new URL(c.req.url).pathname); });
 
 // ---------- helpers ----------
 const id = (n = 12) => { const b = new Uint8Array(n); crypto.getRandomValues(b); return [...b].map((x) => x.toString(36).padStart(2, "0")).join("").slice(0, n); };
@@ -42,8 +44,28 @@ const token = () => id(32);
 const now = () => new Date().toISOString();
 const adminOk = (env: Env, auth: string | undefined) => !!env.STRIPE_WEBHOOK_SECRET && env.STRIPE_WEBHOOK_SECRET.length > 10 && auth === `Bearer ${env.STRIPE_WEBHOOK_SECRET}`;
 const stripe = (env: Env) => new Stripe(env.STRIPE_SECRET_KEY, { httpClient: Stripe.createFetchHttpClient() });
+const FUNNEL = new Set(["preview", "checkout", "paid", "generated", "gift_paid", "gift_redeemed", "season_start", "season_sent", "ask", "narrated", "refund", "error"]);
 async function log(env: Env, kind: string, ref?: string | null, detail?: unknown) {
   try { await env.DB.prepare("INSERT INTO events (at, kind, ref, detail) VALUES (?,?,?,?)").bind(now(), kind, ref ?? null, detail ? JSON.stringify(detail).slice(0, 2000) : null).run(); } catch (e) { console.error("log", e); }
+  if (env.POSTHOG_KEY && FUNNEL.has(kind)) {
+    try {
+      await fetch(`${env.POSTHOG_HOST || "https://us.i.posthog.com"}/capture/`, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ api_key: env.POSTHOG_KEY, event: `server_${kind}`, distinct_id: ref || "anonymous", properties: { ...(detail && typeof detail === "object" ? detail as Record<string, unknown> : {}), $lib: "rite-worker" }, timestamp: now() }) });
+    } catch { /* analytics never blocks */ }
+  }
+}
+
+// Client-side PostHog: injected into every HTML page when POSTHOG_KEY is set. Autocapture and session recording off; the
+// pages call window.rite.track(name, props) for the funnel events, and every page sends one pageview.
+function withAnalytics(env: Env, res: Response, path: string): Response {
+  if (!env.POSTHOG_KEY || !(res.headers.get("content-type") || "").includes("text/html")) return res;
+  // never tag the private pages with their tokens
+  const page = path.startsWith("/r/") ? "/r/:tok" : path.startsWith("/p/") ? "/p/:id" : path.startsWith("/gift/") ? "/gift/:code" : path;
+  const snippet = `<script>!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload identify alias people.set people.set_once set_config startSessionRecording stopSessionRecording get_distinct_id".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+posthog.init(${JSON.stringify(env.POSTHOG_KEY)},{api_host:${JSON.stringify(env.POSTHOG_HOST || "https://us.i.posthog.com")},autocapture:false,capture_pageview:false,disable_session_recording:true,persistence:"localStorage+cookie"});
+posthog.capture("$pageview",{page:${JSON.stringify(page)}});
+window.rite={track:function(n,p){try{posthog.capture(n,Object.assign({page:${JSON.stringify(page)}},p||{}))}catch(e){}}};</script>`;
+  return new HTMLRewriter().on("head", { element(el) { el.append(snippet, { html: true }); } }).transform(res);
 }
 
 interface PreviewRow {
@@ -128,8 +150,11 @@ app.get("/saturn-return/saturn-in/:sign", async (c) => {
   return c.html(signPage({ siteUrl: c.env.SITE_URL, d }), 200, { "cache-control": "public, max-age=3600" });
 });
 app.get("/saturn-return", (c) => c.redirect("/", 301));
+app.get("/privacy", (c) => c.html(legalPage({ siteUrl: c.env.SITE_URL, page: "privacy", supportEmail: c.env.SUPPORT_EMAIL })));
+app.get("/terms", (c) => c.html(legalPage({ siteUrl: c.env.SITE_URL, page: "terms", supportEmail: c.env.SUPPORT_EMAIL })));
+app.get("/refunds", (c) => c.html(legalPage({ siteUrl: c.env.SITE_URL, page: "refunds", supportEmail: c.env.SUPPORT_EMAIL })));
 app.get("/sitemap.xml", (c) => {
-  const urls = ["/", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
+  const urls = ["/", "/gift", "/privacy", "/terms", "/refunds", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
   return c.body(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join("")}</urlset>`, 200, { "content-type": "application/xml" });
 });
 app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\nDisallow: /p/\nDisallow: /r/\nDisallow: /admin/\nSitemap: ${c.env.SITE_URL}/sitemap.xml\n`));
@@ -302,6 +327,17 @@ app.post("/internal/generate/:tok", async (c) => {
   if (!lock.meta.changes) return c.text("busy or done");
   await generateReport(c.env, tok);
   return c.text("ok");
+});
+
+app.post("/admin/season/:tok", async (c) => {
+  // Force one Saturn Season note for a purchase, to the purchaser (or ?to=you@x) — doesn't touch last_sent_at when `to` is given.
+  if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
+  const tok = c.req.param("tok");
+  const r = await c.env.DB.prepare(`SELECT COALESCE(s.id, 'none') sub_id, p.id purchase_id, s.last_sent_at, p.email, p.first_name, pv.* FROM purchases p JOIN previews pv ON pv.id = p.preview_id LEFT JOIN subscriptions s ON s.purchase_id = p.id AND s.status='active' WHERE p.id = ?`).bind(tok).first<SeasonRow>();
+  if (!r) return c.json({ ok: false, error: "no such purchase" }, 404);
+  const to = c.req.query("to") || undefined;
+  const result = await sendSeasonNote(c.env, r, new Date(), to ?? r.email);
+  return c.json({ ok: result === "sent" || result === "complete", result, to: to ?? r.email });
 });
 
 app.post("/admin/fulfil", async (c) => {
@@ -647,45 +683,75 @@ app.get("/admin/stats", async (c) => {
 });
 
 // ---------- cron: Saturn Season ----------
+type SeasonRow = PreviewRow & { sub_id: string; purchase_id: string; last_sent_at: string | null; email: string; first_name: string | null };
+
 async function runSeason(env: Env) {
-  const subs = await env.DB.prepare(`SELECT s.id sub_id, s.purchase_id, s.last_sent_at, p.email, p.first_name, pv.* FROM subscriptions s JOIN purchases p ON p.id = s.purchase_id JOIN previews pv ON pv.id = p.preview_id WHERE s.status='active'`).all<PreviewRow & { sub_id: string; purchase_id: string; last_sent_at: string | null; email: string; first_name: string | null }>();
+  const subs = await env.DB.prepare(`SELECT s.id sub_id, s.purchase_id, s.last_sent_at, p.email, p.first_name, pv.* FROM subscriptions s JOIN purchases p ON p.id = s.purchase_id JOIN previews pv ON pv.id = p.preview_id WHERE s.status='active'`).all<SeasonRow>();
   const today = new Date();
   for (const r of subs.results) {
     // Send Mondays at 07:00 local, once.
     const localDow = new Intl.DateTimeFormat("en-US", { timeZone: r.tz, weekday: "short" }).format(today);
     if (localDow !== "Mon" || localHour(r.tz, today) !== 7) continue;
     if (r.last_sent_at && today.getTime() - Date.parse(r.last_sent_at) < 6 * 86400000) continue;
+    await sendSeasonNote(env, r, today);
+  }
+}
 
-    const comp = recompute(r, today);
-    const o = comp.todayOrb;
-    if (comp.phase === "complete") { // Saturn has left the natal sign: the window everyone was shown is closed
-      const m = seasonCompleteEmail({ firstName: r.first_name });
-      await sendEmail(env, r.email, m.subject, m.text);
+/** One weekly Saturn Season note (or the season-complete email + Stripe cancel once the window has closed). */
+async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: string): Promise<string> {
+  const comp = recompute(r, today);
+  const o = comp.todayOrb;
+  const dest = to ?? r.email;
+  if (comp.phase === "complete") { // Saturn has left the natal sign: the window everyone was shown is closed
+    const m = seasonCompleteEmail({ firstName: r.first_name });
+    await sendEmail(env, dest, m.subject, m.text);
+    if (!to) {
       try { await stripe(env).subscriptions.cancel(r.sub_id); } catch (e) { console.error(e); }
       await env.DB.prepare("UPDATE subscriptions SET status='complete', last_sent_at=? WHERE id=?").bind(now(), r.sub_id).run();
       await log(env, "season_complete", r.purchase_id);
-      continue;
     }
-    const tl = saturnLongitude(today);
-    const st = comp.nextStation;
-    const nextHit = comp.window.hits.find((h) => h >= today.toISOString().slice(0, 10));
-    const motion = comp.retrograde
-      ? `It's retrograde${st ? ` until ${fmtDay(st.date)}` : ""}${comp.window.hits.length === 3 ? ", so this is a second pass" : ""}.`
-      : `It's direct${nextHit ? ` and closing in; your exact hit is ${fmtDay(nextHit)}` : ""}.`;
-    let body = "";
-    try {
-      body = await writeSeason(env, { sign: comp.sign, house: comp.house, orb: Math.round(Math.abs(o) * 10) / 10, direction: o < 0 ? "applying" : "separating", retrograde: comp.retrograde, next_hit: nextHit ? fmtDay(nextHit) : null, next_station: st ? `${fmtDay(st.date)} (${st.to})` : null, phase: comp.phase });
-    } catch (e) { await log(env, "error", r.purchase_id, { where: "season-llm", e: String(e) }); continue; }
-    const m = seasonEmail({
-      firstName: r.first_name, transitDeg: `${Math.floor(degreeInSign(tl))}°`, transitSign: signOf(tl),
-      orb: `${Math.round(Math.abs(o) * 10) / 10}°`, dir: o < 0 ? "from" : "past", motionSentence: motion, body,
-      manageUrl: `${env.SITE_URL}/season/stop/${r.purchase_id}`,
-    });
-    if (await sendEmail(env, r.email, m.subject, m.text)) {
-      await env.DB.prepare("UPDATE subscriptions SET last_sent_at=? WHERE id=?").bind(now(), r.sub_id).run();
-      await log(env, "season_sent", r.purchase_id);
-    }
+    return "complete";
   }
+  const tl = saturnLongitude(today);
+  const st = comp.nextStation;
+  const nextHit = comp.window.hits.find((h) => h >= today.toISOString().slice(0, 10));
+  const motion = comp.retrograde
+    ? `It's retrograde${st ? ` until ${fmtDay(st.date)}` : ""}${comp.window.hits.length === 3 ? ", so this is a second pass" : ""}.`
+    : `It's direct${nextHit ? ` and closing in; your exact hit is ${fmtDay(nextHit)}` : ""}.`;
+  let body = "";
+  try {
+    body = await writeSeason(env, { sign: comp.sign, house: comp.house, orb: Math.round(Math.abs(o) * 10) / 10, direction: o < 0 ? "applying" : "separating", retrograde: comp.retrograde, next_hit: nextHit ? fmtDay(nextHit) : null, next_station: st ? `${fmtDay(st.date)} (${st.to})` : null, phase: comp.phase });
+  } catch (e) { await log(env, "error", r.purchase_id, { where: "season-llm", e: String(e) }); return "llm-failed"; }
+  const m = seasonEmail({
+    firstName: r.first_name, transitDeg: `${Math.floor(degreeInSign(tl))}°`, transitSign: signOf(tl),
+    orb: `${Math.round(Math.abs(o) * 10) / 10}°`, dir: o < 0 ? "from" : "past", motionSentence: motion, body,
+    manageUrl: `${env.SITE_URL}/season/stop/${r.purchase_id}`,
+  });
+  const ok = await sendEmail(env, dest, m.subject, m.text);
+  if (ok && !to) {
+    await env.DB.prepare("UPDATE subscriptions SET last_sent_at=? WHERE id=?").bind(now(), r.sub_id).run();
+    await log(env, "season_sent", r.purchase_id);
+  }
+  return ok ? "sent" : "email-failed";
+}
+
+/** Daily digest of errors to the admin inbox (08:00 Brisbane), only when there is something to say. */
+async function runCleanup(env: Env) {
+  if (localHour("Australia/Brisbane", new Date()) !== 4) return;
+  const cutoff = new Date(Date.now() - 90 * 86400000).toISOString();
+  const r = await env.DB.prepare("DELETE FROM previews WHERE created_at < ? AND id NOT IN (SELECT preview_id FROM purchases) AND id NOT IN (SELECT preview_id FROM reminders)").bind(cutoff).run();
+  if (r.meta.changes) await log(env, "cleanup", null, { previews: r.meta.changes });
+}
+
+async function runErrorDigest(env: Env) {
+  const today = new Date();
+  if (localHour("Australia/Brisbane", today) !== 8) return;
+  const since = new Date(today.getTime() - 24 * 3600000).toISOString();
+  const rows = await env.DB.prepare("SELECT at, ref, detail FROM events WHERE kind='error' AND at > ? ORDER BY at DESC LIMIT 50").bind(since).all<{ at: string; ref: string | null; detail: string | null }>();
+  const counts = await env.DB.prepare("SELECT kind, COUNT(*) n FROM events WHERE at > ? GROUP BY kind ORDER BY n DESC").bind(since).all<{ kind: string; n: number }>();
+  if (!rows.results.length) return;
+  const text = `Rite, last 24h\n\n${counts.results.map((c) => `${c.kind}: ${c.n}`).join("\n")}\n\nErrors (${rows.results.length}):\n${rows.results.map((r) => `${r.at.slice(0, 16)}  ${r.ref ?? "-"}  ${(r.detail ?? "").slice(0, 220)}`).join("\n")}\n\n${env.SITE_URL}/admin/stats`;
+  await sendEmail(env, env.ADMIN_EMAIL || env.SUPPORT_EMAIL, `Rite: ${rows.results.length} error${rows.results.length === 1 ? "" : "s"} in the last 24h`, text);
 }
 
 /** One email a week before each stage opens (contact, integration, window close, then the squares/opposition ahead). Idempotent. */
@@ -735,5 +801,5 @@ You asked for this one email. There is nothing to unsubscribe from.`);
 
 export default {
   fetch: app.fetch,
-  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env)])); },
+  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runErrorDigest(env), runCleanup(env)])); },
 };

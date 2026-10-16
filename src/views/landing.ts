@@ -334,7 +334,9 @@ var season=$('.season'),art=$('#art'),raf=null;var hasST=window.CSS&&CSS.support
 function fade(){raf=null;if(hasST||window.innerWidth<=900){art.style.opacity='';art.style.transform='';return}var top=season.getBoundingClientRect().top,h=window.innerHeight,o=Math.max(0,Math.min(1,(top-h*0.25)/(h*0.5)));art.style.opacity=(0.08+0.92*o).toFixed(3);art.style.transform='translateY('+((1-o)*-24).toFixed(1)+'px) scale('+(0.97+0.03*o).toFixed(3)+')'}
 window.addEventListener('scroll',function(){if(!raf)raf=requestAnimationFrame(fade)},{passive:true});fade();
 $('#bd').addEventListener('change',calc);$('#bt').addEventListener('change',calc);var qd=new URLSearchParams(location.search).get('d');if(qd&&!$('#bd').value&&/^\\d{4}-\\d{2}-\\d{2}$/.test(qd))$('#bd').value=qd;if($('#bd').value)calc();
-$('#start').addEventListener('submit',function(){var b=$('#go');b.disabled=true;b.textContent='Calculating\\u2026'});
+function T(n,p){try{window.rite&&window.rite.track(n,p)}catch(e){}}
+$('#start').addEventListener('submit',function(){T('preview_submit',{has_time:!!$('#bt').value});var b=$('#go');b.disabled=true;b.textContent='Calculating\\u2026'});
+document.querySelectorAll('a[href="/gift"]').forEach(function(a){a.addEventListener('click',function(){T('gift_click')})});
 // every "#start" link: if the form is already filled, submit it; otherwise scroll to the top (the form lives in the hero) and focus the first empty field
 document.querySelectorAll('a[href="#start"]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();var form=$('#start'),d=$('#bd'),pl=$('#bp');
  if(d.value&&pl.value.trim()){form.requestSubmit?form.requestSubmit():$('#go').click();return}

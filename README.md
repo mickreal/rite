@@ -112,6 +112,14 @@ Every number comes from code. The model only writes prose and is told it may not
 - **Stage reminders**: when a reading is written, `stage_reminders` gets one row per future stage opening (contact, integration, window close, then the first square / opposition / closing square ahead). The hourly cron emails each one seven days before (`stageReminderEmail`), once. Workbook prompts for a phase stay locked until that phase opens.
 - **Narration**: `GET /r/:tok/audio/:ch.mp3` (chapters 0–8) builds a plain-text script from the same computed data + report JSON (`src/narration.ts`), sends it in ≤1800-char sentence-aligned chunks to Workers AI `@cf/deepgram/aura-1` (voice `TTS_VOICE`, default `luna`), concatenates the MP3 and caches it in KV for a year. The player on the reading page plays chapters back to back and prefetches the next. Cost is about $0.015 per 1,000 characters, so roughly 30 cents per reading, once. Needs the `[ai]` binding in `wrangler.toml` (no dashboard setup); the binding only works deployed or with `wrangler dev --remote`.
 
+## Analytics, legal, ops
+
+- **PostHog**: set `POSTHOG_KEY` (and `POSTHOG_HOST` if not US) as vars in `wrangler.toml`. Every HTML page gets the snippet injected (autocapture and session recording off) and sends one `$pageview` with the path templated (`/r/:tok`, never the token). Client events: `preview_submit`, `checkout_click`, `remind_submit`, `gift_click`, `share_card`, `play`, `ask_submit`, `calendar`, `season_click`. Server events mirror the funnel from `log()`: `server_preview`, `server_checkout`, `server_paid`, `server_generated`, `server_gift_paid`, `server_gift_redeemed`, `server_season_start`, `server_ask`, `server_narrated`, `server_refund`, `server_error`. Without the key, nothing is sent.
+- **Legal**: `/privacy`, `/terms`, `/refunds` (`views/legal.ts`), linked from the footer and the sitemap. Point Stripe's checkout "Terms" and "Privacy" links at them (Stripe dashboard → Settings → Public details).
+- **Daily error digest**: the hourly cron emails `ADMIN_EMAIL` (falls back to `SUPPORT_EMAIL`) at 08:00 Brisbane with the last 24 h of event counts and error rows, only when there were errors.
+- **Cleanup**: previews older than 90 days that were never bought and have no reminder are deleted daily at 04:00 Brisbane (the privacy page says so).
+- **Admin**: `POST /admin/season/:tok?to=you@x` forces one Saturn Season note for that purchase to any address (doesn't touch the subscription's schedule); `POST /admin/fulfil`, `/admin/refund`, `/admin/stats` as before. Bearer token is the Stripe webhook secret.
+
 ## Not built yet
 
 - PNG share card (Cloudflare Browser Rendering or resvg-wasm) — SVG is served now; the OG image is a pre-rendered PNG because social crawlers won't render SVG.
