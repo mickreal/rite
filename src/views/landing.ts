@@ -92,7 +92,6 @@ const CSS = `
 .split{animation:split .7s cubic-bezier(.2,1.2,.4,1) both}@keyframes split{from{opacity:0;transform:translateX(-70%) scale(.9)}to{opacity:1;transform:none}}
 .hint:hover{color:#9A948A}
 .heroText>p,.heroText>form{contain:inline-size}
-@media (prefers-reduced-motion: reduce){.glyph,.popd,.row,.pg,.echoLine,.echo .pdial,.echo .pring,.echo .parc,.echo .pmark,.echo .psat,.split,.ln{opacity:1;transform:none}.drawp,.ringd{stroke-dashoffset:0}.fillt{transform:none}.p1{transform:translate(-120px,24px) rotate(-9deg)}.p3{transform:translate(120px,24px) rotate(9deg)}}
 .d7{animation-delay:.8s!important}.d8{animation-delay:.92s!important}.d9{animation-delay:1.04s!important}
 .rd0{display:flex;align-items:center;gap:12px;font-size:17px;color:#BDB6A8;white-space:nowrap}
 .dot{width:8px;height:8px;border-radius:50%;background:#F2B544;flex:0 0 auto;animation:dotp 2s ease-in-out infinite}
@@ -131,6 +130,8 @@ const CSS = `
 #reading{overflow-x:clip}
 .nw{white-space:nowrap}@media (max-width:520px){.nw{white-space:normal}}
 @media (max-width:900px){.echo{right:-360px!important;opacity:.7}}
+/* reduced motion last: it has to beat the opacity:0 starting states above at equal specificity */
+@media (prefers-reduced-motion: reduce){.glyph,.popd,.row,.pg,.echoLine,.echo .pdial,.echo .pring,.echo .parc,.echo .pmark,.echo .psat,.split,.ln{opacity:1;transform:none}.drawp,.ringd{stroke-dashoffset:0}.fillt{transform:none}.p1{transform:translate(-120px,24px) rotate(-9deg)}.p3{transform:translate(120px,24px) rotate(9deg)}}
 `;
 
 const ORBIT = `<svg viewBox="0 0 600 600" style="width:100%;height:100%;display:block;overflow:visible" role="img" aria-label="Saturn orbiting back toward the point it held when you were born">
