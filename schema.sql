@@ -60,3 +60,24 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE INDEX IF NOT EXISTS idx_purchases_preview ON purchases(preview_id);
 CREATE INDEX IF NOT EXISTS idx_events_kind_at ON events(kind, at);
+
+CREATE TABLE IF NOT EXISTS reminders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  preview_id TEXT NOT NULL REFERENCES previews(id),
+  email TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  hit_date TEXT NOT NULL,          -- the pass this reminder is for (YYYY-MM-DD)
+  send_on TEXT NOT NULL,           -- hit_date - 7 days
+  sent_at TEXT,
+  UNIQUE(preview_id, email, hit_date)
+);
+CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(send_on, sent_at);
+
+CREATE TABLE IF NOT EXISTS asks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  purchase_id TEXT NOT NULL REFERENCES purchases(id),
+  created_at TEXT NOT NULL,
+  q TEXT NOT NULL,
+  a TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_asks_purchase ON asks(purchase_id);

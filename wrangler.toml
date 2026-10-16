@@ -32,3 +32,6 @@ crons = ["0 * * * *"]  # hourly; the handler sends Saturn Season mail at 07:00 i
 
 [observability]
 enabled = true
+
+[assets]
+directory = "./public"

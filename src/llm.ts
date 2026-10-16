@@ -13,7 +13,6 @@ async function complete(env: Env, model: string, system: string, user: string, m
     },
     body: JSON.stringify({
       model, max_tokens: maxTokens,
-      thinking: { type: "disabled" },
       system,
       messages: [{ role: "user", content: user }],
     }),
@@ -35,7 +34,7 @@ export function extractText(raw: string): string {
     if (Array.isArray(v)) { v.forEach((x) => walk(x, depth + 1)); return; }
     if (typeof v === "object") {
       const o = v as Record<string, unknown>;
-      if (o.type !== "thinking" && typeof o.text === "string") { out.push(o.text); return; }
+      if (o.type === "text" && typeof o.text === "string") { out.push(o.text); return; }
       for (const k of ["content", "output", "message", "blocks"]) if (k in o) walk(o[k], depth + 1);
     }
   };
@@ -44,7 +43,7 @@ export function extractText(raw: string): string {
 }
 
 export function writePreview(env: Env, inputs: unknown) {
-  return complete(env, env.MODEL_PREVIEW, previewSystem(), JSON.stringify(inputs), 1200);
+  return complete(env, env.MODEL_PREVIEW, previewSystem(), JSON.stringify(inputs), 400);
 }
 
 export function writeReport(env: Env, inputs: unknown) {
@@ -52,12 +51,24 @@ export function writeReport(env: Env, inputs: unknown) {
 }
 
 export function writeSeason(env: Env, inputs: unknown) {
-  return complete(env, env.MODEL_PREVIEW, seasonSystem(), JSON.stringify(inputs), 800);
+  return complete(env, env.MODEL_PREVIEW, seasonSystem(), JSON.stringify(inputs), 300);
 }
 
 /** Guard: every date-like token in the output must appear in the inputs' date list. */
 export function datesAreGrounded(text: string, allowed: string[]): boolean {
-  const found = text.match(/\b\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4}\b/g) ?? [];
-  const ok = new Set(allowed);
-  return found.every((d) => ok.has(d));
+  const found = text.match(/\b\d{1,2} (January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.? \d{4}\b/g) ?? [];
+  const ok = new Set(allowed.map(norm));
+  return found.every((d) => ok.has(norm(d)));
+}
+function norm(d: string) { return d.replace(/\.|(?<=\b[A-Z][a-z]{2})[a-z]+/g, "").replace(/\s+/g, " "); }
+
+/** Pull the first JSON object out of a model reply (tolerates fences / stray prose). */
+export function parseJsonReply<T>(text: string): T {
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error("no JSON object in reply: " + text.slice(0, 200));
+  return JSON.parse(m[0]) as T;
+}
+
+export function answerQuestion(env: Env, system: string, user: string) {
+  return complete(env, env.MODEL_PREVIEW, system, user, 700);
 }

@@ -20,11 +20,11 @@ export function deliveryEmail(p: {
   const subject = `Your Saturn return — ${p.sign}, ${p.windowStart} to ${p.windowEnd}`;
   const text = `${name},
 
-Your report's ready: ${p.reportUrl}
+Your reading's ready: ${p.reportUrl}
 
 The short version: Saturn in ${p.sign}${p.housePhrase}. Your window runs ${p.windowStart} to ${p.windowEnd}. ${p.hitSentence}
 
-Your share card is at the bottom of the report page — no personal details on it, just the sign and the dates. Use your browser's print or "Save as PDF" on the report page for a copy to keep.
+Keep that link; the page updates as you move through the cycle, so it reads differently next year. At the top you can add every date to your calendar, print it to PDF, and save a share card (no personal details on it, just the sign and the dates). Five follow-up questions are included at the bottom.
 
 If the Saturn sign is wrong, reply to this and I'll refund you.
 

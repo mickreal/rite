@@ -1,13 +1,21 @@
 import { Hono } from "hono";
 import Stripe from "stripe";
 import { geocode } from "./geo";
-import { compute, reportInputs, fmtMonth, fmtDay, hitSentence, phaseSentence, houseLabel, type Computed } from "./compute";
-import { writePreview, writeReport, writeSeason, datesAreGrounded } from "./llm";
+import { compute, cycle, reportInputs, fmtMonth, fmtDay, hitSentence, phaseSentence, houseLabel, type Computed } from "./compute";
+import { askSystem } from "./content/prompts";
+import { stageAt } from "./astro/cycle";
+import SIGN_PERIODS from "./content/sign-periods.json";
+import { signPage, type SignPageData } from "./views/sign";
+import { SIGNS, type Sign } from "./astro/saturn";
+import { writePreview, writeReport, writeSeason, datesAreGrounded, parseJsonReply, answerQuestion } from "./llm";
 import { sendEmail, deliveryEmail, seasonEmail, seasonCompleteEmail } from "./email";
-import { homePage, type PreviewView } from "./views/home";
-import { reportPage } from "./views/report";
-import { shareCardSvg } from "./card";
+import { readingPage, type ReportJson } from "./views/reading";
+import { shareCardSvg, ogSvg } from "./card";
 import { saturnLongitude, signOf, degreeInSign, orb, isRetrograde, nextStation, type Phase } from "./astro/saturn";
+import { smallChart, fmtMonYr, fmtMonYrL, untilText } from "./astro/cycle";
+import { landingPage } from "./views/landing";
+import { flowPage } from "./views/flow";
+import { resultPage } from "./views/result";
 import { SIGN_NOTES } from "./content/notes";
 import { localHour } from "./geo";
 
@@ -55,8 +63,65 @@ async function getPurchase(env: Env, tok: string) {
 // ---------- pages ----------
 app.get("/", async (c) => {
   await log(c.env, "visit", c.req.query("r") ?? null);
-  return c.html(homePage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? undefined }));
+  return c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? undefined }));
 });
+
+/** Live numbers for the landing widget: date (+ optional time), no place → noon UTC, sign-level only. */
+app.get("/start", (c) => c.html(flowPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? undefined, form: { date: c.req.query("d") ?? undefined } })));
+app.get("/api/calc", async (c) => {
+  const date = c.req.query("date") ?? "", time = c.req.query("time") || null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return c.json({ error: "date" }, 400);
+  const key = `calc:${date}:${time ?? ""}:${new Date().toISOString().slice(0, 10)}`;
+  const cached = await c.env.CACHE.get(key);
+  if (cached) return c.body(cached, 200, { "content-type": "application/json", "cache-control": "public, max-age=3600" });
+  let comp: Computed;
+  try { comp = compute({ date, time: time && /^\d{2}:\d{2}$/.test(time) ? time : null, place: { label: "", lat: 0, lon: 0, tz: "UTC" } }); }
+  catch { return c.json({ error: "range" }, 422); }
+  const w = comp.window, now = Date.now(), open = Date.parse(w.windowStart), close = Date.parse(w.windowEnd);
+  const frac = Math.max(0, Math.min(1, (now - open) / (close - open)));
+  const inside = now >= open && now <= close;
+  const wa = (((saturnLongitude(new Date()) - comp.natalLon) % 360) + 360) % 360;
+  const out = {
+    sign: comp.sign, degree: Math.floor(comp.degree), returnNumber: comp.returnNumber,
+    angle: +wa.toFixed(2), pct: Math.round(wa / 360 * 100), inside, frac: +frac.toFixed(3),
+    windowOpen: fmtMonYr(open), windowOpenLong: fmtMonYrL(open), windowClose: fmtMonYr(close),
+    opensIn: inside ? "You are here" : now < open ? "Opens " + untilText(new Date(), open) : "Closed",
+    ticks: w.hits.map((h) => +((Date.parse(h) - open) / (close - open) * 100).toFixed(1)),
+    hits: w.hits.map((h) => fmtMonYrL(Date.parse(h))),
+    chart: smallChart(comp.natalLon, w),
+  };
+  const body = JSON.stringify(out);
+  c.executionCtx.waitUntil(c.env.CACHE.put(key, body, { expirationTtl: 86400 }));
+  return c.body(body, 200, { "content-type": "application/json", "cache-control": "public, max-age=3600" });
+});
+
+app.get("/og.svg", (c) => c.body(ogSvg(), 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=86400" }));
+// ---------- public sign pages (SEO) ----------
+function signData(sign: Sign): SignPageData {
+  const periods = (SIGN_PERIODS as Record<string, Array<{ from: string; to: string }>>)[sign]; // precomputed: scripts/gen-sign-periods.ts
+  // group dips with their main stretch (gap under 18 months)
+  const groups: Array<Array<{ from: string; to: string }>> = [];
+  for (const p of periods) { const g = groups[groups.length - 1]; if (g && Date.parse(p.from) - Date.parse(g[g.length - 1].to) < 548 * 86400000) g.push(p); else groups.push([p]); }
+  const now = new Date().toISOString().slice(0, 10);
+  let cur = groups.find((g) => now >= g[0].from && now <= g[g.length - 1].to) ?? groups.find((g) => g[0].from > now) ?? groups[groups.length - 1];
+  const y = (iso: string, dy: number) => `${parseInt(iso.slice(0, 4), 10) + dy}${iso.slice(4)}`;
+  const start = cur[0].from;
+  const pick = (lo: number, hi: number) => groups.filter((g) => g[0].from >= y(start, lo) && g[0].from <= y(start, hi)).flat();
+  return { sign, current: cur, firstBorn: pick(-33, -26), secondBorn: pick(-63, -55), now };
+}
+app.get("/saturn-return/saturn-in/:sign", async (c) => {
+  const q = c.req.param("sign").toLowerCase();
+  const sign = SIGNS.find((x) => x.toLowerCase() === q);
+  if (!sign) return c.notFound();
+  const d = signData(sign);
+  return c.html(signPage({ siteUrl: c.env.SITE_URL, d }), 200, { "cache-control": "public, max-age=3600" });
+});
+app.get("/saturn-return", (c) => c.redirect("/", 301));
+app.get("/sitemap.xml", (c) => {
+  const urls = ["/", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
+  return c.body(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join("")}</urlset>`, 200, { "content-type": "application/xml" });
+});
+app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\nDisallow: /p/\nDisallow: /r/\nDisallow: /admin/\nSitemap: ${c.env.SITE_URL}/sitemap.xml\n`));
 
 app.get("/favicon.svg", (c) => c.body(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" fill="none"><rect width="44" height="44" fill="#111418"/><g stroke="#d4b66a" stroke-width="2" fill="none"><circle cx="22" cy="22" r="7.5" fill="#d4b66a"/><ellipse cx="22" cy="22" rx="19" ry="7.8" transform="rotate(-28 22 22)"/></g></svg>`, 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=604800" }));
 
@@ -66,7 +131,7 @@ app.post("/preview", async (c) => {
   const placeQ = String(form.place ?? "").trim();
   const time = String(form.time ?? "").trim() || null;
   const ref = String(form.ref ?? "").trim() || null;
-  const back = (error: string) => c.html(homePage({ siteUrl: c.env.SITE_URL, error, form: { date, place: placeQ, time: time ?? "" } }), 400);
+  const back = (error: string) => c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: ref ?? undefined, error, form: { date, place: placeQ, time: time ?? "" } }), 400);
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return back("Enter your birth date.");
   if (!placeQ) return back("Enter the city you were born in.");
@@ -103,8 +168,25 @@ app.get("/p/:id", async (c) => {
   const p = await getPreview(c.env, c.req.param("id"));
   if (!p) return c.redirect("/");
   const comp = recompute(p);
-  const pv: PreviewView = { id: p.id, c: comp, text: p.preview_text ?? "", placeLabel: p.place_label, hasTime: !!p.birth_time };
-  return c.html(homePage({ siteUrl: c.env.SITE_URL, preview: pv, form: { date: p.birth_date, place: p.place_label, time: p.birth_time ?? "" } }));
+  const birthLabel = fmtDay(p.birth_date) + (p.birth_time ? `, ${p.birth_time}` : "");
+  return c.html(resultPage({ siteUrl: c.env.SITE_URL, id: p.id, c: comp, text: p.preview_text ?? "", placeLabel: p.place_label, birthLabel, hasTime: !!p.birth_time, reminded: c.req.query("reminded") === "1" }));
+});
+
+// ---------- pass reminders (free): one email a week before each pass ----------
+app.post("/remind", async (c) => {
+  const form = await c.req.parseBody();
+  const pid = String(form.preview ?? ""), email = String(form.email ?? "").trim().toLowerCase();
+  const p = await getPreview(c.env, pid);
+  if (!p || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return c.redirect(`/p/${pid}`);
+  const hits: string[] = JSON.parse(p.hits);
+  const today = now().slice(0, 10);
+  for (const h of hits) {
+    const sendOn = new Date(Date.parse(h) - 7 * 86400000).toISOString().slice(0, 10);
+    if (sendOn < today) continue;
+    await c.env.DB.prepare("INSERT OR IGNORE INTO reminders (preview_id, email, created_at, hit_date, send_on) VALUES (?,?,?,?,?)").bind(pid, email, now(), h, sendOn).run();
+  }
+  await log(c.env, "remind", pid);
+  return c.redirect(`/p/${pid}?reminded=1`);
 });
 
 // ---------- share cards ----------
@@ -112,7 +194,8 @@ app.get("/card/:id{.+\\.svg}", async (c) => {
   const pid = c.req.param("id").replace(/\.svg$/, "");
   const p = await getPreview(c.env, pid);
   if (!p) return c.notFound();
-  const svg = shareCardSvg(recompute(p), { site: c.env.SITE_URL.replace(/^https?:\/\//, "") });
+  const comp = recompute(p);
+  const svg = shareCardSvg(comp, { site: c.env.SITE_URL.replace(/^https?:\/\//, ""), angle: cycle(comp).stage.wa });
   return c.body(svg, 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=3600" });
 });
 app.get("/card/r/:tok{.+\\.svg}", async (c) => {
@@ -121,8 +204,8 @@ app.get("/card/r/:tok{.+\\.svg}", async (c) => {
   if (!pu) return c.notFound();
   const p = await getPreview(c.env, pu.preview_id);
   if (!p) return c.notFound();
-  const carry = pu.report_md?.match(/#+\s*One line to carry\s*\n+([^\n#]+)/i)?.[1]?.trim() ?? null;
-  const svg = shareCardSvg(recompute(p), { carry, site: c.env.SITE_URL.replace(/^https?:\/\//, "") });
+  const comp = recompute(p);
+  const svg = shareCardSvg(comp, { site: c.env.SITE_URL.replace(/^https?:\/\//, ""), angle: cycle(comp).stage.wa });
   return c.body(svg, 200, { "content-type": "image/svg+xml", "cache-control": "private, max-age=3600" });
 });
 
@@ -166,18 +249,97 @@ app.get("/thanks", async (c) => {
   return c.html(`<p style="font-family:serif;padding:40px">Payment received — your report is being generated. Refresh in a moment, or check your email.</p>`);
 });
 
-// ---------- report ----------
+// ---------- reading ----------
+function parseReport(md: string | null): ReportJson | null {
+  if (!md) return null;
+  try { return parseJsonReply<ReportJson>(md); } catch { return null; }
+}
+const birthLabelOf = (p: PreviewRow) => `${fmtDay(p.birth_date)}${p.birth_time ? ` at ${p.birth_time}` : ""}`;
+
 app.get("/r/:tok", async (c) => {
   const pu = await getPurchase(c.env, c.req.param("tok"));
   if (!pu) return c.notFound();
   const p = await getPreview(c.env, pu.preview_id);
   if (!p) return c.notFound();
-  if (!pu.report_md) {
-    if (pu.status === "paid") { await generateReport(c.env, pu.id); const again = await getPurchase(c.env, pu.id); if (again?.report_md) pu.report_md = again.report_md; }
-    if (!pu.report_md) return c.html(`<meta http-equiv="refresh" content="5"><p style="font-family:serif;padding:40px">Writing your report… this page refreshes itself.</p>`);
+  let r = parseReport(pu.report_md);
+  if (!r) {
+    if (pu.status === "paid" || pu.status === "generated") { await generateReport(c.env, pu.id); const again = await getPurchase(c.env, pu.id); r = parseReport(again?.report_md ?? null); }
+    if (!r) return c.html(`<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="6"><title>Writing your reading</title><body style="background:#0E1014;color:#EDE6D6;font-family:sans-serif;padding:48px"><p>Writing your reading. This page refreshes itself; it usually takes under a minute.</p></body>`);
   }
+  const comp = recompute(p); const cy = cycle(comp);
+  const askRows = await c.env.DB.prepare("SELECT q, a FROM asks WHERE purchase_id = ? ORDER BY id").bind(pu.id).all<{ q: string; a: string }>();
+  const asks = askRows.results ?? [];
   const sub = await c.env.DB.prepare("SELECT status FROM subscriptions WHERE purchase_id = ? AND status = 'active'").bind(pu.id).first<{ status: string }>();
-  return c.html(reportPage({ siteUrl: c.env.SITE_URL, token: pu.id, c: recompute(p), md: pu.report_md, firstName: pu.first_name, placeLabel: p.place_label, seasonUrl: `/season/${pu.id}`, subscribed: !!sub }));
+  return c.html(readingPage({ subscribed: !!sub, siteUrl: c.env.SITE_URL, token: pu.id, c: comp, cy, r, firstName: pu.first_name, birthLabel: birthLabelOf(p), placeLabel: p.place_label, askLeft: Math.max(0, ASK_CAP - asks.length), asks }));
+});
+
+const ASK_CAP = 5;
+app.post("/r/:tok/ask", async (c) => {
+  const pu = await getPurchase(c.env, c.req.param("tok"));
+  if (!pu) return c.json({ error: "Not found" }, 404);
+  const body = await c.req.json<{ q?: string }>().catch(() => ({} as { q?: string }));
+  const q = (body.q ?? "").trim().slice(0, 300);
+  if (!q) return c.json({ error: "Ask something first.", left: ASK_CAP }, 400);
+  const used = (await c.env.DB.prepare("SELECT COUNT(*) AS n FROM asks WHERE purchase_id = ?").bind(pu.id).first<{ n: number }>())?.n ?? 0;
+  if (used >= ASK_CAP) return c.json({ error: "You've used all five questions.", left: 0 }, 429);
+  const p = await getPreview(c.env, pu.preview_id);
+  if (!p) return c.json({ error: "Not found" }, 404);
+  const inputs = reportInputs(recompute(p), pu.first_name);
+  try {
+    const a = (await answerQuestion(c.env, askSystem(), JSON.stringify({ inputs, question: q }))).trim();
+    await c.env.DB.prepare("INSERT INTO asks (purchase_id, created_at, q, a) VALUES (?,?,?,?)").bind(pu.id, now(), q, a).run();
+    await log(c.env, "ask", pu.id, { q });
+    return c.json({ a, left: ASK_CAP - used - 1 });
+  } catch (e) {
+    await log(c.env, "error", pu.id, { where: "ask", e: String(e) });
+    return c.json({ error: "Couldn't answer just now. Try again in a moment.", left: ASK_CAP - used }, 502);
+  }
+});
+
+app.get("/r/:tok/stage", async (c) => {
+  const pu = await getPurchase(c.env, c.req.param("tok"));
+  if (!pu) return c.notFound();
+  const p = await getPreview(c.env, pu.preview_id);
+  if (!p) return c.notFound();
+  const tq = c.req.query("t") ?? "today";
+  const today = new Date();
+  const t = tq === "today" ? today : new Date(tq + "T12:00:00Z");
+  if (isNaN(t.getTime())) return c.json({ error: "bad date" }, 400);
+  const comp = recompute(p, t); // window relevant at that instant
+  const s = stageAt(new Date(comp.birthUtc), comp.natalLon, comp.window, t);
+  const w = comp.window; const d = t.toISOString().slice(0, 10);
+  let next = "";
+  if (d < w.windowStart) next = `Your window opens ${fmtMonth(w.windowStart)}, ${untilText(t, Date.parse(w.windowStart))}.`;
+  else if (d <= w.windowEnd) { const nh = w.hits.find((h) => h > d); next = nh ? `Next exact pass ${fmtDay(nh)}.` : `Saturn leaves ${comp.sign} ${fmtMonth(w.windowEnd)}.`; }
+  else { const cy = cycle(comp, t); const n = cy.ahead.find((a) => a.from > d); next = n ? `${n.name} around age ${n.ageApprox}, ${untilText(t, Date.parse(n.from))}.` : "Your next return."; }
+  const isToday = tq === "today" || d === today.toISOString().slice(0, 10);
+  const slider = (t.getUTCFullYear() - 2025) * 12 + t.getUTCMonth();
+  return c.json({ ...s, isToday, when: fmtMonYr(t.getTime()), next, slider: slider >= 0 && slider <= 431 ? slider : null });
+});
+
+app.get("/r/:tok/calendar.ics", async (c) => {
+  const pu = await getPurchase(c.env, c.req.param("tok"));
+  if (!pu) return c.notFound();
+  const p = await getPreview(c.env, pu.preview_id);
+  if (!p) return c.notFound();
+  const comp = recompute(p); const cy = cycle(comp); const w = comp.window;
+  const only = c.req.query("only");
+  const r = parseReport(pu.report_md);
+  const ev: Array<{ date: string; title: string; desc: string }> = [];
+  w.hits.forEach((h, i) => ev.push({ date: h, title: w.hits.length === 1 ? "Saturn return: exact pass" : `Saturn return: pass ${i + 1} of ${w.hits.length}`, desc: r?.passes[i]?.day ?? `Saturn crosses your natal degree (${Math.floor(comp.degree)}° ${comp.sign}).` }));
+  if (cy.turn) ev.push({ date: cy.turn.date, title: "Saturn return: closest turn", desc: r?.turn?.day ?? `Saturn stations ${cy.turn.orb}° from your natal degree without crossing.` });
+  ev.push({ date: w.windowStart, title: `Saturn enters ${comp.sign}: your window opens`, desc: "The start of your Saturn return window." });
+  ev.push({ date: w.windowEnd, title: `Saturn leaves ${comp.sign}: your window closes`, desc: "The end of your Saturn return window." });
+  const list = (only ? ev.filter((e) => e.date === only) : ev).sort((a, b) => a.date.localeCompare(b.date));
+  const esc = (x: string) => x.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+  const stamp = now().replace(/[-:]/g, "").slice(0, 15) + "Z";
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Rite//Saturn Return//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
+  for (const e of list) {
+    const d = e.date.replace(/-/g, ""); const end = new Date(Date.parse(e.date) + 86400000).toISOString().slice(0, 10).replace(/-/g, "");
+    lines.push("BEGIN:VEVENT", `UID:${pu.id}-${d}@rite`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${d}`, `DTEND;VALUE=DATE:${end}`, `SUMMARY:${esc(e.title)}`, `DESCRIPTION:${esc(e.desc)}\\n\\nYour reading: ${c.env.SITE_URL}/r/${pu.id}`, `URL:${c.env.SITE_URL}/r/${pu.id}`, "END:VEVENT");
+  }
+  lines.push("END:VCALENDAR");
+  return c.body(lines.join("\r\n") + "\r\n", 200, { "content-type": "text/calendar; charset=utf-8", "content-disposition": `attachment; filename="rite-saturn-return${only ? "-" + only : ""}.ics"` });
 });
 
 async function fulfil(env: Env, session: Stripe.Checkout.Session): Promise<string | null> {
@@ -200,13 +362,18 @@ async function generateReport(env: Env, tok: string) {
   const p = await getPreview(env, pu.preview_id); if (!p) return;
   const comp = recompute(p);
   const inputs = reportInputs(comp, pu.first_name);
-  const allowed = [...inputs.exact_hits, inputs.today];
+  const allowed = [...inputs.exact_hits, inputs.today, ...(inputs.turn ? [inputs.turn.date] : [])];
   let md = "";
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      md = await writeReport(env, inputs);
-      if (datesAreGrounded(md, allowed)) break;
-      await log(env, "error", tok, { where: "report-dates-ungrounded", attempt });
+      const raw = await writeReport(env, inputs);
+      const r = parseJsonReply<ReportJson>(raw);
+      const need: Array<keyof ReportJson> = ["cover_line", "saturn_p1", "saturn_p2", "house_h3", "house_p", "chips_warm", "chips_cool", "phase_approach", "phase_contact", "phase_integration", "passes", "areas", "history_q", "workbook_approach", "workbook_contact", "workbook_integration", "carry"];
+      const missing = need.filter((k) => r[k] == null);
+      if (missing.length) { await log(env, "error", tok, { where: "report-missing-keys", missing, attempt }); continue; }
+      if (!Array.isArray(r.passes) || r.passes.length < 1) { await log(env, "error", tok, { where: "report-no-passes", attempt }); continue; }
+      if (!datesAreGrounded(JSON.stringify(r), allowed)) { await log(env, "error", tok, { where: "report-dates-ungrounded", attempt }); continue; }
+      md = JSON.stringify(r); break;
     } catch (e) { await log(env, "error", tok, { where: "report-llm", e: String(e), attempt }); }
   }
   if (!md) { await env.DB.prepare("UPDATE purchases SET status='failed' WHERE id=?").bind(tok).run(); return; }
@@ -340,7 +507,28 @@ async function runSeason(env: Env) {
   }
 }
 
+async function runReminders(env: Env) {
+  const today = now().slice(0, 10);
+  const due = await env.DB.prepare("SELECT r.id, r.email, r.hit_date, r.preview_id, p.natal_sign FROM reminders r JOIN previews p ON p.id = r.preview_id WHERE r.sent_at IS NULL AND r.send_on <= ?").bind(today).all<{ id: number; email: string; hit_date: string; preview_id: string; natal_sign: string }>();
+  for (const r of due.results) {
+    const ok = await sendEmail(env, r.email, `Your Saturn pass is a week away — ${fmtDay(r.hit_date)}`,
+`Hi,
+
+A week from now, on ${fmtDay(r.hit_date)}, Saturn crosses the degree it held when you were born. Saturn in ${r.natal_sign}.
+
+This is the part people mean when they say Saturn return. Nothing has to happen on the day — but whatever you have been circling tends to ask for a decision around it.
+
+Your preview, with the full window: ${env.SITE_URL}/p/${r.preview_id}
+The full reading dates every pass and tells you what to build before each one: ${env.SITE_URL}/p/${r.preview_id}#reading
+
+— Rite
+
+You asked for this one email. There is nothing to unsubscribe from.`);
+    if (ok) await env.DB.prepare("UPDATE reminders SET sent_at=? WHERE id=?").bind(now(), r.id).run();
+  }
+}
+
 export default {
   fetch: app.fetch,
-  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(runSeason(env)); },
+  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env)])); },
 };

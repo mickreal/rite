@@ -1,6 +1,7 @@
 // Everything numeric about a person's Saturn return, from birth details. No LLM here.
 import { natalSaturn, scanReturn, relevantReturnNumber, phaseFor, saturnLongitude, orb, isRetrograde, nextStation, type ReturnWindow, type Phase, type Sign } from "./astro/saturn";
-import { houses, houseOf } from "./astro/houses";
+import { houses, houseOf, type Houses } from "./astro/houses";
+import { windowChart, monthTable, tensionPoints, stageAt, areaWeights, stationsBetween, type WindowChart, type MonthRow, type TensionPoint, type StageNow } from "./astro/cycle";
 import { localToUtc, type Place } from "./geo";
 import { ORDINAL, SIGN_NOTES, HOUSE_NOTES } from "./content/notes";
 
@@ -13,6 +14,7 @@ export interface Computed {
   degree: number;      // 0–30
   house: number | null;
   houseSystem: "placidus" | "whole" | null;
+  housesData: Houses | null;
   returnNumber: 1 | 2 | 3;
   window: ReturnWindow;
   phase: Phase;
@@ -24,11 +26,12 @@ export interface Computed {
 export function compute(b: Birth, today = new Date()): Computed {
   const birthUtc = localToUtc(b.date, b.time, b.place.tz);
   const n = natalSaturn(birthUtc);
-  let house: number | null = null, houseSystem: Computed["houseSystem"] = null;
+  let house: number | null = null, houseSystem: Computed["houseSystem"] = null, housesData: Houses | null = null;
   if (b.time) {
     const h = houses(birthUtc, b.place.lat, b.place.lon);
     house = houseOf(n.lon, h);
     houseSystem = h.system;
+    housesData = h;
   }
   const returnNumber = relevantReturnNumber(birthUtc, today);
   const window = scanReturn(birthUtc, n.lon, returnNumber);
@@ -37,7 +40,7 @@ export function compute(b: Birth, today = new Date()): Computed {
   return {
     birthUtc: birthUtc.toISOString(),
     natalLon: n.lon, sign: n.sign, degree: n.degree,
-    house, houseSystem, returnNumber, window, phase, todayOrb,
+    house, houseSystem, housesData, returnNumber, window, phase, todayOrb,
     retrograde: isRetrograde(today),
     nextStation: nextStation(today),
   };
@@ -81,6 +84,7 @@ export function houseLabel(c: Computed): string | null {
 }
 
 export function reportInputs(c: Computed, firstName: string | null, today = new Date()) {
+  const cy = cycle(c, today);
   return {
     first_name: firstName,
     natal_saturn_sign: c.sign,
@@ -96,5 +100,41 @@ export function reportInputs(c: Computed, firstName: string | null, today = new 
     phase: c.phase,
     sign_work: SIGN_NOTES[c.sign].work,
     house_area: c.house ? HOUSE_NOTES[c.house].area : null,
+    turn: cy.turn ? { date: fmtDay(cy.turn.date), orb: cy.turn.orb } : null,
+    areas: cy.areas.slice(0, 2).map((a) => ({ area: a.name, house: a.house })),
+    history: cy.history.map((h) => ({ kind: h.kind, age: h.ageApprox, when: h.from === h.to ? fmtMonth(h.from) : `${fmtMonth(h.from)} to ${fmtMonth(h.to)}` })),
   };
+}
+
+
+// ---------- the whole cycle, for the reading ----------
+export interface Cycle {
+  chart: WindowChart;
+  months: MonthRow[];
+  history: TensionPoint[];   // tension points of the cycle leading INTO this return (past)
+  ahead: TensionPoint[];     // tension points of the cycle AFTER this return
+  stage: StageNow;
+  areas: ReturnType<typeof areaWeights>;
+  turn: { date: string; orb: number } | null; // nearest station to the natal degree that did NOT cross (the "closest turn")
+  pct: number;               // how far round the cycle Saturn is today (0–100)
+}
+
+export function cycle(c: Computed, today = new Date()): Cycle {
+  const birth = new Date(c.birthUtc);
+  const w = c.window;
+  const chart = windowChart(c.natalLon, w, today);
+  const months = monthTable(c.natalLon, w, today);
+  const prevReturnT = c.returnNumber === 1 ? birth.getTime() : Date.parse(w.hits[0]) - 29.457 * 365.2422 * 86400000;
+  const history = tensionPoints(birth, c.natalLon, prevReturnT).filter((p) => p.kind !== "return");
+  const ahead = tensionPoints(birth, c.natalLon, Date.parse(w.hits[0]));
+  const stage = stageAt(birth, c.natalLon, w, today);
+  const areas = areaWeights(c.house, c.housesData);
+  const st = stationsBetween(Date.parse(w.windowStart), Date.parse(w.windowEnd));
+  let turn: Cycle["turn"] = null;
+  for (const s of st) {
+    const o = Math.abs(((s.lon - c.natalLon + 540) % 360) - 180);
+    if (o < 5 && (!turn || o < Math.abs(turn.orb))) turn = { date: s.date, orb: Math.round(o * 10) / 10 };
+  }
+  const pct = Math.round(stage.wa / 360 * 100);
+  return { chart, months, history, ahead, stage, areas, turn, pct };
 }

@@ -78,12 +78,19 @@ export function scanReturn(birthUtc: Date, natalLon: number, returnNumber: 1 | 2
     }
     prev = o;
   }
-  if (!windowStart || !windowEnd || !peakStart || !peakEnd) {
+  if (!windowStart || !windowEnd || !peakStart || !peakEnd || !hits.length) {
     throw new Error(`No Saturn return found in scan range for return ${returnNumber}`);
   }
+  // Window = the stretch Saturn spends in the natal sign around the return (ingress → egress),
+  // including an earlier brief dip into the sign within ~3 years of the first hit.
+  const natalSign = signOf(natalLon);
+  const firstHit = Date.parse(hits[0]), lastHit = Date.parse(hits[hits.length - 1]);
+  let open = firstHit, close = lastHit;
+  for (let t = firstHit - 3.2 * 365.25 * DAY_MS; t < firstHit; t += DAY_MS) { if (signOf(saturnLongitude(new Date(t))) === natalSign) { open = t; break; } }
+  for (let t = lastHit + 3.2 * 365.25 * DAY_MS; t > lastHit; t -= DAY_MS) { if (signOf(saturnLongitude(new Date(t))) === natalSign) { close = t; break; } }
   return {
     returnNumber,
-    windowStart: iso(windowStart), windowEnd: iso(windowEnd),
+    windowStart: iso(new Date(open)), windowEnd: iso(new Date(close)),
     peakStart: iso(peakStart), peakEnd: iso(peakEnd),
     hits,
   };
