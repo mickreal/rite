@@ -203,7 +203,7 @@ describe("checkout.session.completed: Saturn Season starts", () => {
     expect(sub()!.plan).toBe("month");
   });
 
-  it.fails("is idempotent: the same event twice sends one welcome note", async () => {
+  it("is idempotent: the same event twice sends one welcome note", async () => {
     const ev = stripeEvent("checkout.session.completed.subscription");
     await h.webhook(ev);
     const first = sub()!.last_sent_at;
@@ -214,7 +214,7 @@ describe("checkout.session.completed: Saturn Season starts", () => {
     expect(sub()!.last_sent_at).toBe(first);
   });
 
-  it.fails("a late retry of the start event doesn't revive a subscription that has since been cancelled", async () => {
+  it("a late retry of the start event doesn't revive a subscription that has since been cancelled", async () => {
     const ev = stripeEvent("checkout.session.completed.subscription");
     await h.webhook(ev);
     await h.webhook(stripeEvent("customer.subscription.deleted"));
