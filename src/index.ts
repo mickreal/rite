@@ -96,11 +96,11 @@ async function getPurchase(env: Env, tok: string) {
 // ---------- pages ----------
 app.get("/", async (c) => {
   await log(c.env, "visit", c.req.query("r") ?? null);
-  return c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? undefined }));
+  return c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? c.req.query("ref") ?? undefined }));
 });
 
 /** Live numbers for the landing widget: date (+ optional time), no place → noon UTC, sign-level only. */
-app.get("/start", (c) => c.html(flowPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? undefined, form: { date: c.req.query("d") ?? undefined } })));
+app.get("/start", (c) => c.html(flowPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? undefined, form: { date: c.req.query("d") ?? undefined } })));
 app.get("/api/calc", async (c) => {
   const date = c.req.query("date") ?? "", time = c.req.query("time") || null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return c.json({ error: "date" }, 400);
@@ -267,7 +267,7 @@ app.post("/checkout", async (c) => {
     cancel_url: `${c.env.SITE_URL}/p/${p.id}`,
     allow_promotion_codes: true,
   });
-  await log(c.env, "checkout", p.id, { tier, amount });
+  await log(c.env, "checkout", p.id, { tier, amount, ref: p.ref, sign: p.natal_sign });
   return c.redirect(session.url!, 303);
 });
 
@@ -523,7 +523,8 @@ async function fulfil(env: Env, session: Stripe.Checkout.Session): Promise<strin
   const tok = token();
   await env.DB.prepare(`INSERT INTO purchases (id, preview_id, created_at, email, first_name, stripe_session_id, stripe_payment_intent, amount_cents, tier, status) VALUES (?,?,?,?,?,?,?,?,?,'paid')`)
     .bind(tok, pid, now(), email, firstName, session.id, typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null, session.amount_total ?? 0, tier).run();
-  await log(env, "paid", tok, { pid, tier, amount: session.amount_total });
+  const pv = await getPreview(env, pid);
+  await log(env, "paid", tok, { pid, tier, amount: session.amount_total, ref: pv?.ref ?? null, sign: pv?.natal_sign ?? null, return_number: pv?.return_number ?? null });
   return tok; // the reading is written in its own invocation (kickGenerate / first view) to stay under the per-request CPU cap
 }
 
@@ -677,9 +678,20 @@ app.post("/admin/refund", async (c) => {
 app.get("/health", (c) => c.json({ ok: true, saturn: saturnLongitude(new Date()), at: now() }));
 app.get("/admin/stats", async (c) => {
   if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
-  const rows = await c.env.DB.prepare("SELECT kind, COUNT(*) n FROM events GROUP BY kind").all();
-  const rev = await c.env.DB.prepare("SELECT COALESCE(SUM(amount_cents),0) cents, COUNT(*) n FROM purchases WHERE status IN ('paid','generated')").first();
-  return c.json({ events: rows.results, revenue: rev });
+  const days = Math.min(90, Math.max(1, parseInt(c.req.query("days") ?? "30", 10)));
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const [kinds, byRef, bySign, rev, gifts, subs, daily] = await Promise.all([
+    c.env.DB.prepare("SELECT kind, COUNT(*) n FROM events WHERE at > ? GROUP BY kind ORDER BY n DESC").bind(since).all(),
+    c.env.DB.prepare("SELECT COALESCE(pv.ref,'(none)') ref, COUNT(DISTINCT pv.id) previews, COUNT(DISTINCT pu.id) purchases, COALESCE(SUM(pu.amount_cents),0) cents FROM previews pv LEFT JOIN purchases pu ON pu.preview_id = pv.id AND pu.status IN ('paid','writing','generated') WHERE pv.created_at > ? GROUP BY 1 ORDER BY previews DESC").bind(since).all(),
+    c.env.DB.prepare("SELECT pv.natal_sign sign, pv.return_number rn, COUNT(DISTINCT pv.id) previews, COUNT(DISTINCT pu.id) purchases FROM previews pv LEFT JOIN purchases pu ON pu.preview_id = pv.id AND pu.status IN ('paid','writing','generated') WHERE pv.created_at > ? GROUP BY 1,2 ORDER BY previews DESC").bind(since).all(),
+    c.env.DB.prepare("SELECT COALESCE(SUM(amount_cents),0) cents, COUNT(*) n, SUM(CASE WHEN amount_cents=0 THEN 1 ELSE 0 END) free_or_gift FROM purchases WHERE status IN ('paid','writing','generated') AND created_at > ?").bind(since).first(),
+    c.env.DB.prepare("SELECT COUNT(*) sold, SUM(CASE WHEN redeemed_at IS NOT NULL AND redeemed_at != 'refunded' THEN 1 ELSE 0 END) redeemed FROM gifts WHERE created_at > ?").bind(since).first(),
+    c.env.DB.prepare("SELECT status, COUNT(*) n FROM subscriptions GROUP BY status").all(),
+    c.env.DB.prepare("SELECT substr(at,1,10) day, SUM(kind='preview') previews, SUM(kind='checkout') checkouts, SUM(kind='paid') paid FROM events WHERE at > ? GROUP BY 1 ORDER BY 1").bind(since).all(),
+  ]);
+  const k = Object.fromEntries((kinds.results as Array<{ kind: string; n: number }>).map((r) => [r.kind, r.n]));
+  const funnel = { previews: k.preview ?? 0, checkouts: k.checkout ?? 0, paid: k.paid ?? 0, generated: k.generated ?? 0, preview_to_checkout: k.preview ? +((k.checkout ?? 0) / k.preview * 100).toFixed(1) : 0, checkout_to_paid: k.checkout ? +((k.paid ?? 0) / k.checkout * 100).toFixed(1) : 0 };
+  return c.json({ days, funnel, revenue: rev, gifts, subscriptions: subs.results, by_ref: byRef.results, by_sign: bySign.results, daily: daily.results, events: kinds.results });
 });
 
 // ---------- cron: Saturn Season ----------
