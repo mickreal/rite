@@ -36,7 +36,7 @@ const CSS = `
 .hero{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:104px clamp(16px,4vw,48px);min-height:100svh;display:flex;align-items:center}
 .heroText{width:fit-content;max-width:min(620px,52%);display:flex;flex-direction:column;gap:clamp(18px,3.4vh,32px)}
 .linger{height:28vh}
-.hint{color:#6B675F;font-size:14px;line-height:1.6;text-align:center;margin:-8px 0 0}
+.hint{color:#8A857B;font-size:14px;line-height:1.6;text-align:center;margin:-8px 0 0}
 .ctaRow{display:flex;flex-wrap:wrap;align-items:center;gap:16px}
 .topbar{position:absolute;top:0;left:0;right:0;z-index:3}
 @media (max-width:900px){
@@ -92,7 +92,7 @@ const CSS = `
 .split{animation:split .7s cubic-bezier(.2,1.2,.4,1) both}@keyframes split{from{opacity:0;transform:translateX(-70%) scale(.9)}to{opacity:1;transform:none}}
 .hint:hover{color:#9A948A}
 .heroText>p,.heroText>form{contain:inline-size}
-@media (prefers-reduced-motion: reduce){.glyph,.popd,.row,.pg,.echoLine,.echo .pdial,.echo .pring,.echo .parc,.echo .pmark,.echo .psat,.split,.ln{opacity:1;transform:none}.drawp,.ringd{stroke-dashoffset:0}.fillt{transform:none}.p1{transform:translate(-120px,24px) rotate(-9deg)}.p3{transform:translate(120px,24px) rotate(9deg)}}
+@media (max-width:420px){#start .field input{padding:0 10px;font-size:16px}} /* two columns are ~150px wide here: keep mm/dd/yyyy from clipping */
 .d7{animation-delay:.8s!important}.d8{animation-delay:.92s!important}.d9{animation-delay:1.04s!important}
 .rd0{display:flex;align-items:center;gap:12px;font-size:17px;color:#BDB6A8;white-space:nowrap}
 .dot{width:8px;height:8px;border-radius:50%;background:#F2B544;flex:0 0 auto;animation:dotp 2s ease-in-out infinite}
@@ -131,6 +131,8 @@ const CSS = `
 #reading{overflow-x:clip}
 .nw{white-space:nowrap}@media (max-width:520px){.nw{white-space:normal}}
 @media (max-width:900px){.echo{right:-360px!important;opacity:.7}}
+/* reduced motion last: it has to beat the opacity:0 starting states above at equal specificity */
+@media (prefers-reduced-motion: reduce){.glyph,.popd,.row,.pg,.echoLine,.echo .pdial,.echo .pring,.echo .parc,.echo .pmark,.echo .psat,.split,.ln{opacity:1;transform:none}.drawp,.ringd{stroke-dashoffset:0}.fillt{transform:none}.p1{transform:translate(-120px,24px) rotate(-9deg)}.p3{transform:translate(120px,24px) rotate(9deg)}}
 `;
 
 const ORBIT = `<svg viewBox="0 0 600 600" style="width:100%;height:100%;display:block;overflow:visible" role="img" aria-label="Saturn orbiting back toward the point it held when you were born">
@@ -196,7 +198,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
     ${opts.gift ? html`<div class="card" style="border:1px solid rgba(242,181,68,.5);display:flex;flex-direction:column;gap:6px;padding:18px 22px"><span class="kicker" style="color:#F2B544;font-size:14px">A gift${opts.gift.from ? ` from ${opts.gift.from}` : ""}</span><span style="font-size:16px;line-height:1.5">Someone bought you the full reading. Put in your own birth details below and it\'s yours; nothing to pay.</span>${opts.gift.message ? html`<span class="muted" style="font-size:15px;font-style:italic">“${opts.gift.message}”</span>` : ""}</div>` : ""}
     <form id="start" class="fade" method="post" action="/preview" style="animation-delay:.8s;background:#14171D;border:1px solid rgba(237,230,214,.1);border-radius:28px;padding:clamp(20px,2.8vh,28px);display:flex;flex-direction:column;gap:clamp(12px,2vh,18px)">
       <input type="hidden" name="ref" value="${opts.ref ?? ""}">${opts.gift ? html`<input type="hidden" name="gift" value="${opts.gift.code}">` : ""}
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:end">
         <div class="field"><label for="bd">Birth date</label><input id="bd" name="date" type="date" required value="${f.date ?? ""}" min="1930-01-01" max="2012-12-31"></div>
         <div class="field"><label for="bt">Birth time, if you know it</label><input id="bt" name="time" type="time" value="${f.time ?? ""}"></div>
       </div>
@@ -247,7 +249,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
     </article>
     <article data-rv class="a" style="background:#14171D;border-radius:32px;padding:clamp(28px,4vw,48px);display:flex;flex-direction:column;gap:28px">
       <div style="display:flex;flex-direction:column;gap:12px"><h3 class="disp a d2" style="margin:0;font-size:34px;letter-spacing:-.02em;font-weight:600">Your exact hits</h3><p class="a d3" style="margin:0;font-size:17px;line-height:1.6;color:#BDB6A8;max-width:540px">Saturn moves forward, stalls, backs up and moves on again. Depending on timing it crosses your natal degree once or three times. Every crossing gets a date.</p></div>
-      <div id="pills" class="a d4" style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="pill" data-p="1">One pass</button><button type="button" class="pill on" data-p="3">Three passes</button></div>
+      <div id="pills" class="a d4" style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="pill" data-p="1" aria-pressed="false">One pass</button><button type="button" class="pill on" data-p="3" aria-pressed="true">Three passes</button></div>
       <div id="real" class="swap" style="display:none;flex-direction:column;gap:14px"><p id="hitsSummary" class="disp" style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em"></p><div id="chips" style="display:flex;gap:10px;flex-wrap:wrap"></div></div>
       <div class="a d5" style="border-radius:20px;background:#0E1014;padding:20px">
         <svg id="hitsSvg" viewBox="0 0 520 220" style="width:100%;display:block" role="img" aria-label="Saturn crossing the natal degree">
@@ -280,7 +282,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
 </section>
 
 <section id="price" data-rv class="wrap" style="padding-bottom:140px">
-  <div class="f pcard" style="position:relative;overflow:hidden;background:#EDE6D6;color:#14110A;border-radius:40px;padding:clamp(40px,5.5vw,80px) clamp(28px,5vw,72px);display:flex;flex-wrap:wrap;gap:56px 72px;align-items:center">
+  <div class="f pcard cream" style="position:relative;overflow:hidden;background:#EDE6D6;color:#14110A;border-radius:40px;padding:clamp(40px,5.5vw,80px) clamp(28px,5vw,72px);display:flex;flex-wrap:wrap;gap:56px 72px;align-items:center">
     <svg aria-hidden="true" viewBox="0 0 600 600" class="echo" style="position:absolute;right:-180px;top:calc(50% - 340px);width:680px;height:680px;pointer-events:none;overflow:visible">
       <g class="vb pdial"><g class="vb pspin"><circle cx="300" cy="300" r="266" fill="none" stroke="rgba(20,17,10,.16)" stroke-width="10" stroke-dasharray="1.2 22.0126" stroke-dashoffset="0.6"/><circle cx="300" cy="300" r="266" fill="none" stroke="rgba(20,17,10,.22)" stroke-width="18" stroke-dasharray="1.6 137.6739" stroke-dashoffset="0.8"/></g></g>
       <circle class="vb pring" cx="300" cy="300" r="230" fill="none" stroke="rgba(20,17,10,.14)" stroke-dasharray="2 7"/><circle class="vb pring" cx="300" cy="300" r="168" fill="none" stroke="rgba(20,17,10,.06)" style="animation-delay:.15s"/>
@@ -311,12 +313,12 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
       <div><a href="/season" class="ghost">See a sample note ${raw(ARROW)}</a></div>
     </div>
     <a href="/season" class="mininote" aria-label="A sample Saturn Season note">
-      <span style="display:flex;justify-content:space-between;align-items:center;gap:12px"><span class="mtag">Monday, 7am</span><span style="font-size:13px;color:rgba(20,17,10,.5)">Saturn Season</span></span>
+      <span style="display:flex;justify-content:space-between;align-items:center;gap:12px"><span class="mtag">Monday, 7am</span><span style="font-size:13px;color:rgba(20,17,10,.62)">Saturn Season</span></span>
       <span class="disp" style="font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15">${sea.saturnNow ? `Saturn is at ${sea.saturnNow} this week.` : "Where Saturn is this week."}</span>
       <span class="bar" style="width:94%"></span><span class="bar" style="width:86%"></span><span class="bar" style="width:62%"></span>
       <span style="font-size:14px;font-weight:600;margin-top:6px">One thing this week</span><span class="bar" style="width:72%"></span>
       <span style="font-size:14px;font-weight:600;margin-top:6px">Coming up in the next 30 days</span><span class="bar" style="width:48%"></span><span class="bar" style="width:56%"></span>
-      <span style="margin-top:auto;padding-top:14px;border-top:1px solid rgba(20,17,10,.14);font-size:13px;color:rgba(20,17,10,.55)">Stops itself when your window closes.</span>
+      <span style="margin-top:auto;padding-top:14px;border-top:1px solid rgba(20,17,10,.14);font-size:13px;color:rgba(20,17,10,.62)">Stops itself when your window closes.</span>
     </a>
   </div>
 </section>
@@ -325,7 +327,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
   <div class="wrap" style="display:flex;flex-direction:column;gap:48px">
     <h2 class="disp a" style="margin:0;font-size:clamp(40px,4.6vw,68px);line-height:1;letter-spacing:-.03em;font-weight:700;max-width:760px">${second ? "Saturn comes back about every 29 years. This is the second time." : "Saturn comes back about every 29 years."}</h2>
     <div style="display:flex;flex-wrap:wrap;gap:8px 48px;align-items:flex-end;min-height:1em">
-      <button type="button" class="age disp split on" data-age="29">0</button><button type="button" class="age disp split" data-age="58" style="display:none">0</button><button type="button" class="age disp split" data-age="87" style="display:none">0</button>
+      <button type="button" class="age disp split on" data-age="29" aria-pressed="true">0</button><button type="button" class="age disp split" data-age="58" aria-pressed="false" style="display:none">0</button><button type="button" class="age disp split" data-age="87" aria-pressed="false" style="display:none">0</button>
     </div>
     <div id="ageInfo" class="swap" style="display:none;flex-wrap:wrap;gap:16px 48px;align-items:baseline;border-top:1px solid rgba(237,230,214,.12);padding-top:28px">
       <p id="ageTitle" class="disp" style="margin:0;font-size:30px;font-weight:600;letter-spacing:-.02em"></p><p id="ageBody" style="margin:0;font-size:18px;line-height:1.6;color:#BDB6A8;max-width:560px"></p>
@@ -335,7 +337,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
 
 <section id="faq" data-rv style="max-width:920px;margin:0 auto;padding:0 clamp(16px,4vw,48px) 160px;display:flex;flex-direction:column;gap:24px">
   <h2 class="disp f" style="margin:0 0 12px;font-size:clamp(40px,4.6vw,68px);line-height:1;letter-spacing:-.03em;font-weight:700">Questions</h2>
-  <div>${faq.map(([q, a], i) => html`<div class="row" style="border-bottom:1px solid rgba(237,230,214,.14);${i === 0 ? "border-top:1px solid rgba(237,230,214,.14);" : ""}animation-delay:${(0.25 + i * 0.12).toFixed(2)}s"><button type="button" class="faqb ${i === 0 ? "open" : ""}" aria-expanded="${i === 0}">${q}<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4v14M4 11h14"/></svg></button><p class="faqa ${i === 0 ? "open" : ""}">${a}</p></div>`)}</div>
+  <div>${faq.map(([q, a], i) => html`<div class="row" style="border-bottom:1px solid rgba(237,230,214,.14);${i === 0 ? "border-top:1px solid rgba(237,230,214,.14);" : ""}animation-delay:${(0.25 + i * 0.12).toFixed(2)}s"><button type="button" class="faqb ${i === 0 ? "open" : ""}" aria-expanded="${i === 0}" aria-controls="faq-a${i}">${q}<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4v14M4 11h14"/></svg></button><p class="faqa ${i === 0 ? "open" : ""}" id="faq-a${i}">${a}</p></div>`)}</div>
   <p class="f" style="margin:0;font-size:17px;line-height:1.6;color:#A7A196">More on timing: <a href="/saturn-return/when">when is my Saturn return, and how the dates are worked out</a>, and <a href="/saturn-return/first-vs-second">first, second and third returns compared</a>.</p>
 </section>
 
@@ -358,17 +360,19 @@ var io=('IntersectionObserver' in window)?new IntersectionObserver(function(es){
 document.querySelectorAll('[data-rv]').forEach(function(el){io?io.observe(el):el.classList.add('in')});
 if(!io)startCount();
 // pills
-document.querySelectorAll('#pills .pill').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#pills .pill').forEach(function(x){x.classList.remove('on')});b.classList.add('on');var three=b.dataset.p==='3';$('#demo3').style.display=three?'':'none';$('#demo1').style.display=three?'none':'';})});
+document.querySelectorAll('#pills .pill').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#pills .pill').forEach(function(x){x.classList.remove('on');x.setAttribute('aria-pressed','false')});b.classList.add('on');b.setAttribute('aria-pressed','true');var three=b.dataset.p==='3';$('#demo3').style.display=three?'':'none';$('#demo1').style.display=three?'none':'';})});
 // faq
 document.querySelectorAll('.faqb').forEach(function(b){b.addEventListener('click',function(){var open=b.classList.contains('open');document.querySelectorAll('.faqb').forEach(function(x){x.classList.remove('open');x.setAttribute('aria-expanded','false')});document.querySelectorAll('.faqa').forEach(function(x){x.classList.remove('open')});if(!open){b.classList.add('open');b.setAttribute('aria-expanded','true');b.nextElementSibling.classList.add('open')}})});
 // ages
 var AGES={29:['The first return','Usually somewhere between 27 and 30. The one most people mean when they say Saturn return.'],58:['The second return',${JSON.stringify(second ? `Usually between 56 and 60. Saturn checks back in on what you built after the first. Born between ${bornRanges(second.born)}: yours is open now.` : "Usually between 56 and 60. Saturn checks back in on what you built after the first.")}],87:['The third return','Around 87 or 88, for those who reach it.']};
 var FOCUS=${second ? 58 : 29};
 var counting=false;
-function startCount(){if(counting)return;counting=true;var btns=document.querySelectorAll('.age');var seq=[[0,29],[29,58],[58,87]],dur=[1200,950,950],stage=0,t0=null;
+function startCount(){if(counting)return;counting=true;var btns=document.querySelectorAll('.age');
+if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches){btns.forEach(function(b){b.style.display='';b.textContent=b.dataset.age});showAge(FOCUS);return}
+var seq=[[0,29],[29,58],[58,87]],dur=[1200,950,950],stage=0,t0=null;
 function step(ts){if(t0===null)t0=ts;var p=Math.min(1,(ts-t0)/dur[stage]),e=1-Math.pow(1-p,3);btns[stage].style.display='';btns[stage].textContent=Math.round(seq[stage][0]+(seq[stage][1]-seq[stage][0])*e);btns.forEach(function(b,i){b.classList.toggle('on',i===stage)});if(p<1){requestAnimationFrame(step);return}if(stage<2){stage++;t0=null;setTimeout(function(){requestAnimationFrame(step)},260)}else{showAge(FOCUS)}}
 setTimeout(function(){requestAnimationFrame(step)},350)}
-function showAge(a){document.querySelectorAll('.age').forEach(function(b){b.classList.toggle('on',+b.dataset.age===a)});$('#ageTitle').textContent=AGES[a][0];$('#ageBody').textContent=AGES[a][1];var i=$('#ageInfo');i.style.display='flex';i.classList.remove('swap');void i.offsetWidth;i.classList.add('swap')}
+function showAge(a){document.querySelectorAll('.age').forEach(function(b){b.classList.toggle('on',+b.dataset.age===a);b.setAttribute('aria-pressed',+b.dataset.age===a)});$('#ageTitle').textContent=AGES[a][0];$('#ageBody').textContent=AGES[a][1];var i=$('#ageInfo');i.style.display='flex';i.classList.remove('swap');void i.offsetWidth;i.classList.add('swap')}
 document.querySelectorAll('.age').forEach(function(b){b.addEventListener('click',function(){showAge(+b.dataset.age)})});
 // live calc
 var C=2*Math.PI*230,timer=null;
@@ -399,7 +403,7 @@ document.querySelectorAll('a[href="/gift"]').forEach(function(a){a.addEventListe
 document.querySelectorAll('a[href="#start"]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();var form=$('#start'),d=$('#bd'),pl=$('#bp');
  if(d.value&&pl.value.trim()){form.requestSubmit?form.requestSubmit():$('#go').click();return}
  var mobile=window.innerWidth<=900;var top=mobile?Math.max(0,form.getBoundingClientRect().top+window.pageYOffset-24):0;
- window.scrollTo({top:top,behavior:'smooth'});var f=!d.value?d:pl;setTimeout(function(){f.focus({preventScroll:true})},mobile?500:700)})});
+ window.scrollTo({top:top,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});var f=!d.value?d:pl;setTimeout(function(){f.focus({preventScroll:true})},mobile?500:700)})});
 })();`;
 
   return shell({

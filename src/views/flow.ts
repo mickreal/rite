@@ -66,17 +66,17 @@ export function flowPage(opts: { siteUrl: string; ref?: string; form?: { date?: 
         <h2 class="disp" style="margin:0;font-size:40px;line-height:1;letter-spacing:-.035em;font-weight:700">When were you born?</h2>
         <p style="margin:0;font-size:16px;line-height:1.5;color:#A7A196">Use the local date where you were born.</p>
         <label for="fd" style="position:absolute;left:-9999px">Birth date</label><input id="fd" class="finp" type="date" name="date" value="${f.date ?? ""}" min="1930-01-01" max="2012-12-31" required>
-        <p class="err" id="e1">Enter your birth date.</p>
+        <p class="err" id="e1" role="alert">Enter your birth date.</p>
         <div style="margin-top:auto"><button type="button" class="fcta" data-go="2">Continue</button></div></div>` : n === 2 ? html`<div class="in" style="flex:1;display:flex;flex-direction:column;gap:18px;padding-top:44px">
         <h2 class="disp" style="margin:0;font-size:40px;line-height:1;letter-spacing:-.035em;font-weight:700">Where were you born?</h2>
         <p style="margin:0;font-size:16px;line-height:1.5;color:#A7A196">We look up the coordinates and time zone for you.</p>
         <label for="fp" style="position:absolute;left:-9999px">Birth place</label><input id="fp" class="finp" type="text" name="place" placeholder="Town or city" autocomplete="off" value="${f.place ?? ""}" required>
-        <p class="err" id="e2">Enter the town or city you were born in.</p>
+        <p class="err" id="e2" role="alert">Enter the town or city you were born in.</p>
         <div style="margin-top:auto"><button type="button" class="fcta" data-go="3">Continue</button></div></div>` : html`<div class="in" style="flex:1;display:flex;flex-direction:column;gap:18px;padding-top:44px">
         <h2 class="disp" style="margin:0;font-size:40px;line-height:1;letter-spacing:-.035em;font-weight:700">What time?</h2>
         <p style="margin:0;font-size:16px;line-height:1.5;color:#A7A196">Optional. Your dates stay accurate without it; a time adds your Saturn house.</p>
         <label for="ft" style="position:absolute;left:-9999px">Birth time</label><input id="ft" class="finp" type="time" name="time" value="${f.time ?? ""}">
-        <p class="err" id="e3">Something went wrong. Try again.</p>
+        <p class="err" id="e3" role="alert">Something went wrong. Try again.</p>
         <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px;align-items:center"><button type="submit" class="fcta">Show my Saturn return</button><button type="button" class="txt" id="notime">I don't know my birth time</button></div></div>`}
     </section>`)}
   </form>
@@ -89,7 +89,7 @@ export function flowPage(opts: { siteUrl: string; ref?: string; form?: { date?: 
       <line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="3"/><circle cx="300" cy="300" r="8" fill="#EDE6D6"/>
       <g id="bsat" class="vb spin"><circle class="halo" cx="300" cy="70" r="40" fill="#F2B544"/><circle cx="300" cy="70" r="20" fill="#EDE6D6"/><ellipse cx="300" cy="70" rx="38" ry="10" fill="none" stroke="#F2B544" stroke-width="3.5" transform="rotate(-22 300 70)"/></g>
     </svg>
-    <div style="display:flex;flex-direction:column;gap:12px;text-align:center;font-size:17px;color:#BDB6A8">
+    <div role="status" style="display:flex;flex-direction:column;gap:12px;text-align:center;font-size:17px;color:#BDB6A8">
       <span class="ln" style="animation-delay:.2s">Placing Saturn on the day you were born</span>
       <span class="ln" id="bl1" style="animation-delay:1.2s;color:#EDE6D6"></span>
       <span class="ln" style="animation-delay:2.2s">Tracking it forward, retrogrades included</span>
@@ -103,7 +103,7 @@ export function flowPage(opts: { siteUrl: string; ref?: string; form?: { date?: 
       <button type="button" class="txt" data-go="1">Start again</button>
     </div>
     <div class="pop" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
-      <h2 class="disp" style="margin:0;font-size:46px;letter-spacing:-.045em;font-weight:700">
+      <h2 class="disp" tabindex="-1" style="margin:0;font-size:46px;letter-spacing:-.045em;font-weight:700;outline:none">
         <span style="display:block;font-size:.36em;font-weight:500;font-style:italic;color:#BDB6A8;line-height:1;padding:0 0 .12em .1em">Your</span>
         <span style="display:block;line-height:.86">Saturn in</span>
         <span id="r_sign" style="display:block;font-size:1.5em;font-weight:800;letter-spacing:-.06em;line-height:.82;color:#F2B544"></span>
@@ -136,7 +136,7 @@ export function flowPage(opts: { siteUrl: string; ref?: string; form?: { date?: 
 </div>`;
   const script = `
 (function(){var $=function(s){return document.querySelector(s)};var cur=0;function T(n,p){try{window.rite&&window.rite.track(n,p)}catch(e){}}
-function show(n){cur=n;document.querySelectorAll('.step').forEach(function(s){s.classList.toggle('on',s.id==='s'+n)});window.scrollTo(0,0);var f=n===1?$('#fd'):n===2?$('#fp'):n===3?$('#ft'):null;if(f)setTimeout(function(){f.focus()},350)}
+function show(n){cur=n;document.querySelectorAll('.step').forEach(function(s){s.classList.toggle('on',s.id==='s'+n)});window.scrollTo(0,0);var f=n===1?$('#fd'):n===2?$('#fp'):n===3?$('#ft'):n===5?$('#s5 h2'):null;if(f)setTimeout(function(){f.focus({preventScroll:true})},350)}
 function ok(n){if(n>=2&&!/^\\d{4}-\\d{2}-\\d{2}$/.test($('#fd').value)){$('#e1').style.display='';show(1);return false}if(n>=3&&!$('#fp').value.trim()){$('#e2').style.display='';show(2);return false}return true}
 document.querySelectorAll('[data-go]').forEach(function(b){b.addEventListener('click',function(){var n=+b.dataset.go;if(ok(n))show(n)})});
 document.querySelectorAll('.finp').forEach(function(i){i.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var n=i.id==='fd'?2:i.id==='fp'?3:4;if(n===4)build();else if(ok(n))show(n)}})});

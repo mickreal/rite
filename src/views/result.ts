@@ -11,6 +11,7 @@ const CSS = `
 .lock{display:flex;gap:14px;align-items:flex-start;padding:16px 0;border-top:1px solid rgba(20,17,10,.12);font-size:17px;line-height:1.45}
 .lock svg{flex:0 0 auto;margin-top:3px;color:#8A6A1E}
 .mk{opacity:0;animation:mk .5s ease forwards}@keyframes mk{to{opacity:1}}
+@media (prefers-reduced-motion: reduce){.mk{opacity:1}}
 `;
 
 const PASS3 = [
@@ -55,7 +56,7 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
       <line x1="40" y1="${chart.y0.toFixed(1)}" x2="960" y2="${chart.y0.toFixed(1)}" stroke="rgba(237,230,214,.4)" stroke-dasharray="4 6"/>
       <text x="958" y="${(chart.y0 - 10).toFixed(1)}" text-anchor="end" fill="#A7A196" font-size="13" font-family="Hanken Grotesk, sans-serif">your natal Saturn, ${Math.floor(c.degree)}° ${c.sign}</text>
       <line x1="40" y1="260" x2="960" y2="260" stroke="rgba(237,230,214,.15)"/>
-      ${chart.yearTicks.map((t) => html`<text x="${t.x.toFixed(1)}" y="288" text-anchor="middle" fill="#6B675F" font-size="13" font-family="Hanken Grotesk, sans-serif">${t.label}</text>`)}
+      ${chart.yearTicks.map((t) => html`<text x="${t.x.toFixed(1)}" y="288" text-anchor="middle" fill="#8A857B" font-size="13" font-family="Hanken Grotesk, sans-serif">${t.label}</text>`)}
       ${chart.todayX > 0 ? html`<line x1="${chart.todayX.toFixed(1)}" y1="16" x2="${chart.todayX.toFixed(1)}" y2="260" stroke="#EDE6D6" stroke-width="1.5" stroke-dasharray="2 4"/><rect x="${(chart.todayX - 32).toFixed(1)}" y="2" width="64" height="24" rx="12" fill="#EDE6D6"/><text x="${chart.todayX.toFixed(1)}" y="18" text-anchor="middle" fill="#0E1014" font-size="12" font-weight="600" font-family="Hanken Grotesk, sans-serif">Today</text>` : ""}
       <path class="draw" pathLength="1000" d="${chart.path}" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
       ${passes.map((p, i) => html`<g class="mk" style="animation-delay:${(1.6 + i * 0.5).toFixed(1)}s"><circle class="pulse pp" data-i="${i}" cx="${p.x.toFixed(1)}" cy="${chart.y0.toFixed(1)}" r="10" fill="#F2B544" style="opacity:${i === 0 ? 1 : 0}"/><circle cx="${p.x.toFixed(1)}" cy="${chart.y0.toFixed(1)}" r="8" fill="#0E1014" stroke="#F2B544" stroke-width="3"/></g>`)}
@@ -86,20 +87,20 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
     <h3 class="disp" style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">${windowOpen ? "Tell me when my window opens" : "Get a heads-up before each pass"}</h3>
     ${opts.reminded === "window" ? html`<p class="swap" style="margin:0;font-size:17px;line-height:1.55">Done. One email, a month before your window opens in ${fmtMonYrL(open)}.</p>`
     : opts.reminded ? html`<p class="swap" style="margin:0;font-size:17px;line-height:1.55">Done. ${nextHit ? `The first one lands a week before your ${fmtMonYrL(Date.parse(nextHit))} pass.` : "Nothing ahead to remind you of — your passes are behind you."}</p>` : html`
-    <form method="post" action="/remind" data-kind="${windowOpen ? "window_open" : "pass"}" style="display:flex;flex-wrap:wrap;gap:12px"><input type="hidden" name="preview" value="${opts.id}">${windowOpen ? html`<input type="hidden" name="kind" value="window_open">` : ""}<label for="em" style="position:absolute;left:-9999px">Email</label><input id="em" name="email" class="inp" type="email" required placeholder="you@example.com"><button type="submit" class="ghost" style="min-height:52px">${windowOpen ? "Tell me" : "Remind me"}</button></form>
-    <p style="margin:0;font-size:14px;color:#8F897E">${windowOpen ? `Your window is ${untilText(today, open)} away. One email, a month before it opens.` : w.hits.length === 1 ? "One email, a week before your pass." : "Up to three emails, one a week before each pass."} Nothing else unless you ask.</p>`}
+    <form method="post" action="/remind" data-kind="${windowOpen ? "window_open" : "pass"}" style="display:flex;flex-wrap:wrap;gap:12px"><input type="hidden" name="preview" value="${opts.id}">${windowOpen ? html`<input type="hidden" name="kind" value="window_open">` : ""}<label for="em" style="position:absolute;left:-9999px">Email</label><input id="em" name="email" class="inp" type="email" autocomplete="email" required placeholder="you@example.com"><button type="submit" class="ghost" style="min-height:52px">${windowOpen ? "Tell me" : "Remind me"}</button></form>
+    <p style="margin:0;font-size:14px;color:#8F897E">${windowOpen ? `Your window opens ${untilText(today, open)}. One email, a month before it opens.` : w.hits.length === 1 ? "One email, a week before your pass." : "Up to three emails, one a week before each pass."} Nothing else unless you ask.</p>`}
   </div>
 </section>
 
 <section class="wrap" style="padding-bottom:120px">
-  <div class="rv" style="background:#EDE6D6;color:#14110A;border-radius:40px;padding:clamp(32px,5vw,72px);display:flex;flex-wrap:wrap;gap:48px 72px">
+  <div class="rv cream" style="background:#EDE6D6;color:#14110A;border-radius:40px;padding:clamp(32px,5vw,72px);display:flex;flex-wrap:wrap;gap:48px 72px">
     <div style="flex:1 1 380px;display:flex;flex-direction:column;gap:20px">
       <h2 class="disp" style="margin:0;font-size:clamp(40px,4.6vw,64px);line-height:1;letter-spacing:-.03em;font-weight:700">Your full reading</h2>
       <p style="margin:0;font-size:18px;line-height:1.6;color:rgba(20,17,10,.72);max-width:440px">Everything above, plus the exact days, ${opts.hasTime ? "your Saturn house" : "every month of your window"} and what to do in each phase. Built from this chart, ready the moment you pay.</p>
       <div style="display:flex;align-items:baseline;gap:14px;margin-top:8px"><span class="disp" style="font-size:88px;font-weight:800;letter-spacing:-.05em;line-height:.85">$${price}</span><span style="font-size:16px;color:rgba(20,17,10,.7)">once, no subscription</span></div>
       ${opts.gift?.state === "ok" ? html`<form method="post" action="/redeem" style="display:flex;flex-direction:column;gap:12px;max-width:440px"><input type="hidden" name="preview" value="${opts.id}"><input type="hidden" name="gift" value="${opts.gift.code}">
         <p style="margin:0;font-size:16px;line-height:1.5;color:#14110A"><b>This one's a gift${opts.gift.from ? ` from ${opts.gift.from}` : ""}.</b> Nothing to pay. Where should the link go?</p>
-        <div style="display:flex;flex-wrap:wrap;gap:10px"><label for="gfn" style="position:absolute;left:-9999px">First name</label><input id="gfn" name="first_name" class="inp" type="text" placeholder="First name (optional)" style="flex:1 1 160px;background:#fff;color:#14110A;border-color:rgba(20,17,10,.25)"><label for="gem" style="position:absolute;left:-9999px">Email</label><input id="gem" name="email" class="inp" type="email" required placeholder="Your email" style="flex:2 1 220px;background:#fff;color:#14110A;border-color:rgba(20,17,10,.25)"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px"><label for="gfn" style="position:absolute;left:-9999px">First name</label><input id="gfn" name="first_name" class="inp" type="text" autocomplete="given-name" placeholder="First name (optional)" style="flex:1 1 160px;background:#fff;color:#14110A;border-color:rgba(20,17,10,.25)"><label for="gem" style="position:absolute;left:-9999px">Email</label><input id="gem" name="email" class="inp" type="email" autocomplete="email" required placeholder="Your email" style="flex:2 1 220px;background:#fff;color:#14110A;border-color:rgba(20,17,10,.25)"></div>
         <div><button type="submit" class="cta dark">Open my reading</button></div></form>`
       : html`<form method="post" action="/checkout" style="display:flex;flex-wrap:wrap;gap:14px 20px;align-items:center"><input type="hidden" name="preview" value="${opts.id}"><button type="submit" class="cta dark">Unlock the full reading</button><a href="/gift" style="color:#14110A;font-weight:500">Buy one as a gift</a></form>
       ${opts.gift?.state === "used" ? html`<p style="margin:0;font-size:15px;color:#8A3B1E">That gift code has already been used.</p>` : opts.gift?.state === "bad" ? html`<p style="margin:0;font-size:15px;color:#8A3B1E">That gift code doesn't match anything. Check it and try the link again.</p>` : ""}

@@ -34,7 +34,7 @@ const CSS = `
 @supports (animation-timeline: scroll()){.prog{animation:prog linear both;animation-timeline:scroll()}@keyframes prog{to{transform:scaleX(1)}}}
 .toc{flex:1 1 220px;max-width:260px;position:sticky;top:32px;display:flex;flex-direction:column}
 .toc a{display:flex;justify-content:space-between;gap:12px;padding:10px 0 10px 16px;color:#A7A196;text-decoration:none;border-left:2px solid rgba(237,230,214,.1);font-weight:500;font-size:15px;transition:color .2s,border-color .2s}
-.toc a:hover{color:#EDE6D6;border-color:#F2B544}.toc a i{font-style:normal;color:#6B675F;font-size:13px}
+.toc a:hover{color:#EDE6D6;border-color:#F2B544}.toc a i{font-style:normal;color:#8A857B;font-size:13px}
 @media (max-width:900px){.toc{position:static;max-width:none;flex-direction:row;flex-wrap:wrap;gap:4px 14px}.toc a{border-left:0;padding:6px 0}.toc a i{display:none}}
 .ch{scroll-margin-top:32px;display:flex;flex-direction:column;gap:24px;padding-bottom:120px}
 .ch p.body{margin:0;font-size:19px;line-height:1.72;color:#CFC8BA;max-width:660px}
@@ -52,8 +52,8 @@ const CSS = `
 .qchip{min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(237,230,214,.18);background:none;color:#CFC8BA;font:500 14px 'Hanken Grotesk',sans-serif;cursor:pointer;transition:all .2s}.qchip:hover{border-color:#F2B544;color:#EDE6D6}.qchip.on{background:#EDE6D6;color:#0E1014;border-color:#EDE6D6}
 .nowrow{display:grid;grid-template-columns:120px minmax(0,1fr);gap:16px;padding:14px 0;border-top:1px solid rgba(237,230,214,.1);font-size:16px;line-height:1.55}
 .tile{display:flex;flex-direction:column;gap:8px;padding:22px;border-radius:24px;background:#14171D;border:1px solid transparent;text-decoration:none;color:#EDE6D6;transition:border-color .25s,transform .25s;cursor:pointer;text-align:left;font-family:inherit}
-.tile:hover{color:#EDE6D6;border-color:rgba(242,181,68,.5);transform:translateY(-3px)}.tile.now{border-color:#F2B544;background:#1A1D23}.tile.past{opacity:.72}
-.st{font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;width:fit-content}.st.past{background:rgba(237,230,214,.08);color:#A7A196}.st.now{background:#F2B544;color:#14110A}.st.ahead{background:rgba(242,181,68,.12);color:#F2B544}
+.tile:hover{color:#EDE6D6;border-color:rgba(242,181,68,.5);transform:translateY(-3px)}.tile.now{border-color:#F2B544;background:#1A1D23}.tile.past{opacity:.82}
+.st{font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;width:fit-content}.st.past{background:rgba(237,230,214,.08);color:#BDB6A8}.st.now{background:#F2B544;color:#14110A}.st.ahead{background:rgba(242,181,68,.12);color:#F2B544}
 .wsat{transition:transform 1s cubic-bezier(.3,.7,.2,1)}.warc,.wseg{transition:stroke-dasharray 1s,transform 1s}
 .eq span{display:inline-block;width:3px;margin-right:2px;border-radius:2px;background:#14110A;animation:eq 1s ease-in-out infinite}@keyframes eq{0%,100%{height:5px}50%{height:15px}}
 .ans{border-top:1px solid rgba(237,230,214,.1);padding-top:16px;display:flex;flex-direction:column;gap:8px}.ans b{color:#F2B544;font-weight:600}
@@ -114,7 +114,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
         <svg id="playIco" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M5 3l10 6-10 6z" fill="#14110A"/></svg>
       </button>
       <div style="flex:1 1 200px;min-width:0;display:flex;flex-direction:column;gap:10px">
-        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span class="disp" style="font-size:19px;font-weight:600">Listen to your reading</span><span id="playMeta" class="muted" style="font-size:14px">Narrated, about 20 minutes</span></div>
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span class="disp" style="font-size:19px;font-weight:600">Listen to your reading</span><span id="playMeta" class="muted" aria-live="polite" style="font-size:14px">Narrated, about 20 minutes</span></div>
         <div style="height:6px;border-radius:3px;background:rgba(237,230,214,.1);overflow:hidden"><div id="playBar" style="height:100%;width:0;background:#F2B544;transition:width .4s linear"></div></div>
       </div>
       <a href="/r/${opts.token}/calendar.ics" class="ghost" download="rite-saturn-return.ics">Add every date to my calendar</a>
@@ -139,7 +139,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
         <circle id="wseg" class="wseg" cx="250" cy="250" r="200" fill="none" stroke="#F2B544" stroke-width="14" stroke-opacity=".22" style="stroke-dasharray:${(seg[1] / 360 * Cw).toFixed(1)} 2000;transform:rotate(${(seg[0] - 90).toFixed(1)}deg);transform-origin:250px 250px"/>
         <circle id="warc" class="warc" cx="250" cy="250" r="200" fill="none" stroke="#F2B544" stroke-width="2.5" stroke-linecap="round" style="stroke-dasharray:${(stage.wa / 360 * Cw).toFixed(1)} 2000;transform:rotate(-90deg);transform-origin:250px 250px"/>
         <g stroke="rgba(237,230,214,.35)" stroke-width="2"><line x1="250" y1="38" x2="250" y2="62"/><line x1="462" y1="250" x2="438" y2="250"/><line x1="250" y1="462" x2="250" y2="438"/><line x1="38" y1="250" x2="62" y2="250"/></g>
-        <g font-family="Hanken Grotesk, sans-serif" font-size="14" text-anchor="middle" dominant-baseline="middle">${WHEEL_LABELS.map((l, i) => html`<text class="wl" data-i="${i}" x="${WHEEL_POS[i][0]}" y="${WHEEL_POS[i][1]}" fill="${i === stage.idx ? "#F2B544" : "#6B675F"}">${l}</text>`)}</g>
+        <g font-family="Hanken Grotesk, sans-serif" font-size="14" text-anchor="middle" dominant-baseline="middle">${WHEEL_LABELS.map((l, i) => html`<text class="wl" data-i="${i}" x="${WHEEL_POS[i][0]}" y="${WHEEL_POS[i][1]}" fill="${i === stage.idx ? "#F2B544" : "#8A857B"}">${l}</text>`)}</g>
         <text id="ageNow" x="250" y="232" text-anchor="middle" fill="#EDE6D6" font-family="Bricolage Grotesque, serif" font-size="64" font-weight="800" letter-spacing="-2">${stage.age}</text>
         <text x="250" y="276" text-anchor="middle" fill="#A7A196" font-family="Hanken Grotesk, sans-serif" font-size="15">years old</text>
         <g id="wsat" class="wsat" style="transform:rotate(${stage.wa.toFixed(1)}deg);transform-origin:250px 250px"><circle cx="250" cy="50" r="22" fill="#F2B544" opacity=".16"/><circle cx="250" cy="50" r="11" fill="#EDE6D6"/><ellipse cx="250" cy="50" rx="21" ry="5.5" fill="none" stroke="#F2B544" stroke-width="2" transform="rotate(-22 250 50)"/></g>
@@ -161,9 +161,9 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
   </div>
   <div class="card noprint" style="display:flex;flex-direction:column;gap:14px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><label for="scrub" class="disp" style="font-size:20px;font-weight:600">See your reading on another date</label><span id="dateLabel" style="font-size:15px;color:#F2B544">Showing ${fmtMonYr(now)}, today</span></div>
-    <input id="scrub" class="scrub" type="range" min="0" max="431" step="1" value="${(today.getUTCFullYear() - 2025) * 12 + today.getUTCMonth()}">
-    <div style="display:flex;justify-content:space-between;font-size:13px;color:#6B675F"><span>2025</span><span>2035</span><span>2045</span><span>2060</span></div>
-    <div id="jumps" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="qchip on" data-t="today">Today</button>${w.hits.map((h, i) => html`<button type="button" class="qchip" data-t="${h}">${w.hits.length === 1 ? "Exact pass" : `Pass ${i + 1}`}</button>`)}${cy.turn ? html`<button type="button" class="qchip" data-t="${cy.turn.date}">The turn</button>` : ""}${cy.ahead.map((p) => html`<button type="button" class="qchip" data-t="${p.from}">Age ${p.ageApprox}</button>`)}</div>
+    <input id="scrub" class="scrub" type="range" min="0" max="431" step="1" value="${(today.getUTCFullYear() - 2025) * 12 + today.getUTCMonth()}" aria-valuetext="${fmtMonYr(now)}">
+    <div aria-hidden="true" style="position:relative;height:18px;font-size:13px;color:#8A857B">${[2025, 2035, 2045, 2060].map((y, i, a) => html`<span style="position:absolute;left:${(((y - 2025) * 12) / 431 * 100).toFixed(1)}%;${i === 0 ? "" : i === a.length - 1 ? "transform:translateX(-100%)" : "transform:translateX(-50%)"}">${y}</span>`)}</div>
+    <div id="jumps" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="qchip on" data-t="today" aria-pressed="true">Today</button>${w.hits.map((h, i) => html`<button type="button" class="qchip" aria-pressed="false" data-t="${h}">${w.hits.length === 1 ? "Exact pass" : `Pass ${i + 1}`}</button>`)}${cy.turn ? html`<button type="button" class="qchip" aria-pressed="false" data-t="${cy.turn.date}">The turn</button>` : ""}${cy.ahead.map((p) => html`<button type="button" class="qchip" aria-pressed="false" data-t="${p.from}">Age ${p.ageApprox}</button>`)}</div>
   </div>
 </section>
 
@@ -183,7 +183,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
       <rect x="${cy.chart.contactX0.toFixed(1)}" y="16" width="${(cy.chart.contactX1 - cy.chart.contactX0 + 6).toFixed(1)}" height="244" fill="rgba(242,181,68,.07)"/>
       <line x1="40" y1="${cy.chart.y0.toFixed(1)}" x2="960" y2="${cy.chart.y0.toFixed(1)}" stroke="rgba(237,230,214,.4)" stroke-dasharray="4 6"/>
       <text x="958" y="${(cy.chart.y0 - 10).toFixed(1)}" text-anchor="end" fill="#A7A196" font-size="13" font-family="Hanken Grotesk, sans-serif">your natal Saturn, ${Math.floor(c.degree)}° ${c.sign}</text>
-      <text x="48" y="36" fill="#6B675F" font-size="13" font-family="Hanken Grotesk, sans-serif">Approach</text>
+      <text x="48" y="36" fill="#8A857B" font-size="13" font-family="Hanken Grotesk, sans-serif">Approach</text>
       <text x="${(cy.chart.contactX0 + 8).toFixed(1)}" y="36" fill="#F2B544" font-size="13" font-family="Hanken Grotesk, sans-serif">Contact</text>
       ${cy.chart.todayX > 0 ? html`<line x1="${cy.chart.todayX.toFixed(1)}" y1="16" x2="${cy.chart.todayX.toFixed(1)}" y2="260" stroke="#EDE6D6" stroke-width="1.2" stroke-dasharray="2 4"/><text x="${cy.chart.todayX.toFixed(1)}" y="278" text-anchor="middle" fill="#EDE6D6" font-size="12" font-family="Hanken Grotesk, sans-serif">today</text>` : ""}
       <path class="draw" pathLength="1000" d="${cy.chart.path}" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -191,7 +191,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
       ${w.hits.map((h) => html`<circle class="pulse" cx="${cy.chart.x(Date.parse(h)).toFixed(1)}" cy="${cy.chart.y0.toFixed(1)}" r="9" fill="#F2B544"/>`)}
       <path d="${cy.chart.markPath}" fill="#0E1014" stroke="#F2B544" stroke-width="3"/>
       ${cy.turn ? html`<circle cx="${cy.chart.x(Date.parse(cy.turn.date)).toFixed(1)}" cy="${cy.chart.y(cy.turn.orb * (saturnPast ? 1 : -1)).toFixed(1)}" r="7" fill="#0E1014" stroke="#F2B544" stroke-width="2.5" stroke-dasharray="3 3"/>` : ""}
-      ${cy.chart.yearTicks.map((t) => html`<text x="${t.x.toFixed(1)}" y="296" fill="#6B675F" font-size="12" font-family="Hanken Grotesk, sans-serif">${t.label}</text>`)}
+      ${cy.chart.yearTicks.map((t) => html`<text x="${t.x.toFixed(1)}" y="296" fill="#8A857B" font-size="12" font-family="Hanken Grotesk, sans-serif">${t.label}</text>`)}
     </svg>
     <p class="muted" style="margin:14px 0 0;font-size:14px">Gold ring${w.hits.length > 1 ? "s" : ""}: exact pass${w.hits.length > 1 ? "es" : ""}.${cy.turn ? ` Dashed ring: Saturn turns ${cy.turn.orb}° from your degree without crossing.` : ""} Small rings: Saturn standing still before changing direction.</p>
   </div>
@@ -233,7 +233,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
 <section id="c5" class="ch rv">
   <span class="kicker">Chapter five</span><h2>Month by month</h2>
   <p class="body">All ${cy.months.length} months of your window, with Saturn's real position and what each one is good for.</p>
-  <div class="noprint" style="display:flex;gap:8px;flex-wrap:wrap">${years.map((y) => html`<button type="button" class="tab ${y === curYear ? "on" : ""}" data-y="${y}">${y}</button>`)}</div>
+  <div class="noprint" style="display:flex;gap:8px;flex-wrap:wrap">${years.map((y) => html`<button type="button" class="tab ${y === curYear ? "on" : ""}" data-y="${y}" aria-pressed="${y === curYear}">${y}</button>`)}</div>
   <div style="border-bottom:1px solid rgba(237,230,214,.1)">
     ${cy.months.map((m) => html`<div class="mrow ${m.isNow ? "now" : ""}" data-y="${m.year}" style="${m.year === curYear ? "" : "display:none"}">
       <div style="display:flex;flex-direction:column;gap:4px"><span class="disp" style="font-size:20px;font-weight:600">${m.name}</span><span style="font-size:13px;color:#F2B544">${m.tag}</span></div>
@@ -263,7 +263,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
     return open ? html`<div class="card" style="display:flex;flex-direction:column;gap:22px;${isCur ? "border:1px solid rgba(242,181,68,.45)" : ""}">
     <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline"><h3>${title}</h3><span class="muted" style="font-size:14px"><span data-count="${k}">0</span> of ${qs.length} answered</span></div>
     ${qs.map((q, i) => html`<div style="display:flex;flex-direction:column;gap:10px"><label for="w${k}${i}" style="font-size:17px;line-height:1.5">${q}</label><textarea id="w${k}${i}" class="ta" data-store="w${k}${i}" data-group="${k}" placeholder="Write as much or as little as you like"></textarea></div>`)}
-  </div>` : html`<div class="card" style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center;opacity:.7">
+  </div>` : html`<div class="card" style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center;opacity:.82">
     <div style="display:flex;flex-direction:column;gap:6px"><h3>${title}</h3><span class="muted" style="font-size:15px">${qs.length} prompts. Unlocks ${fmtDay(opens)}; a reminder lands the week before.</span></div>
     <span class="badge d" style="font-size:14px;padding:6px 14px">Locked until ${fmtMonYr(Date.parse(opens))}</span>
   </div>`; })}
@@ -285,7 +285,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
     <div id="askList" style="display:flex;flex-direction:column;gap:16px">${opts.asks.map((a) => html`<div class="ans"><b>${a.q}</b><span style="color:#CFC8BA;line-height:1.6">${a.a}</span></div>`)}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">${[w.hits[0] ? `What should I do before ${fmtMonYr(Date.parse(w.hits[0]))}?` : "", cy.turn ? `Why does ${fmtMonYr(Date.parse(cy.turn.date))} matter?` : "", "How do I use the retrograde months?"].filter(Boolean).map((q) => html`<button type="button" class="chip askq" style="background:none;cursor:pointer;font-family:inherit">${q}</button>`)}</div>
     <form id="askForm" style="display:flex;gap:10px;flex-wrap:wrap"><label for="askq" style="position:absolute;left:-9999px">Your question</label><input id="askq" class="inp" type="text" maxlength="300" placeholder="Ask anything about your return"><button id="askBtn" type="submit" class="solid" ${opts.askLeft <= 0 ? "disabled" : ""}>Ask</button></form>
-    <p id="askErr" class="swap" style="margin:0;font-size:15px;color:#F2B544;display:none"></p>
+    <p id="askErr" role="alert" class="swap" style="margin:0;font-size:15px;color:#F2B544;display:none"></p>
     <span class="muted" style="font-size:14px"><span id="askLeft">${opts.askLeft}</span> questions left</span>
   </div>
 </section>
@@ -316,7 +316,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
       </div>
       <div><button id="storyBtn" type="submit" class="solid">Send it</button></div>
     </form>
-    <p id="storyMsg" class="swap" style="margin:0;font-size:16px;line-height:1.6;display:none"></p>
+    <p id="storyMsg" role="status" class="swap" style="margin:0;font-size:16px;line-height:1.6;display:none"></p>
   </div>
 </section>
 </main>
@@ -327,7 +327,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
 var TOK=${JSON.stringify(opts.token)};var $=function(s){return document.querySelector(s)};function T(n,p){try{window.rite&&window.rite.track(n,p)}catch(e){}}var Cw=${Cw.toFixed(3)};
 document.querySelectorAll('a[href$="calendar.ics"]').forEach(function(a){a.addEventListener('click',function(){T('calendar')})});document.querySelectorAll('form[action^="/season/"]').forEach(function(f){f.addEventListener('submit',function(){T('season_click')})});
 // month tabs
-document.querySelectorAll('.tab').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x===b)});document.querySelectorAll('.mrow').forEach(function(r){r.style.display=r.dataset.y===b.dataset.y?'':'none'})})});
+document.querySelectorAll('.tab').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x===b);x.setAttribute('aria-pressed',x===b)});document.querySelectorAll('.mrow').forEach(function(r){r.style.display=r.dataset.y===b.dataset.y?'':'none'})})});
 // localStorage for textareas
 document.querySelectorAll('textarea[data-store]').forEach(function(t){var k='rite:'+TOK+':'+t.dataset.store;try{t.value=localStorage.getItem(k)||''}catch(e){}t.addEventListener('input',function(){try{localStorage.setItem(k,t.value)}catch(e){}count()})});
 function count(){['approach','contact','integration'].forEach(function(g){var n=0;document.querySelectorAll('textarea[data-group="'+g+'"]').forEach(function(t){if(t.value.trim())n++});var el=document.querySelector('[data-count="'+g+'"]');if(el)el.textContent=n})}count();
@@ -335,12 +335,12 @@ function count(){['approach','contact','integration'].forEach(function(g){var n=
 var SEG=[[345,30],[15,65],[80,20],[100,70],[170,20],[190,70],[260,20],[280,65]];var timer=null;
 function setStage(t,label){clearTimeout(timer);timer=setTimeout(function(){fetch('/r/'+TOK+'/stage?t='+encodeURIComponent(t)).then(function(r){return r.ok?r.json():null}).then(function(s){if(!s)return;
  $('#wsat').style.transform='rotate('+s.wa.toFixed(1)+'deg)';$('#warc').style.strokeDasharray=(s.wa/360*Cw).toFixed(1)+' 2000';var sg=SEG[s.idx];$('#wseg').style.strokeDasharray=(sg[1]/360*Cw).toFixed(1)+' 2000';$('#wseg').style.transform='rotate('+(sg[0]-90).toFixed(1)+'deg)';
- document.querySelectorAll('.wl').forEach(function(l){l.setAttribute('fill',+l.dataset.i===s.idx?'#F2B544':'#6B675F')});$('#ageNow').textContent=s.age;
- $('#stKicker').textContent=(s.isToday?'Right now':'On '+s.when)+', age '+s.age;$('#stName').textContent=s.name;$('#stTheme').textContent=s.theme;$('#stSky').textContent=s.sky;$('#stFocus').textContent=s.focus;$('#stRelease').textContent=s.release;$('#stQ').textContent=s.question;$('#stNext').textContent=s.next;$('#dateLabel').textContent='Showing '+s.when+(s.isToday?', today':'');
+ document.querySelectorAll('.wl').forEach(function(l){l.setAttribute('fill',+l.dataset.i===s.idx?'#F2B544':'#8A857B')});$('#ageNow').textContent=s.age;
+ $('#stKicker').textContent=(s.isToday?'Right now':'On '+s.when)+', age '+s.age;$('#stName').textContent=s.name;$('#stTheme').textContent=s.theme;$('#stSky').textContent=s.sky;$('#stFocus').textContent=s.focus;$('#stRelease').textContent=s.release;$('#stQ').textContent=s.question;$('#stNext').textContent=s.next;$('#dateLabel').textContent='Showing '+s.when+(s.isToday?', today':'');$('#scrub').setAttribute('aria-valuetext',s.when);
  var c=$('#stageCard');c.classList.remove('swap');void c.offsetWidth;c.classList.add('swap');
- if(s.slider!=null)$('#scrub').value=s.slider;document.querySelectorAll('#jumps .qchip').forEach(function(q){q.classList.toggle('on',q.dataset.t===label)})}).catch(function(){})},120)}
+ if(s.slider!=null)$('#scrub').value=s.slider;document.querySelectorAll('#jumps .qchip').forEach(function(q){q.classList.toggle('on',q.dataset.t===label);q.setAttribute('aria-pressed',q.dataset.t===label)})}).catch(function(){})},120)}
 $('#scrub').addEventListener('input',function(e){var v=+e.target.value;setStage((2025+Math.floor(v/12))+'-'+String(v%12+1).padStart(2,'0')+'-15','')});
-document.querySelectorAll('#jumps .qchip,.tile').forEach(function(b){b.addEventListener('click',function(){setStage(b.dataset.t,b.dataset.t);if(b.classList.contains('tile'))document.getElementById('c0').scrollIntoView({behavior:'smooth'})})});
+document.querySelectorAll('#jumps .qchip,.tile').forEach(function(b){b.addEventListener('click',function(){setStage(b.dataset.t,b.dataset.t);if(b.classList.contains('tile'))document.getElementById('c0').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})})});
 setStage('today','today');
 // narration: chapters 0..8 play back to back; each MP3 is generated on first request and cached
 var CH=9,cur=0,au=new Audio(),playing=false,ready=false,durs=[];

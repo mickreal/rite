@@ -120,7 +120,7 @@ export function signPage(opts: { siteUrl: string; d: SignPageData }) {
 </article>
 <section id="faq" class="wrap" style="padding-bottom:120px;display:flex;flex-direction:column;gap:20px">
   <h2 class="disp rv" style="margin:0;font-size:clamp(32px,3.4vw,48px);line-height:1.05;letter-spacing:-.03em;font-weight:700">Questions people with Saturn in ${s} ask</h2>
-  <div style="max-width:820px">${copy.faq.map(([q, a], i) => html`<div class="rv" style="border-bottom:1px solid rgba(237,230,214,.14);${i === 0 ? "border-top:1px solid rgba(237,230,214,.14);" : ""}"><button type="button" class="faqb ${i === 0 ? "open" : ""}" aria-expanded="${i === 0}">${q}<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4v14M4 11h14"/></svg></button><p class="faqa ${i === 0 ? "open" : ""}">${a}</p></div>`)}</div>
+  <div style="max-width:820px">${copy.faq.map(([q, a], i) => html`<div class="rv" style="border-bottom:1px solid rgba(237,230,214,.14);${i === 0 ? "border-top:1px solid rgba(237,230,214,.14);" : ""}"><button type="button" class="faqb ${i === 0 ? "open" : ""}" aria-expanded="${i === 0}" aria-controls="faq-a${i}">${q}<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4v14M4 11h14"/></svg></button><p class="faqa ${i === 0 ? "open" : ""}" id="faq-a${i}">${a}</p></div>`)}</div>
 </section>
 <script type="application/ld+json">${raw(faqLd)}</script>
 <section class="wrap" style="padding-bottom:120px;display:flex;flex-direction:column;gap:20px">

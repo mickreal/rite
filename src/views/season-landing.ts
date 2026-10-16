@@ -19,7 +19,7 @@ const CSS = `
 .paper .lab{font-weight:600;color:#14110A}
 .paper ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:16px;color:rgba(20,17,10,.82)}
 .paper ul b{font-weight:600;color:#8A6A1E;font-variant-numeric:tabular-nums}
-.paper .foot{font-size:14px;color:rgba(20,17,10,.55);border-top:1px solid rgba(20,17,10,.14);padding-top:16px}
+.paper .foot{font-size:14px;color:rgba(20,17,10,.62);border-top:1px solid rgba(20,17,10,.14);padding-top:16px}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:28px}
 .cols div{display:flex;flex-direction:column;gap:10px;border-top:2px solid rgba(237,230,214,.12);padding-top:18px}
 .cols h3{margin:0;font-family:'Bricolage Grotesque',serif;font-size:24px;letter-spacing:-.02em;font-weight:600}
@@ -57,7 +57,7 @@ export function seasonLandingPage(opts: { siteUrl: string; sample: SeasonSample;
 
   <section style="display:flex;flex-direction:column;gap:20px" aria-labelledby="sampleH">
     <h2 id="sampleH" style="font-size:clamp(26px,2.6vw,34px)">What lands in your inbox</h2>
-    <article class="paper">
+    <article class="paper cream">
       <div class="meta"><span class="tag">Sample</span><span>For a chart born ${s.bornLabel}</span><span>Note for ${s.noteDate}, 7am</span></div>
       <p class="pos">${s.position}</p>
       ${lines.map(label)}

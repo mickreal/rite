@@ -30,6 +30,15 @@ export function nextNoteDate(tz: string, from = new Date()): Date {
   return localToUtc(ymd(target), `${String(NOTE_HOUR).padStart(2, "0")}:00`, tz);
 }
 
+/** The Monday slot the cron will actually use: runSeason skips a subscriber whose last note went out less than six
+ *  days before the slot (the welcome note sets last_sent_at), so step forward a week until that gap is met. */
+export function nextNoteAfterLast(tz: string, from: Date, lastSentAt: string | null): Date {
+  let nn = nextNoteDate(tz, from);
+  const last = lastSentAt ? Date.parse(lastSentAt) : NaN;
+  for (let i = 0; i < 3 && !Number.isNaN(last) && nn.getTime() - last < 6 * DAY; i++) nn = nextNoteDate(tz, new Date(nn.getTime() + 60000));
+  return nn;
+}
+
 /** Full calendar months between `today` and the paid period's end. Partial months don't count. Capped to 0..12. */
 export function unusedMonths(today: Date, periodEnd: Date): number {
   if (periodEnd.getTime() <= today.getTime()) return 0;
