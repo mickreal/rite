@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { followupSchedule, followupDue, followupSkip, type FollowupState } from "../src/followups";
+import { followupSchedule, followupDue, followupSkip, stageSeasonLine, type FollowupState } from "../src/followups";
 import { lastMondayLocal, sampleNote, noteFacts, positionLine } from "../src/season";
 import { compute } from "../src/compute";
-import { day3Email, day10Email } from "../src/email";
+import { day3Email, day10Email, stageReminderEmail } from "../src/email";
 import { localToUtc } from "../src/geo";
 
 describe("follow-up schedule", () => {
@@ -55,6 +55,23 @@ describe("follow-up skip rules", () => {
     expect(followupSkip({ ...d10, windowEnd: "2026-12-27" })).toBeNull();             // exactly 60
     expect(followupSkip({ ...d10, windowEnd: "2026-01-01" })).toBe("window_closing"); // already closed
     expect(followupSkip({ ...d10, calendarAdded: true })).toBeNull();
+  });
+});
+
+describe("Season line in stage reminders", () => {
+  it("only for non-subscribers with at least 30 days of window after the stage", () => {
+    expect(stageSeasonLine(false, "2028-04-12", "2027-04-28")).toBe(true);
+    expect(stageSeasonLine(true, "2028-04-12", "2027-04-28")).toBe(false);
+    expect(stageSeasonLine(false, "2028-04-12", "2028-04-12")).toBe(false); // the window-close reminder itself
+    expect(stageSeasonLine(false, "2028-04-12", "2031-01-01")).toBe(false); // squares after the window
+  });
+  it("the email adds one closing line with the link, and only when asked", () => {
+    const base = { firstName: "Sam", label: "Contact opens", onDate: "28 Apr 2027", readingUrl: "https://rite.test/r/t", stageKey: "contact" };
+    const off = stageReminderEmail({ ...base, subscribed: true, seasonUrl: "https://rite.test/r/t#season", monthlyPrice: 7 });
+    expect(off.text).not.toContain("Saturn Season");
+    const on = stageReminderEmail({ ...base, subscribed: false, seasonUrl: "https://rite.test/r/t#season", monthlyPrice: 7 });
+    expect(on.text).toContain("Saturn Season is a short note each Monday until your window closes, $7 a month, and it stops itself: https://rite.test/r/t#season");
+    expect(stageReminderEmail(base).text).not.toContain("Saturn Season");
   });
 });
 

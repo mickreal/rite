@@ -72,7 +72,7 @@ See you at the next one.
   };
 }
 
-export function stageReminderEmail(p: { firstName: string | null; label: string; onDate: string; readingUrl: string; stageKey: string }) {
+export function stageReminderEmail(p: { firstName: string | null; label: string; onDate: string; readingUrl: string; stageKey: string; subscribed?: boolean; seasonUrl?: string | null; monthlyPrice?: number }) {
   const what: Record<string, string> = {
     contact: "Saturn reaches the degree it held when you were born. This is the part people mean when they say Saturn return. The work is deciding, not waiting to see.",
     integration: "Saturn crosses your degree for the last time this return. From here what you chose becomes structure; the work is keeping the promises, small and often.",
@@ -89,6 +89,9 @@ On ${p.onDate}: ${p.label.toLowerCase()}.
 ${what[p.stageKey] ?? "A new stage of your Saturn cycle opens."}
 
 Your reading has a chapter for it, with the prompts for this phase now open: ${p.readingUrl}#c7
+${!p.subscribed && p.seasonUrl ? `
+If you'd rather hear from us every week than only at the turning points, Saturn Season is a short note each Monday until your window closes${p.monthlyPrice ? `, $${p.monthlyPrice} a month` : ""}, and it stops itself: ${p.seasonUrl}
+` : ""}
 — Rite
 
 Sent once, a week before each stage of your cycle. Reply to stop these.`;

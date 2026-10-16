@@ -9,7 +9,7 @@ import { signPage, type SignPageData } from "./views/sign";
 import { SIGNS, type Sign } from "./astro/saturn";
 import { writePreview, writeReport, writeSeason, datesAreGrounded, parseJsonReply, answerQuestion } from "./llm";
 import { sendEmail, deliveryEmail, seasonEmail, seasonCompleteEmail, stageReminderEmail, giftEmail, day3Email, day10Email } from "./email";
-import { followupSchedule, followupDue, followupSkip, type FollowupKind } from "./followups";
+import { followupSchedule, followupDue, followupSkip, stageSeasonLine, type FollowupKind } from "./followups";
 import { readingPage, type ReportJson } from "./views/reading";
 import { shareCardSvg, ogSvg } from "./card";
 import { saturnLongitude, signOf, degreeInSign, orb, isRetrograde, nextStation, type Phase } from "./astro/saturn";
@@ -1006,10 +1006,15 @@ async function runFollowups(env: Env) {
 
 async function runStageReminders(env: Env) {
   const today = now().slice(0, 10);
-  const due = await env.DB.prepare("SELECT r.id, r.purchase_id, r.stage_key, r.label, r.on_date, p.email, p.first_name FROM stage_reminders r JOIN purchases p ON p.id = r.purchase_id WHERE r.sent_at IS NULL AND r.send_on <= ? AND r.on_date >= ? AND p.status != 'refunded'").bind(today, today).all<{ id: number; purchase_id: string; stage_key: string; label: string; on_date: string; email: string; first_name: string | null }>();
+  const due = await env.DB.prepare(`SELECT r.id, r.purchase_id, r.stage_key, r.label, r.on_date, p.email, p.first_name, pv.window_end,
+      EXISTS (SELECT 1 FROM subscriptions s WHERE s.purchase_id = r.purchase_id AND s.status IN ('active','past_due')) AS subscribed
+    FROM stage_reminders r JOIN purchases p ON p.id = r.purchase_id JOIN previews pv ON pv.id = p.preview_id
+    WHERE r.sent_at IS NULL AND r.send_on <= ? AND r.on_date >= ? AND p.status != 'refunded'`).bind(today, today).all<{ id: number; purchase_id: string; stage_key: string; label: string; on_date: string; email: string; first_name: string | null; window_end: string; subscribed: number }>();
   for (const r of due.results) {
     if (!r.email) continue;
-    const m = stageReminderEmail({ firstName: r.first_name, label: r.label, onDate: fmtDay(r.on_date), readingUrl: `${env.SITE_URL}/r/${r.purchase_id}`, stageKey: r.stage_key });
+    const subscribed = !!r.subscribed;
+    const m = stageReminderEmail({ firstName: r.first_name, label: r.label, onDate: fmtDay(r.on_date), readingUrl: `${env.SITE_URL}/r/${r.purchase_id}`, stageKey: r.stage_key,
+      subscribed, seasonUrl: stageSeasonLine(subscribed, r.window_end, r.on_date) ? `${env.SITE_URL}/r/${r.purchase_id}#season` : null, monthlyPrice: Math.round(parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100) });
     const ok = await sendEmail(env, r.email, m.subject, m.text);
     if (ok) { await env.DB.prepare("UPDATE stage_reminders SET sent_at=? WHERE id=?").bind(now(), r.id).run(); await log(env, "stage_reminder", r.purchase_id, { stage: r.stage_key }); }
   }

@@ -7,6 +7,7 @@ export const FOLLOWUP_DAYS: Record<FollowupKind, number> = { day3: 3, day10: 10 
 export const FOLLOWUP_SEND_HOUR = 9;          // not before 09:00 in the reader's birthplace zone (the zone we have)
 export const FOLLOWUP_EXPIRE_DAYS = 7;        // a follow-up that couldn't go out within a week of its day is dropped, not sent late
 export const DAY10_MIN_WINDOW_DAYS = 60;      // no Season pitch when the window closes within this many days
+export const STAGE_SEASON_MIN_DAYS = 30;      // stage reminders only mention Season when this much window is left after the stage
 
 const DAY = 86400000;
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
@@ -50,5 +51,10 @@ export function followupSkip(s: FollowupState): string | null {
   if (s.subscribed) return "subscribed";
   if (s.windowEnd < addDays(s.today, DAY10_MIN_WINDOW_DAYS)) return "window_closing";
   return null;
+}
+
+/** Stage reminders close with a Saturn Season line only for non-subscribers with real window left after the stage. */
+export function stageSeasonLine(subscribed: boolean, windowEnd: string, onDate: string): boolean {
+  return !subscribed && windowEnd >= addDays(onDate, STAGE_SEASON_MIN_DAYS);
 }
 
