@@ -336,6 +336,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
 <section id="faq" data-rv style="max-width:920px;margin:0 auto;padding:0 clamp(16px,4vw,48px) 160px;display:flex;flex-direction:column;gap:24px">
   <h2 class="disp f" style="margin:0 0 12px;font-size:clamp(40px,4.6vw,68px);line-height:1;letter-spacing:-.03em;font-weight:700">Questions</h2>
   <div>${faq.map(([q, a], i) => html`<div class="row" style="border-bottom:1px solid rgba(237,230,214,.14);${i === 0 ? "border-top:1px solid rgba(237,230,214,.14);" : ""}animation-delay:${(0.25 + i * 0.12).toFixed(2)}s"><button type="button" class="faqb ${i === 0 ? "open" : ""}" aria-expanded="${i === 0}">${q}<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4v14M4 11h14"/></svg></button><p class="faqa ${i === 0 ? "open" : ""}">${a}</p></div>`)}</div>
+  <p class="f" style="margin:0;font-size:17px;line-height:1.6;color:#A7A196">More on timing: <a href="/saturn-return/when">when is my Saturn return, and how the dates are worked out</a>, and <a href="/saturn-return/first-vs-second">first, second and third returns compared</a>.</p>
 </section>
 
 <section data-rv style="padding:0 0 120px;overflow:hidden">
