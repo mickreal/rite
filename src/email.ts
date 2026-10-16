@@ -24,18 +24,19 @@ Your reading's ready: ${p.reportUrl}
 
 The short version: Saturn in ${p.sign}${p.housePhrase}. Your window runs ${p.windowStart} to ${p.windowEnd}. ${p.hitSentence}
 
-Keep that link; the page updates as you move through the cycle, so it reads differently next year. At the top you can add every date to your calendar, print it to PDF, and save a share card (no personal details on it, just the sign and the dates). Five follow-up questions are included at the bottom.
+Keep that link; the page updates as you move through the cycle, so it reads differently next year. At the top you can listen to it, add every date to your calendar, print it to PDF, and save a share card (no personal details on it, just the sign and the dates). Five follow-up questions are included at the bottom.
 
 If the Saturn sign is wrong, reply to this and I'll refund you.
 
-— Rite
+— Mick, Rite
 
-P.S. Saturn Season is a weekly note through your window — where Saturn is this week relative to your chart, one line on what that's for. $7/month, stop any time: ${p.upsellUrl}`;
+P.S. Saturn Season is a weekly note through your window: where Saturn is this week relative to your chart, and one thing to do with it. $7 a month or $59 a year, and it stops itself when your window closes: ${p.upsellUrl}`;
   return { subject, text };
 }
 
 export function seasonEmail(p: { firstName: string | null; transitDeg: string; transitSign: string; orb: string; dir: string; motionSentence: string; body: string; comingUp: string; rereadName: string; rereadUrl: string; manageUrl: string; welcome?: boolean }) {
-  const subject = p.welcome ? `Saturn Season starts — ${p.orb} ${p.dir}` : `Saturn this week — ${p.orb} ${p.dir}`;
+  const where = parseFloat(p.orb) < 1 ? "on your degree" : `${p.orb} ${p.dir === "from" ? "short of" : "past"} your degree`;
+  const subject = p.welcome ? `Saturn Season starts: ${where}` : `Saturn this week: ${where}`;
   const text = `${p.firstName ?? "Hi"},
 ${p.welcome ? `
 Welcome to Saturn Season. This is the first note; the rest land on Monday mornings where you are, until your window closes.
@@ -54,7 +55,7 @@ Change plan or stop these: ${p.manageUrl}`;
   return { subject, text };
 }
 
-export function seasonCompleteEmail(p: { firstName: string | null }) {
+export function seasonCompleteEmail(p: { firstName: string | null; readingUrl?: string; nextAge?: number | null }) {
   return {
     subject: "Your Saturn return is over",
     text: `${p.firstName ?? "Hi"},
@@ -63,7 +64,9 @@ As of this week Saturn has left your natal sign. The window's closed.
 
 What you built in it is yours now. What you let go stays gone.
 
-I'm going to stop these emails — there's nothing left to track. Your subscription has been cancelled; you won't be charged again. See you at the next one.
+This is the last note. There's nothing left to track, so the subscription has cancelled itself; you won't be charged again.
+${p.readingUrl ? `\nYour reading stays at ${p.readingUrl} and keeps updating through the long arc${p.nextAge ? ` (the next turning point is around age ${p.nextAge})` : ""}.\n` : ""}
+See you at the next one.
 
 — Rite`,
   };
@@ -71,7 +74,7 @@ I'm going to stop these emails — there's nothing left to track. Your subscript
 
 export function stageReminderEmail(p: { firstName: string | null; label: string; onDate: string; readingUrl: string; stageKey: string }) {
   const what: Record<string, string> = {
-    contact: "Saturn reaches the degree it held when you were born. This is the part people mean when they say Saturn return. Whatever you have been circling tends to ask for a decision around it.",
+    contact: "Saturn reaches the degree it held when you were born. This is the part people mean when they say Saturn return. The work is deciding, not waiting to see.",
     integration: "Saturn crosses your degree for the last time this return. From here what you chose becomes structure; the work is keeping the promises, small and often.",
     close: "Saturn leaves your natal sign and your return window closes. Your reading stays at the link below and keeps updating as the cycle moves on.",
     square1: "Saturn squares its own position: the first real test of what you built at your return. Fix what is not working rather than starting again.",

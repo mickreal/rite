@@ -198,7 +198,7 @@ app.post("/preview", async (c) => {
     text = await writePreview(c.env, reportInputs(comp, null));
   } catch (e) {
     await log(c.env, "error", pid, { where: "preview-llm", e: String(e) });
-    text = `Saturn in ${comp.sign}: ${SIGN_NOTES[comp.sign].hook} ${phaseSentence(comp)} The full report dates your exact hits and tells you what to build before each one.`;
+    text = `Saturn in ${comp.sign}: ${SIGN_NOTES[comp.sign].hook} ${phaseSentence(comp)} The full report dates your exact passes and tells you what to build before each one.`;
   }
 
   await c.env.DB.prepare(`INSERT INTO previews (id, created_at, birth_date, birth_time, place_label, lat, lon, tz, birth_utc, natal_lon, natal_sign, natal_degree, natal_house, return_number, window_start, window_end, peak_start, peak_end, hits, phase, preview_text, ref)
@@ -849,7 +849,8 @@ async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: s
   const o = comp.todayOrb;
   const dest = to ?? r.email;
   if (comp.phase === "complete") { // Saturn has left the natal sign: the window everyone was shown is closed
-    const m = seasonCompleteEmail({ firstName: r.first_name });
+    const ahead = cycle(comp, today).ahead[0];
+    const m = seasonCompleteEmail({ firstName: r.first_name, readingUrl: `${env.SITE_URL}/r/${r.purchase_id}`, nextAge: ahead?.ageApprox ?? null });
     await sendEmail(env, dest, m.subject, m.text);
     if (!to) {
       await closeSeasonSubscription(env, r, today);
@@ -863,8 +864,8 @@ async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: s
   const todayIso = today.toISOString().slice(0, 10);
   const nextHit = comp.window.hits.find((h) => h >= todayIso);
   const motion = comp.retrograde
-    ? `It's retrograde${st ? ` until ${fmtDay(st.date)}` : ""}${comp.window.hits.length === 3 ? ", so this is a second pass" : ""}.`
-    : `It's direct${nextHit ? ` and closing in; your exact hit is ${fmtDay(nextHit)}` : ""}.`;
+    ? `It's retrograde${st ? ` until ${fmtDay(st.date)}` : ""}${comp.window.hits.length === 3 && todayIso > comp.window.hits[0] && todayIso < comp.window.hits[1] ? `, backing over your degree for the second pass on ${fmtDay(comp.window.hits[1])}` : Math.abs(o) > 3 ? ", moving away from your degree for now" : ""}.`
+    : `It's direct${nextHit ? ` and closing in; your next exact pass is ${fmtDay(nextHit)}` : ""}.`;
   // Everything dated is decided here, not by the model: the 30-day list, the chapter link, and the list of dates the
   // model is allowed to repeat. If the model invents a date twice, the note goes out with the code-only parts.
   const cy = cycle(comp, today);

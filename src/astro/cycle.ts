@@ -220,14 +220,16 @@ export function smallChart(natalLon: number, w: ReturnWindow, today = new Date()
   return { path, mark, y0: +y0.toFixed(1), todayX: now >= t0 && now <= t1 ? +x(now).toFixed(1) : -999 };
 }
 
-/** Every stretch Saturn spends in `sign` between two years (UTC dates, inclusive). Daily scan, so ±1 day. */
+/** Every stretch Saturn spends in `sign` between two years (UTC dates, inclusive). A day counts for the sign Saturn is in
+ *  at the end of that UTC day, so `from` is the UTC date of the ingress and `to` the day before the egress, the same
+ *  convention `compute()` uses for a return window. */
 export function signPeriods(sign: Sign, fromYear: number, toYear: number): Array<{ from: string; to: string }> {
   const out: Array<{ from: string; to: string }> = [];
   let inSign = false, start = "";
   let prev = "";
   for (let t = Date.UTC(fromYear, 0, 1); t <= Date.UTC(toYear, 11, 31); t += DAY) {
     const d = iso(new Date(t));
-    const s = signOf(saturnLongitude(new Date(t))) === sign;
+    const s = signOf(saturnLongitude(new Date(t + DAY - 1000))) === sign;
     if (s && !inSign) { inSign = true; start = d; }
     if (!s && inSign) { inSign = false; out.push({ from: start, to: prev }); }
     prev = d;

@@ -67,16 +67,16 @@ export function phaseSentence(c: Computed): string {
     case "not_yet": return `Your window opens ${fmtMonth(w.windowStart)}. You're on the approach.`;
     case "in_window": return `Your window runs ${fmtMonth(w.windowStart)} to ${fmtMonth(w.windowEnd)}. You're in it now.`;
     case "peak": return `Your window runs ${fmtMonth(w.windowStart)} to ${fmtMonth(w.windowEnd)}, and you're within a degree of exact right now.`;
-    case "separating": return `Your window runs ${fmtMonth(w.windowStart)} to ${fmtMonth(w.windowEnd)}. The last exact hit is behind you; you're on the way out.`;
+    case "separating": return `Your window runs ${fmtMonth(w.windowStart)} to ${fmtMonth(w.windowEnd)}. The last exact pass is behind you; you're on the way out.`;
     case "complete": return `Your window ran ${fmtMonth(w.windowStart)} to ${fmtMonth(w.windowEnd)}. It's over.`;
   }
 }
 
 export function hitSentence(c: Computed): string {
   const h = c.window.hits.map(fmtDay);
-  if (h.length === 1) return `One exact hit: ${h[0]}.`;
-  if (h.length === 3) return `Three exact hits: ${h[0]}, ${h[1]} and ${h[2]}.`;
-  return `Exact hits: ${h.join(", ")}.`;
+  if (h.length === 1) return `One exact pass: ${h[0]}.`;
+  if (h.length === 3) return `Three exact passes: ${h[0]}, ${h[1]} and ${h[2]}.`;
+  return `Exact passes: ${h.join(", ")}.`;
 }
 
 export function houseLabel(c: Computed): string | null {
