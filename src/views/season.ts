@@ -33,7 +33,7 @@ export function seasonManagePage(opts: { siteUrl: string; d: SeasonManageData; s
   const statusLabel: Record<SeasonManageData["status"], string> = {
     active: "On", past_due: "Paused: last payment failed", canceled: "Stopped", complete: "Finished: your window closed", none: "Not subscribed",
   };
-  const flash = d.flash === "started" ? (d.status === "active" ? html`<div class="note">You're in. The first note is on its way to your inbox now; the next lands Monday morning.</div>` : html`<div class="note">Thanks. Stripe is confirming the payment; this page fills in by itself in a few seconds, and your first note follows straight after.</div>`)
+  const flash = d.flash === "started" ? (d.status === "active" ? html`<div class="note">You're in. The first note is on its way to your inbox now; the next lands ${d.nextNote}.</div>` : html`<div class="note">Thanks. Stripe is confirming the payment; this page fills in by itself in a few seconds, and your first note follows straight after.</div>`)
     : d.flash === "switched" ? html`<div class="note">Done. Your plan is now ${planLabel}. Stripe prorates the change on your next invoice.</div>`
     : d.flash === "canceled" ? html`<div class="note">Stopped. You won't be charged again, and the Monday notes end here. Your reading stays where it is.</div>`
     : d.flash === "error" ? html`<div class="note danger">That didn't go through on Stripe's side. Nothing changed. Try again in a minute, or email <a href="mailto:${opts.supportEmail}">${opts.supportEmail}</a>.</div>` : "";
