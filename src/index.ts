@@ -39,6 +39,7 @@ const app = new Hono<{ Bindings: Env }>();
 const id = (n = 12) => { const b = new Uint8Array(n); crypto.getRandomValues(b); return [...b].map((x) => x.toString(36).padStart(2, "0")).join("").slice(0, n); };
 const token = () => id(32);
 const now = () => new Date().toISOString();
+const adminOk = (env: Env, auth: string | undefined) => !!env.STRIPE_WEBHOOK_SECRET && env.STRIPE_WEBHOOK_SECRET.length > 10 && auth === `Bearer ${env.STRIPE_WEBHOOK_SECRET}`;
 const stripe = (env: Env) => new Stripe(env.STRIPE_SECRET_KEY, { httpClient: Stripe.createFetchHttpClient() });
 async function log(env: Env, kind: string, ref?: string | null, detail?: unknown) {
   try { await env.DB.prepare("INSERT INTO events (at, kind, ref, detail) VALUES (?,?,?,?)").bind(now(), kind, ref ?? null, detail ? JSON.stringify(detail).slice(0, 2000) : null).run(); } catch (e) { console.error("log", e); }
@@ -49,7 +50,7 @@ interface PreviewRow {
   natal_lon: number; natal_sign: string; natal_degree: number; natal_house: number | null; return_number: number;
   window_start: string; window_end: string; peak_start: string; peak_end: string; hits: string; phase: string; preview_text: string | null; ref: string | null;
 }
-interface PurchaseRow { id: string; preview_id: string; email: string; first_name: string | null; tier: string; report_md: string | null; status: string; amount_cents: number; stripe_session_id: string | null }
+interface PurchaseRow { id: string; preview_id: string; email: string; first_name: string | null; tier: string; report_md: string | null; status: string; amount_cents: number; stripe_session_id: string | null; delivered_at: string | null }
 
 /** Recompute from the stored birth data (cheap, and keeps "today"-dependent fields fresh). */
 function recompute(p: PreviewRow, today = new Date()): Computed {
@@ -288,15 +289,35 @@ app.post("/redeem", async (c) => {
     .bind(tok, p.id, now(), email, firstName, null, null, 0, p.birth_time ? "full" : "notime").run();
   await c.env.DB.prepare("UPDATE gifts SET redeemed_purchase_id=?, redeemed_at=? WHERE code=? AND redeemed_at IS NULL").bind(tok, now(), g.code).run();
   await log(c.env, "gift_redeemed", tok, { code: g.code });
-  c.executionCtx.waitUntil(generateReport(c.env, tok));
+  kickGenerate(c.env, c.executionCtx, tok);
   return c.redirect(`/r/${tok}`);
+});
+
+app.post("/internal/generate/:tok", async (c) => {
+  if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
+  const tok = c.req.param("tok");
+  // lock so refreshes don't start parallel LLM calls
+  const lock = await c.env.DB.prepare("UPDATE purchases SET status='writing', delivered_at=? WHERE id=? AND (status='paid' OR status='failed' OR (status='writing' AND delivered_at < ?))").bind(now(), tok, new Date(Date.now() - 4 * 60000).toISOString()).run();
+  if (!lock.meta.changes) return c.text("busy or done");
+  await generateReport(c.env, tok);
+  return c.text("ok");
+});
+
+app.post("/admin/fulfil", async (c) => {
+  if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
+  const { session_id } = await c.req.json<{ session_id: string }>();
+  const session = await stripe(c.env).checkout.sessions.retrieve(session_id);
+  if (session.payment_status !== "paid") return c.json({ ok: false, payment_status: session.payment_status });
+  const tok = await fulfil(c.env, session);
+  if (tok && session.metadata?.gift !== "1") kickGenerate(c.env, c.executionCtx, tok);
+  return c.json({ ok: true, token: tok, gift: session.metadata?.gift === "1", url: `${c.env.SITE_URL}/${session.metadata?.gift === "1" ? "gift/thanks" : "r"}/${tok}` });
 });
 
 app.get("/thanks", async (c) => {
   const sid = c.req.query("session_id");
   if (!sid) return c.redirect("/");
   // The webhook usually lands first; poll briefly for the purchase (or gift) row.
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 6; i++) {
     const g = await c.env.DB.prepare("SELECT code FROM gifts WHERE stripe_session_id = ?").bind(sid).first<{ code: string }>();
     if (g) return c.redirect(`/gift/thanks/${g.code}`);
     const pu = await c.env.DB.prepare("SELECT id, status FROM purchases WHERE stripe_session_id = ?").bind(sid).first<{ id: string; status: string }>();
@@ -308,7 +329,7 @@ app.get("/thanks", async (c) => {
   const session = await s.checkout.sessions.retrieve(sid);
   if (session.payment_status === "paid") {
     const tok = await fulfil(c.env, session);
-    if (tok) return c.redirect(session.metadata?.gift === "1" ? `/gift/thanks/${tok}` : `/r/${tok}`);
+    if (tok) { if (session.metadata?.gift !== "1") kickGenerate(c.env, c.executionCtx, tok); return c.redirect(session.metadata?.gift === "1" ? `/gift/thanks/${tok}` : `/r/${tok}`); }
   }
   return c.html(`<p style="font-family:serif;padding:40px">Payment received — your report is being generated. Refresh in a moment, or check your email.</p>`);
 });
@@ -325,12 +346,13 @@ app.get("/r/:tok", async (c) => {
   if (!pu) return c.notFound();
   const p = await getPreview(c.env, pu.preview_id);
   if (!p) return c.notFound();
-  let r = parseReport(pu.report_md);
+  const r = parseReport(pu.report_md);
   if (!r) {
-    if (pu.status === "paid" || pu.status === "generated" || (pu.status === "failed" && c.req.query("retry") === "1")) { await generateReport(c.env, pu.id); const again = await getPurchase(c.env, pu.id); r = parseReport(again?.report_md ?? null); }
-    if (!r) {
-      const again = await getPurchase(c.env, pu.id);
-      if (again?.status === "failed") return c.html(`<!doctype html><meta charset="utf-8"><title>One moment</title><body style="background:#0E1014;color:#EDE6D6;font-family:sans-serif;padding:48px;line-height:1.6"><p>Your reading didn't write cleanly. It's paid for and nothing is lost; <a href="/r/${pu.id}?retry=1" style="color:#F2B544">try again</a>, or email <a href="mailto:${c.env.SUPPORT_EMAIL}" style="color:#F2B544">${c.env.SUPPORT_EMAIL}</a> and we'll sort it by hand.</p></body>`, 500);
+    const stale = pu.status === "writing" && Date.now() - Date.parse(pu.delivered_at ?? "0") > 4 * 60000; // delivered_at doubles as the writing lock timestamp
+    if (pu.status === "paid" || stale || (pu.status === "failed" && c.req.query("retry") === "1")) kickGenerate(c.env, c.executionCtx, pu.id);
+    {
+      const again = pu;
+      if (again?.status === "failed" && c.req.query("retry") !== "1") return c.html(`<!doctype html><meta charset="utf-8"><title>One moment</title><body style="background:#0E1014;color:#EDE6D6;font-family:sans-serif;padding:48px;line-height:1.6"><p>Your reading didn't write cleanly. It's paid for and nothing is lost; <a href="/r/${pu.id}?retry=1" style="color:#F2B544">try again</a>, or email <a href="mailto:${c.env.SUPPORT_EMAIL}" style="color:#F2B544">${c.env.SUPPORT_EMAIL}</a> and we'll sort it by hand.</p></body>`, 500);
       return c.html(`<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="6"><title>Writing your reading</title><body style="background:#0E1014;color:#EDE6D6;font-family:sans-serif;padding:48px"><p>Writing your reading. This page refreshes itself; it usually takes under a minute.</p></body>`);
     }
   }
@@ -461,8 +483,12 @@ async function fulfil(env: Env, session: Stripe.Checkout.Session): Promise<strin
   await env.DB.prepare(`INSERT INTO purchases (id, preview_id, created_at, email, first_name, stripe_session_id, stripe_payment_intent, amount_cents, tier, status) VALUES (?,?,?,?,?,?,?,?,?,'paid')`)
     .bind(tok, pid, now(), email, firstName, session.id, typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null, session.amount_total ?? 0, tier).run();
   await log(env, "paid", tok, { pid, tier, amount: session.amount_total });
-  await generateReport(env, tok);
-  return tok;
+  return tok; // the reading is written in its own invocation (kickGenerate / first view) to stay under the per-request CPU cap
+}
+
+/** Ask the worker to write a reading in a fresh invocation (own CPU budget). Fire-and-forget. */
+function kickGenerate(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, tok: string) {
+  ctx.waitUntil(fetch(`${env.SITE_URL}/internal/generate/${tok}`, { method: "POST", headers: { authorization: `Bearer ${env.STRIPE_WEBHOOK_SECRET}` } }).catch(() => {}));
 }
 
 /** Gift purchase: no birth details yet. Store a code, email it to the buyer. Returns the code. */
@@ -555,7 +581,8 @@ app.post("/webhook/stripe", async (c) => {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     if (session.mode === "payment" && session.payment_status === "paid") {
-      c.executionCtx.waitUntil(fulfil(c.env, session));
+      const tok = await fulfil(c.env, session);
+      if (tok && session.metadata?.gift !== "1") kickGenerate(c.env, c.executionCtx, tok);
     } else if (session.mode === "subscription" && session.metadata?.purchase_id && session.subscription) {
       const subId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
       await c.env.DB.prepare("INSERT OR REPLACE INTO subscriptions (id, purchase_id, created_at, status) VALUES (?,?,?,'active')").bind(subId, session.metadata.purchase_id, now()).run();
@@ -574,9 +601,9 @@ app.post("/webhook/stripe", async (c) => {
 
 // ---------- refund (used by the support inbox automation; protect with the webhook secret as a bearer) ----------
 app.post("/admin/refund", async (c) => {
-  if (c.req.header("authorization") !== `Bearer ${c.env.STRIPE_WEBHOOK_SECRET}`) return c.text("no", 401);
+  if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
   const { email } = await c.req.json<{ email: string }>();
-  const pu = await c.env.DB.prepare("SELECT id, stripe_payment_intent FROM purchases WHERE email=? AND status IN ('paid','generated') ORDER BY created_at DESC LIMIT 1").bind(email).first<{ id: string; stripe_payment_intent: string }>();
+  const pu = await c.env.DB.prepare("SELECT id, stripe_payment_intent FROM purchases WHERE email=? AND status IN ('paid','writing','generated','failed') ORDER BY created_at DESC LIMIT 1").bind(email).first<{ id: string; stripe_payment_intent: string }>();
   if (!pu?.stripe_payment_intent) {
     // maybe a gift buyer
     const g = await c.env.DB.prepare("SELECT code, stripe_payment_intent FROM gifts WHERE buyer_email=? AND redeemed_at IS NULL AND stripe_payment_intent IS NOT NULL ORDER BY created_at DESC LIMIT 1").bind(email).first<{ code: string; stripe_payment_intent: string }>();
@@ -595,7 +622,7 @@ app.post("/admin/refund", async (c) => {
 // ---------- health + stats ----------
 app.get("/health", (c) => c.json({ ok: true, saturn: saturnLongitude(new Date()), at: now() }));
 app.get("/admin/stats", async (c) => {
-  if (c.req.header("authorization") !== `Bearer ${c.env.STRIPE_WEBHOOK_SECRET}`) return c.text("no", 401);
+  if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
   const rows = await c.env.DB.prepare("SELECT kind, COUNT(*) n FROM events GROUP BY kind").all();
   const rev = await c.env.DB.prepare("SELECT COALESCE(SUM(amount_cents),0) cents, COUNT(*) n FROM purchases WHERE status IN ('paid','generated')").first();
   return c.json({ events: rows.results, revenue: rev });

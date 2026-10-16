@@ -94,6 +94,8 @@ Every number comes from code. The model only writes prose and is told it may not
 
 ## Admin
 
+- Fulfilment and report-writing are split into separate invocations so no single request carries Stripe + Claude + D1 + email (the free plan caps CPU at 10 ms per invocation): the webhook (or `/thanks`) inserts the purchase row and POSTs `/internal/generate/:tok` to itself; that invocation takes a `writing` lock (status + timestamp) and writes the reading; `/r/:tok` only ever shows the "writing" page and re-kicks if the lock is older than 4 minutes. `POST /admin/fulfil {"session_id"}` fulfils a paid Checkout session by hand if the webhook was lost.
+
 - `GET /health` — Saturn's current longitude and the time.
 - `GET /admin/stats` and `POST /admin/refund {"email"}` — bearer token is the Stripe webhook secret. Wire `/admin/refund` to an inbox rule later if you want refund-on-request automation.
 - Events table (`visit`, `preview`, `checkout`, `paid`, `generated`, `emailed`, `season_sent`, `refund`, `error`) is the funnel. `wrangler d1 execute rite --remote --command "SELECT kind, COUNT(*) FROM events GROUP BY kind"`.
