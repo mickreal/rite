@@ -117,7 +117,7 @@ Every number comes from code. The model only writes prose and is told it may not
 
 - `/saturn-return/saturn-in/:sign` — twelve SEO pages. The transit dates, "first return, born" and "second return, born" ranges come from `content/sign-periods.json`; the birth-date check calls `/api/calc`. Listed in `/sitemap.xml`; `/p/`, `/r/` and `/admin/` are disallowed in `robots.txt`.
 - `/start` — the mobile stepper. Same `POST /preview` underneath; the "building" screen runs while the server geocodes and writes the preview.
-- Remind-me (`POST /remind` on the result page) stores a row in `reminders`; the hourly cron emails it seven days before the pass.
+- Remind-me (`POST /remind` on the result page) stores a row in `reminders`; the hourly cron emails it seven days before the pass. When the window is more than a year away the card becomes "Tell me when my window opens" (`kind=window_open`): one row with `hit_date` = window open, sent 30 days before, with its own copy in `runReminders`.
 
 ## Gifts, reminders, narration
 
@@ -137,5 +137,4 @@ Every number comes from code. The model only writes prose and is told it may not
 
 - PNG share card (Cloudflare Browser Rendering or resvg-wasm) — SVG is served now; the OG image is a pre-rendered PNG because social crawlers won't render SVG.
 - Real PDF attachment — print stylesheet instead.
-- Annual Saturn Season price ($59) — only monthly is wired; the card mentions it.
 - Second-return landing variant.

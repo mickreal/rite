@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { nextNoteDate, unusedMonths, yearlyRefundCents, yearlyAllowed, windowOpenNotify, windowOpenSendOn, addMonths, seasonPhase, rereadChapter, upcomingDates, comingUpText } from "../src/season";
 import { compute, cycle } from "../src/compute";
 import { resultPage } from "../src/views/result";
+import { seasonManagePage } from "../src/views/season";
+import { seasonEmail } from "../src/email";
 
 const inTz = (d: Date, tz: string) => new Intl.DateTimeFormat("en-GB", { timeZone: tz, weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
 
@@ -101,6 +103,33 @@ describe("note phase, reread link, coming-up list", () => {
     expect(text).toMatch(/^Coming up in the next 30 days:\n- /);
     expect(text).toContain("28 Apr 2027");
     expect(comingUpText([])).toMatch(/nothing dated/);
+  });
+});
+
+describe("manage page and note template", () => {
+  const base = { token: "tok1", tz: "Australia/Brisbane", nextNote: "Mon 19 Oct, 07:00", windowEnd: "12 Apr 2028", monthlyPrice: 7, yearlyPrice: 59 };
+  it("active monthly with room for yearly: both switch and stop", async () => {
+    const h = String(await seasonManagePage({ siteUrl: "x", supportEmail: "hello@rite.report", d: { ...base, status: "active", plan: "month", yearlyAllowed: true } }));
+    expect(h).toContain("Switch to $59 a year");
+    expect(h).toContain('action="/season/cancel/tok1"');
+    expect(h).toContain("$7 a month");
+  });
+  it("active monthly near the end: no yearly offer", async () => {
+    const h = String(await seasonManagePage({ siteUrl: "x", supportEmail: "e", d: { ...base, status: "active", plan: "month", yearlyAllowed: false } }));
+    expect(h).not.toContain("Switch to $59 a year");
+    expect(h).toContain("isn't offered this close");
+  });
+  it("past_due explains the pause; canceled offers to start again", async () => {
+    expect(String(await seasonManagePage({ siteUrl: "x", supportEmail: "e", d: { ...base, status: "past_due", plan: "year", yearlyAllowed: true } }))).toContain("Payment failed");
+    expect(String(await seasonManagePage({ siteUrl: "x", supportEmail: "e", d: { ...base, status: "canceled", plan: null, yearlyAllowed: true } }))).toContain("Start it again");
+  });
+  it("note email carries the coming-up list, the reread link and the manage link", () => {
+    const m = seasonEmail({ firstName: "Sam", transitDeg: "12°", transitSign: "Aries", orb: "1.2°", dir: "from", motionSentence: "It's direct.", body: "Para.\nOne thing this week: x.\nOne line to carry: y.", comingUp: "Coming up in the next 30 days:\n- 28 Apr 2027: Contact", rereadName: "Workbook", rereadUrl: "https://rite.test/r/tok1#c7", manageUrl: "https://rite.test/season/manage/tok1", welcome: true });
+    expect(m.subject).toMatch(/starts/);
+    expect(m.text).toContain("Reread: Workbook: https://rite.test/r/tok1#c7");
+    expect(m.text).toContain("- 28 Apr 2027: Contact");
+    expect(m.text).toContain("/season/manage/tok1");
+    expect(m.text).toContain("Welcome to Saturn Season");
   });
 });
 
