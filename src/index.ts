@@ -20,6 +20,8 @@ import { writingPage } from "./views/writing";
 import { legalPage } from "./views/legal";
 import { narrationText, splitForTts, CHAPTERS } from "./narration";
 import { resultPage } from "./views/result";
+import { seasonManagePage, type SeasonManageData } from "./views/season";
+import { nextNoteDate, yearlyAllowed, type SeasonPlan } from "./season";
 import { SIGN_NOTES } from "./content/notes";
 import { localHour } from "./geo";
 
@@ -598,31 +600,119 @@ async function generateReport(env: Env, tok: string) {
 }
 
 // ---------- Saturn Season subscription ----------
+/**
+ * The two recurring Prices for Saturn Season, created once in the Stripe account and cached in KV. Checkout used inline
+ * price_data before, but a subscription item can't be switched to inline price_data later, so plan switches need real Price ids.
+ * Found again by lookup_key if the KV entry is lost (e.g. a new namespace), so nothing is created twice.
+ */
+const SEASON_PRODUCT_NAME = "Rite — Saturn Season";
+const SEASON_PRICES_KEY = "stripe:season:prices";
+type SeasonPrices = { month: string; year: string };
+async function ensureSeasonPrices(env: Env): Promise<SeasonPrices> {
+  const cached = await env.CACHE.get<SeasonPrices>(SEASON_PRICES_KEY, "json");
+  if (cached?.month && cached?.year) return cached;
+  const s = stripe(env);
+  const want: Record<SeasonPlan, number> = { month: parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10), year: parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10) };
+  const live = (env.STRIPE_SECRET_KEY || "").startsWith("sk_live_") ? "live" : "test";
+  const keyFor = (plan: SeasonPlan) => `rite_season_${plan}_${want[plan]}_${env.CURRENCY}_${live}`;
+  const out: Partial<SeasonPrices> = {};
+  const found = await s.prices.list({ lookup_keys: [keyFor("month"), keyFor("year")], active: true, limit: 2 });
+  for (const p of found.data) { if (p.lookup_key === keyFor("month")) out.month = p.id; if (p.lookup_key === keyFor("year")) out.year = p.id; }
+  if (!out.month || !out.year) {
+    const productId = found.data[0] ? (typeof found.data[0].product === "string" ? found.data[0].product : found.data[0].product.id)
+      : (await s.products.create({ name: SEASON_PRODUCT_NAME, description: "A note every Monday until your Saturn return window closes. Stops itself then." })).id;
+    for (const plan of ["month", "year"] as SeasonPlan[]) {
+      if (out[plan]) continue;
+      const p = await s.prices.create({ product: productId, currency: env.CURRENCY, unit_amount: want[plan], recurring: { interval: plan }, lookup_key: keyFor(plan), nickname: `Saturn Season ${plan}ly` });
+      out[plan] = p.id;
+    }
+  }
+  const prices = out as SeasonPrices;
+  await env.CACHE.put(SEASON_PRICES_KEY, JSON.stringify(prices));
+  return prices;
+}
+
 app.post("/season/:tok", async (c) => {
   const pu = await getPurchase(c.env, c.req.param("tok")); if (!pu) return c.notFound();
   const s = stripe(c.env);
   const form = await c.req.parseBody().catch(() => ({} as Record<string, unknown>));
-  const yearly = String(form.plan ?? "") === "year";
+  const plan: SeasonPlan = String(form.plan ?? "") === "year" ? "year" : "month";
+  const prices = await ensureSeasonPrices(c.env);
   const session = await s.checkout.sessions.create({
     mode: "subscription",
     customer_email: pu.email || undefined,
-    line_items: [{ quantity: 1, price_data: { currency: c.env.CURRENCY, unit_amount: parseInt(yearly ? c.env.PRICE_SEASON_YEARLY_CENTS : c.env.PRICE_SEASON_MONTHLY_CENTS, 10), recurring: { interval: yearly ? "year" : "month" }, product_data: { name: `Rite — Saturn Season (weekly note, ${yearly ? "yearly" : "monthly"})`, description: "A note every Monday until your Saturn return window closes. Stops itself then." } } }],
+    line_items: [{ quantity: 1, price: prices[plan] }],
     allow_promotion_codes: true,
-    metadata: { purchase_id: pu.id, plan: yearly ? "year" : "month" },
-    success_url: `${c.env.SITE_URL}/r/${pu.id}`,
+    metadata: { purchase_id: pu.id, plan },
+    subscription_data: { metadata: { purchase_id: pu.id, plan } },
+    success_url: `${c.env.SITE_URL}/season/manage/${pu.id}`,
     cancel_url: `${c.env.SITE_URL}/r/${pu.id}`,
   });
   return c.redirect(session.url!, 303);
 });
 
-app.get("/season/stop/:tok", async (c) => {
-  const sub = await c.env.DB.prepare("SELECT id FROM subscriptions WHERE purchase_id = ? AND status='active'").bind(c.req.param("tok")).first<{ id: string }>();
-  if (sub) {
-    try { await stripe(c.env).subscriptions.cancel(sub.id); } catch (e) { console.error(e); }
-    await c.env.DB.prepare("UPDATE subscriptions SET status='canceled' WHERE id=?").bind(sub.id).run();
-  }
-  return c.redirect(`/r/${c.req.param("tok")}`);
+interface SubRow { id: string; purchase_id: string; status: string; plan: string | null; last_sent_at: string | null }
+async function seasonManage(env: Env, tok: string, flash?: string) {
+  const pu = await getPurchase(env, tok); if (!pu) return null;
+  const p = await getPreview(env, pu.preview_id); if (!p) return null;
+  const sub = await env.DB.prepare("SELECT id, purchase_id, status, plan, last_sent_at FROM subscriptions WHERE purchase_id = ? ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'past_due' THEN 1 ELSE 2 END, created_at DESC LIMIT 1").bind(pu.id).first<SubRow>();
+  const comp = recompute(p);
+  const today = new Date();
+  const status = (sub?.status ?? "none") as SeasonManageData["status"];
+  const nn = nextNoteDate(p.tz, today);
+  const d: SeasonManageData = {
+    token: pu.id, status: (["active", "past_due", "canceled", "complete"] as string[]).includes(status) ? status : "none",
+    plan: sub?.plan === "year" ? "year" : sub?.plan === "month" ? "month" : null,
+    nextNote: new Intl.DateTimeFormat("en-GB", { timeZone: p.tz, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(nn),
+    tz: p.tz, windowEnd: fmtDay(comp.window.windowEnd), yearlyAllowed: yearlyAllowed(comp.window.windowEnd, today),
+    monthlyPrice: Math.round(parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100), yearlyPrice: Math.round(parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10) / 100),
+    flash: flash === "switched" || flash === "canceled" || flash === "error" ? flash : null,
+  };
+  return { d, sub };
+}
+
+app.get("/season/manage/:tok", async (c) => {
+  const m = await seasonManage(c.env, c.req.param("tok"), c.req.query("ok")); if (!m) return c.notFound();
+  return c.html(seasonManagePage({ siteUrl: c.env.SITE_URL, d: m.d, supportEmail: c.env.SUPPORT_EMAIL }), 200, { "cache-control": "no-store" });
 });
+
+app.post("/season/plan/:tok", async (c) => {
+  const tok = c.req.param("tok");
+  const m = await seasonManage(c.env, tok); if (!m) return c.notFound();
+  const form = await c.req.parseBody().catch(() => ({} as Record<string, unknown>));
+  const plan: SeasonPlan = String(form.plan ?? "") === "year" ? "year" : "month";
+  if (!m.sub || m.d.status !== "active") return c.redirect(`/season/manage/${tok}`);
+  if (plan === m.d.plan) return c.redirect(`/season/manage/${tok}`);
+  if (plan === "year" && !m.d.yearlyAllowed) return c.redirect(`/season/manage/${tok}`);
+  try {
+    const s = stripe(c.env);
+    const prices = await ensureSeasonPrices(c.env);
+    const current = await s.subscriptions.retrieve(m.sub.id);
+    const item = current.items.data[0];
+    if (!item) throw new Error("subscription has no items");
+    await s.subscriptions.update(m.sub.id, { items: [{ id: item.id, price: prices[plan] }], proration_behavior: "create_prorations", metadata: { purchase_id: tok, plan } });
+    await c.env.DB.prepare("UPDATE subscriptions SET plan=? WHERE id=?").bind(plan, m.sub.id).run();
+    await log(c.env, "season_plan", tok, { from: m.d.plan, to: plan });
+    return c.redirect(`/season/manage/${tok}?ok=switched`);
+  } catch (e) {
+    await log(c.env, "error", tok, { where: "season-plan", e: String(e) });
+    return c.redirect(`/season/manage/${tok}?ok=error`);
+  }
+});
+
+app.post("/season/cancel/:tok", async (c) => {
+  const tok = c.req.param("tok");
+  const sub = await c.env.DB.prepare("SELECT id FROM subscriptions WHERE purchase_id = ? AND status IN ('active','past_due')").bind(tok).first<{ id: string }>();
+  if (!sub) return c.redirect(`/season/manage/${tok}`);
+  try { await stripe(c.env).subscriptions.cancel(sub.id); }
+  catch (e) { await log(c.env, "error", tok, { where: "season-cancel", e: String(e) }); return c.redirect(`/season/manage/${tok}?ok=error`); }
+  await c.env.DB.prepare("UPDATE subscriptions SET status='canceled' WHERE id=?").bind(sub.id).run();
+  await log(c.env, "season_cancel", tok);
+  return c.redirect(`/season/manage/${tok}?ok=canceled`);
+});
+
+// Old stop link (in notes already sent): the manage page now does this with a confirmation.
+app.get("/season/stop/:tok", (c) => c.redirect(`/season/manage/${c.req.param("tok")}`, 301));
 
 // ---------- Stripe webhook ----------
 app.post("/webhook/stripe", async (c) => {
@@ -641,8 +731,9 @@ app.post("/webhook/stripe", async (c) => {
     } else if (session.mode === "subscription" && session.metadata?.purchase_id && session.subscription) {
       const subId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
       const purchaseId = session.metadata.purchase_id;
-      await c.env.DB.prepare("INSERT OR REPLACE INTO subscriptions (id, purchase_id, created_at, status) VALUES (?,?,?,'active')").bind(subId, purchaseId, now()).run();
-      await log(c.env, "season_start", purchaseId);
+      const plan = session.metadata.plan === "year" ? "year" : "month";
+      await c.env.DB.prepare("INSERT OR REPLACE INTO subscriptions (id, purchase_id, created_at, status, plan) VALUES (?,?,?,'active',?)").bind(subId, purchaseId, now(), plan).run();
+      await log(c.env, "season_start", purchaseId, { plan });
       // Welcome note: the first Saturn Season note goes out now, not next Monday. sendSeasonNote sets last_sent_at, so the
       // Monday cron skips this subscriber for the next six days.
       c.executionCtx.waitUntil((async () => {
@@ -751,7 +842,7 @@ async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: s
   const m = seasonEmail({
     firstName: r.first_name, transitDeg: `${Math.floor(degreeInSign(tl))}°`, transitSign: signOf(tl),
     orb: `${Math.round(Math.abs(o) * 10) / 10}°`, dir: o < 0 ? "from" : "past", motionSentence: motion, body,
-    manageUrl: `${env.SITE_URL}/season/stop/${r.purchase_id}`,
+    manageUrl: `${env.SITE_URL}/season/manage/${r.purchase_id}`,
   });
   const ok = await sendEmail(env, dest, m.subject, m.text);
   if (ok && !to) {

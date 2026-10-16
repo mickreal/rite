@@ -10,7 +10,9 @@
     "typecheck": "tsc -p .",
     "db:schema": "wrangler d1 execute rite --remote --file=schema.sql",
     "db:schema:local": "wrangler d1 execute rite --local --file=schema.sql",
-    "secrets:push": "bash scripts/push-secrets.sh"
+    "secrets:push": "bash scripts/push-secrets.sh",
+    "db:migrate:plan": "wrangler d1 execute rite --remote --file=migrations/001-subscriptions-plan.sql",
+    "db:migrate:plan:local": "wrangler d1 execute rite --local --file=migrations/001-subscriptions-plan.sql"
   },
   "keywords": [],
   "author": "",

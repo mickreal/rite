@@ -44,7 +44,7 @@ ${p.body}
 
 — Rite
 
-Stop these: ${p.manageUrl}`;
+Change plan or stop these: ${p.manageUrl}`;
   return { subject, text };
 }
 

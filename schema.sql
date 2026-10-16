@@ -45,9 +45,11 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   id TEXT PRIMARY KEY,              -- stripe subscription id
   purchase_id TEXT NOT NULL REFERENCES purchases(id),
   created_at TEXT NOT NULL,
-  status TEXT NOT NULL,             -- active | canceled | complete
+  status TEXT NOT NULL,             -- active | past_due | canceled | complete
   last_sent_at TEXT,
-  next_send_local_hour INTEGER NOT NULL DEFAULT 7
+  next_send_local_hour INTEGER NOT NULL DEFAULT 7,
+  plan TEXT                         -- 'month' | 'year' (from Checkout metadata); NULL for rows created before the column existed.
+                                    -- Databases created before this column: run `npm run db:migrate:plan` once (migrations/001-subscriptions-plan.sql).
 );
 
 CREATE TABLE IF NOT EXISTS events (

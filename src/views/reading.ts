@@ -292,7 +292,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
 <p class="muted" style="margin:-60px 0 60px;font-size:14px">Tropical zodiac${c.house ? `, ${c.houseSystem === "whole" ? "whole-sign" : "Placidus"} houses` : ""}. Dates are UTC and exact to the day. Your reading stays at this link.</p>
 
 <section id="season" class="ch rv noprint" style="padding-bottom:80px">
-  ${opts.subscribed ? html`<div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="kicker">Saturn Season</span><h3>Your weekly note is on.</h3><p style="margin:0;color:#CFC8BA;line-height:1.6">Every Monday morning until your window closes, then it stops itself. <a href="/season/stop/${opts.token}">Stop it</a> any time.</p></div>`
+  ${opts.subscribed ? html`<div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="kicker">Saturn Season</span><h3>Your weekly note is on.</h3><p style="margin:0;color:#CFC8BA;line-height:1.6">Every Monday morning until your window closes, then it stops itself. <a href="/season/manage/${opts.token}">Manage it</a>: change plan or stop it any time.</p></div>`
   : html`<div class="card" style="display:flex;flex-direction:column;gap:14px;border:1px solid rgba(242,181,68,.35)">
     <span class="kicker">Saturn Season</span>
     <h3>A weekly note through your window.</h3>
