@@ -21,7 +21,7 @@ import { legalPage } from "./views/legal";
 import { narrationText, splitForTts, CHAPTERS } from "./narration";
 import { resultPage } from "./views/result";
 import { seasonManagePage, type SeasonManageData } from "./views/season";
-import { nextNoteDate, yearlyAllowed, unusedMonths, yearlyRefundCents, seasonPhase, rereadChapter, upcomingDates, comingUpText, type SeasonPlan } from "./season";
+import { nextNoteDate, yearlyAllowed, unusedMonths, yearlyRefundCents, seasonPhase, rereadChapter, upcomingDates, comingUpText, windowOpenSendOn, type SeasonPlan } from "./season";
 import { SIGN_NOTES } from "./content/notes";
 import { localHour } from "./geo";
 
@@ -211,7 +211,7 @@ app.get("/p/:id", async (c) => {
   const gq = c.req.query("gift");
   const gift = gq ? await getGift(c.env, gq) : null;
   const giftState = gq ? (gift ? (gift.redeemed_at ? "used" : "ok") : "bad") : null;
-  return c.html(resultPage({ siteUrl: c.env.SITE_URL, id: p.id, c: comp, text: p.preview_text ?? "", placeLabel: p.place_label, birthLabel, hasTime: !!p.birth_time, reminded: c.req.query("reminded") === "1", gift: giftState ? { code: gift?.code ?? gq!, state: giftState as "ok" | "used" | "bad", from: gift?.buyer_name ?? null, message: gift?.message ?? null } : null }));
+  return c.html(resultPage({ siteUrl: c.env.SITE_URL, id: p.id, c: comp, text: p.preview_text ?? "", placeLabel: p.place_label, birthLabel, hasTime: !!p.birth_time, reminded: c.req.query("reminded") === "window" ? "window" : c.req.query("reminded") === "1", gift: giftState ? { code: gift?.code ?? gq!, state: giftState as "ok" | "used" | "bad", from: gift?.buyer_name ?? null, message: gift?.message ?? null } : null }));
 });
 
 // ---------- pass reminders (free): one email a week before each pass ----------
@@ -220,14 +220,22 @@ app.post("/remind", async (c) => {
   const pid = String(form.preview ?? ""), email = String(form.email ?? "").trim().toLowerCase();
   const p = await getPreview(c.env, pid);
   if (!p || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return c.redirect(`/p/${pid}`);
-  const hits: string[] = JSON.parse(p.hits);
   const today = now().slice(0, 10);
+  if (String(form.kind ?? "") === "window_open") {
+    // "Tell me when my window opens": one row keyed on the window-open date, sent 30 days before. The UNIQUE on
+    // (preview, email, hit_date) makes a second submit a no-op; runReminders tells the two kinds apart by the date.
+    const sendOn = windowOpenSendOn(p.window_start);
+    if (sendOn >= today) await c.env.DB.prepare("INSERT OR IGNORE INTO reminders (preview_id, email, created_at, hit_date, send_on) VALUES (?,?,?,?,?)").bind(pid, email, now(), p.window_start, sendOn).run();
+    await log(c.env, "remind", pid, { kind: "window_open" });
+    return c.redirect(`/p/${pid}?reminded=window`);
+  }
+  const hits: string[] = JSON.parse(p.hits);
   for (const h of hits) {
     const sendOn = new Date(Date.parse(h) - 7 * 86400000).toISOString().slice(0, 10);
     if (sendOn < today) continue;
     await c.env.DB.prepare("INSERT OR IGNORE INTO reminders (preview_id, email, created_at, hit_date, send_on) VALUES (?,?,?,?,?)").bind(pid, email, now(), h, sendOn).run();
   }
-  await log(c.env, "remind", pid);
+  await log(c.env, "remind", pid, { kind: "pass" });
   return c.redirect(`/p/${pid}?reminded=1`);
 });
 
@@ -971,8 +979,23 @@ async function runStageReminders(env: Env) {
 
 async function runReminders(env: Env) {
   const today = now().slice(0, 10);
-  const due = await env.DB.prepare("SELECT r.id, r.email, r.hit_date, r.preview_id, p.natal_sign FROM reminders r JOIN previews p ON p.id = r.preview_id WHERE r.sent_at IS NULL AND r.send_on <= ?").bind(today).all<{ id: number; email: string; hit_date: string; preview_id: string; natal_sign: string }>();
+  const due = await env.DB.prepare("SELECT r.id, r.email, r.hit_date, r.preview_id, p.natal_sign, p.window_start, p.window_end FROM reminders r JOIN previews p ON p.id = r.preview_id WHERE r.sent_at IS NULL AND r.send_on <= ?").bind(today).all<{ id: number; email: string; hit_date: string; preview_id: string; natal_sign: string; window_start: string; window_end: string }>();
   for (const r of due.results) {
+    if (r.hit_date === r.window_start) { // "tell me when my window opens" (stored on the window-open date, sent 30 days before)
+      const ok = await sendEmail(env, r.email, `Your Saturn return window opens on ${fmtDay(r.window_start)}`,
+`Hi,
+
+Your Saturn return window opens on ${fmtDay(r.window_start)}: Saturn enters ${r.natal_sign}, the sign it held when you were born, and stays until ${fmtMonth(r.window_end)}. The pressure usually starts before anything is exact, so a month out is the time to decide what this return is going to test.
+
+Your preview, with the full window and the pass dates: ${env.SITE_URL}/p/${r.preview_id}
+The full reading dates every pass and tells you what to build before each one: ${env.SITE_URL}/p/${r.preview_id}#reading
+
+— Rite
+
+You asked for this one email. There is nothing to unsubscribe from.`);
+      if (ok) await env.DB.prepare("UPDATE reminders SET sent_at=? WHERE id=?").bind(now(), r.id).run();
+      continue;
+    }
     const ok = await sendEmail(env, r.email, `Your Saturn pass is a week away — ${fmtDay(r.hit_date)}`,
 `Hi,
 

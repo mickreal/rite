@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { nextNoteDate, unusedMonths, yearlyRefundCents, yearlyAllowed, windowOpenNotify, windowOpenSendOn, addMonths, seasonPhase, rereadChapter, upcomingDates, comingUpText } from "../src/season";
 import { compute, cycle } from "../src/compute";
+import { resultPage } from "../src/views/result";
 
 const inTz = (d: Date, tz: string) => new Intl.DateTimeFormat("en-GB", { timeZone: tz, weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d);
 
@@ -100,5 +101,28 @@ describe("note phase, reread link, coming-up list", () => {
     expect(text).toMatch(/^Coming up in the next 30 days:\n- /);
     expect(text).toContain("28 Apr 2027");
     expect(comingUpText([])).toMatch(/nothing dated/);
+  });
+});
+
+describe("result page swaps to the window-open capture", () => {
+  const today = new Date("2026-10-17T00:00:00Z");
+  const render = async (c: ReturnType<typeof compute>, reminded?: boolean | "window") =>
+    String(await resultPage({ siteUrl: "https://rite.test", id: "abc", c, text: "", placeLabel: "Sydney", birthLabel: "1 Jan 2000", hasTime: false, today, reminded }));
+  it("more than a year before the window: one field, hidden kind=window_open", async () => {
+    const c = compute({ date: "2000-06-15", time: null, place: { label: "Sydney", lat: -33.87, lon: 151.21, tz: "Australia/Sydney" } }, today);
+    expect(c.phase).toBe("not_yet");
+    expect(Date.parse(c.window.windowStart)).toBeGreaterThan(addMonths(today, 12).getTime());
+    const h = await render(c);
+    expect(h).toContain("Tell me when my window opens");
+    expect(h).toContain('name="kind" value="window_open"');
+    expect(h).toContain('data-kind="window_open"');
+    expect(await render(c, "window")).toContain("a month before your window opens");
+  });
+  it("inside or near the window: the pass reminder card", async () => {
+    const c = compute({ date: "1997-08-14", time: null, place: { label: "Melbourne", lat: -37.81, lon: 144.96, tz: "Australia/Melbourne" } }, today);
+    const h = await render(c);
+    expect(h).toContain("Get a heads-up before each pass");
+    expect(h).not.toContain("window_open");
+    expect(h).toContain('data-kind="pass"');
   });
 });

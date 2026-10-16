@@ -3,6 +3,7 @@ import { shell, LOCK } from "./theme";
 import type { Computed } from "../compute";
 import { fmtDay, fmtMonth } from "../compute";
 import { windowChart, fmtMonYrL, untilText } from "../astro/cycle";
+import { windowOpenNotify } from "../season";
 
 const CSS = `
 .pass{flex:1 1 220px;text-align:left;background:#14171D;border:1px solid rgba(237,230,214,.1);border-radius:22px;padding:20px 22px;color:#EDE6D6;cursor:pointer;display:flex;flex-direction:column;gap:6px;font-family:'Hanken Grotesk',sans-serif;transition:border-color .25s,transform .25s cubic-bezier(.2,.8,.2,1)}
@@ -20,7 +21,7 @@ const PASS3 = [
 const PASS1 = [["The pass", "Saturn crosses your natal degree once, cleanly. There is no retrograde second look this time: what you decide here is what you build on. It tends to feel quieter than people expect, and more binding."]];
 const ORD = ["first", "second", "third"];
 
-export function resultPage(opts: { siteUrl: string; id: string; c: Computed; text: string; placeLabel: string; birthLabel: string; hasTime: boolean; reminded?: boolean; gift?: { code: string; state: "ok" | "used" | "bad"; from: string | null; message: string | null } | null; today?: Date }) {
+export function resultPage(opts: { siteUrl: string; id: string; c: Computed; text: string; placeLabel: string; birthLabel: string; hasTime: boolean; reminded?: boolean | "window"; gift?: { code: string; state: "ok" | "used" | "bad"; from: string | null; message: string | null } | null; today?: Date }) {
   const { c } = opts; const w = c.window; const today = opts.today ?? new Date();
   const now = today.getTime(), open = Date.parse(w.windowStart), close = Date.parse(w.windowEnd);
   const frac = (now - open) / (close - open);
@@ -36,6 +37,8 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
   const P = w.hits.length === 1 ? PASS1 : PASS3;
   const passes = w.hits.map((h, i) => ({ label: w.hits.length === 1 ? "Exact pass" : `Pass ${["one", "two", "three"][i]}`, month: fmtMonYrL(Date.parse(h)), name: P[Math.min(i, P.length - 1)][0], body: P[Math.min(i, P.length - 1)][1], x: chart.x(Date.parse(h)) }));
   const price = opts.hasTime ? 29 : 19;
+  // More than a year before the window opens, pass reminders are too far out to mean anything; offer one email when it opens instead.
+  const windowOpen = windowOpenNotify(c.phase, w.windowStart, today);
 
   const body = html`
 <section class="wrap" style="padding-top:32px;padding-bottom:40px;display:flex;flex-direction:column;gap:24px">
@@ -80,10 +83,11 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
     <div style="display:flex;gap:10px;flex-wrap:wrap"><a href="/card/${opts.id}.svg" download="rite-saturn-return.svg" class="ghost"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v10M5 6l4-4 4 4M3 11v4h12v-4"/></svg>Make my card</a><button type="button" id="shareBtn" class="ghost" data-url="${opts.siteUrl}/?r=share&utm_source=share&utm_medium=result&utm_campaign=${c.sign.toLowerCase()}" data-text="Saturn in ${c.sign}. My Saturn return ${c.window.hits.length === 1 ? "hits" : "hits first"} ${fmtMonYrL(Date.parse(c.window.hits[0]))}. Find yours free:">Share</button><span id="shareDone" class="muted" style="font-size:14px;align-self:center;display:none">Link copied</span></div>
   </div>
   <div id="remind" class="rv" style="flex:1 1 440px;background:#14171D;border-radius:28px;padding:32px;display:flex;flex-direction:column;gap:16px;scroll-margin-top:24px">
-    <h3 class="disp" style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Get a heads-up before each pass</h3>
-    ${opts.reminded ? html`<p class="swap" style="margin:0;font-size:17px;line-height:1.55">Done. ${nextHit ? `The first one lands a week before your ${fmtMonYrL(Date.parse(nextHit))} pass.` : "Nothing ahead to remind you of — your passes are behind you."}</p>` : html`
-    <form method="post" action="/remind" style="display:flex;flex-wrap:wrap;gap:12px"><input type="hidden" name="preview" value="${opts.id}"><label for="em" style="position:absolute;left:-9999px">Email</label><input id="em" name="email" class="inp" type="email" required placeholder="you@example.com"><button type="submit" class="ghost" style="min-height:52px">Remind me</button></form>
-    <p style="margin:0;font-size:14px;color:#8F897E">${w.hits.length === 1 ? "One email, a week before your pass." : "Up to three emails, one a week before each pass."} Nothing else unless you ask.</p>`}
+    <h3 class="disp" style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">${windowOpen ? "Tell me when my window opens" : "Get a heads-up before each pass"}</h3>
+    ${opts.reminded === "window" ? html`<p class="swap" style="margin:0;font-size:17px;line-height:1.55">Done. One email, a month before your window opens in ${fmtMonYrL(open)}.</p>`
+    : opts.reminded ? html`<p class="swap" style="margin:0;font-size:17px;line-height:1.55">Done. ${nextHit ? `The first one lands a week before your ${fmtMonYrL(Date.parse(nextHit))} pass.` : "Nothing ahead to remind you of — your passes are behind you."}</p>` : html`
+    <form method="post" action="/remind" data-kind="${windowOpen ? "window_open" : "pass"}" style="display:flex;flex-wrap:wrap;gap:12px"><input type="hidden" name="preview" value="${opts.id}">${windowOpen ? html`<input type="hidden" name="kind" value="window_open">` : ""}<label for="em" style="position:absolute;left:-9999px">Email</label><input id="em" name="email" class="inp" type="email" required placeholder="you@example.com"><button type="submit" class="ghost" style="min-height:52px">${windowOpen ? "Tell me" : "Remind me"}</button></form>
+    <p style="margin:0;font-size:14px;color:#8F897E">${windowOpen ? `Your window is ${untilText(today, open)} away. One email, a month before it opens.` : w.hits.length === 1 ? "One email, a week before your pass." : "Up to three emails, one a week before each pass."} Nothing else unless you ask.</p>`}
   </div>
 </section>
 
@@ -113,7 +117,7 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
 
   const script = `
 function T(n,p){try{window.rite&&window.rite.track(n,p)}catch(e){}}
-document.querySelectorAll('form[action="/checkout"]').forEach(function(f){f.addEventListener('submit',function(){T('checkout_click',{has_time:${opts.hasTime ? "true" : "false"}})})});document.querySelectorAll('form[action="/remind"]').forEach(function(f){f.addEventListener('submit',function(){T('remind_submit')})});document.querySelectorAll('a[href="/gift"]').forEach(function(a){a.addEventListener('click',function(){T('gift_click')})});document.querySelectorAll('a[download]').forEach(function(a){a.addEventListener('click',function(){T('share_card')})});
+document.querySelectorAll('form[action="/checkout"]').forEach(function(f){f.addEventListener('submit',function(){T('checkout_click',{has_time:${opts.hasTime ? "true" : "false"}})})});document.querySelectorAll('form[action="/remind"]').forEach(function(f){f.addEventListener('submit',function(){T('remind_submit',{kind:f.dataset.kind||'pass'})})});document.querySelectorAll('a[href="/gift"]').forEach(function(a){a.addEventListener('click',function(){T('gift_click')})});document.querySelectorAll('a[download]').forEach(function(a){a.addEventListener('click',function(){T('share_card')})});
 var sb=document.getElementById('shareBtn');if(sb)sb.addEventListener('click',function(){var d={title:'Rite: Saturn return, dated',text:sb.dataset.text,url:sb.dataset.url};T('share_click',{native:!!navigator.share});if(navigator.share){navigator.share(d).catch(function(){})}else if(navigator.clipboard){navigator.clipboard.writeText(d.text+' '+d.url).then(function(){var k=document.getElementById('shareDone');k.style.display='';setTimeout(function(){k.style.display='none'},2500)})}});
 (function(){var P=${JSON.stringify(passes.map((p) => ({ name: p.name, body: p.body })))};
 document.querySelectorAll('.pass').forEach(function(b){b.addEventListener('click',function(){var i=+b.dataset.i;document.querySelectorAll('.pass').forEach(function(x){x.classList.toggle('on',x===b);x.setAttribute('aria-pressed',x===b)});document.querySelectorAll('.pp').forEach(function(c){c.style.opacity=+c.dataset.i===i?1:0});document.getElementById('passName').textContent=P[i].name;document.getElementById('passBody').textContent=P[i].body;var el=document.getElementById('passInfo');el.classList.remove('swap');void el.offsetWidth;el.classList.add('swap')})});
