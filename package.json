@@ -9,7 +9,8 @@
     "test": "vitest run",
     "typecheck": "tsc -p .",
     "db:schema": "wrangler d1 execute rite --remote --file=schema.sql",
-    "db:schema:local": "wrangler d1 execute rite --local --file=schema.sql"
+    "db:schema:local": "wrangler d1 execute rite --local --file=schema.sql",
+    "secrets:push": "bash scripts/push-secrets.sh"
   },
   "keywords": [],
   "author": "",

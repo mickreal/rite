@@ -41,11 +41,8 @@ npx wrangler d1 create rite                      # paste database_id into wrangl
 npx wrangler kv namespace create CACHE           # paste id into wrangler.toml
 npm run db:schema                                # applies schema.sql to the remote D1
 
-# 2. Secrets (never commit these)
-npx wrangler secret put STRIPE_SECRET_KEY        # sk_live_… from the Rite Stripe account (use sk_test_ first)
-npx wrangler secret put STRIPE_WEBHOOK_SECRET    # from step 4
-npx wrangler secret put ANTHROPIC_API_KEY        # console.anthropic.com
-npx wrangler secret put RESEND_API_KEY           # resend.com — verify rite.report as a sending domain
+# 2. Secrets — fill in .dev.vars (gitignored, placeholders already there), then:
+npm run secrets:push                             # pushes each value to Cloudflare; skips any still REPLACE_ME
 
 # 3. Deploy
 npm run deploy                                   # → https://rite.<account>.workers.dev
@@ -54,7 +51,7 @@ npm run deploy                                   # → https://rite.<account>.wo
 #    Stripe dashboard → Developers → Webhooks → Add endpoint:
 #    URL: https://<your-worker-url>/webhook/stripe
 #    Events: checkout.session.completed, customer.subscription.deleted, charge.refunded
-#    Copy the signing secret → wrangler secret put STRIPE_WEBHOOK_SECRET → npm run deploy again
+#    Copy the signing secret into .dev.vars → npm run secrets:push
 
 # 5. Domain
 #    Cloudflare dashboard → Workers → rite → Settings → Domains & Routes → add rite.report
