@@ -22,6 +22,7 @@ import { legalPage } from "./views/legal";
 import { narrationText, splitForTts, CHAPTERS } from "./narration";
 import { resultPage } from "./views/result";
 import { seasonManagePage, type SeasonManageData } from "./views/season";
+import { seasonLandingPage } from "./views/season-landing";
 import { nextNoteDate, yearlyAllowed, unusedMonths, yearlyRefundCents, comingUpText, windowOpenSendOn, noteFacts, seasonFallbackBody, sampleNote, lastMondayLocal, type SeasonPlan } from "./season";
 import { SIGN_NOTES } from "./content/notes";
 import { localHour, localToUtc } from "./geo";
@@ -99,8 +100,14 @@ async function getPurchase(env: Env, tok: string) {
 // ---------- pages ----------
 app.get("/", async (c) => {
   await log(c.env, "visit", c.req.query("r") ?? null);
-  return c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? c.req.query("ref") ?? undefined }));
+  return c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? c.req.query("ref") ?? undefined, season: seasonTeaser(c.env) }));
 });
+
+/** The landing's Saturn Season teaser: prices from config, and Saturn's position this week (one table lookup). */
+function seasonTeaser(env: Env) {
+  const lon = saturnLongitude(new Date());
+  return { monthly: Math.round(parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100), yearly: Math.round(parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10) / 100), saturnNow: `${Math.floor(degreeInSign(lon))}° ${signOf(lon)}` };
+}
 
 /** Live numbers for the landing widget: date (+ optional time), no place → noon UTC, sign-level only. */
 app.get("/start", (c) => c.html(flowPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? undefined, form: { date: c.req.query("d") ?? undefined } })));
@@ -163,8 +170,23 @@ app.get("/saturn-return", (c) => c.redirect("/", 301));
 app.get("/privacy", (c) => c.html(legalPage({ siteUrl: c.env.SITE_URL, page: "privacy", supportEmail: c.env.SUPPORT_EMAIL })));
 app.get("/terms", (c) => c.html(legalPage({ siteUrl: c.env.SITE_URL, page: "terms", supportEmail: c.env.SUPPORT_EMAIL })));
 app.get("/refunds", (c) => c.html(legalPage({ siteUrl: c.env.SITE_URL, page: "refunds", supportEmail: c.env.SUPPORT_EMAIL })));
+/** /season: what Saturn Season is, with a sample note computed this week for a real chart in the current Aries cohort. */
+const SEASON_SAMPLE = { date: "1997-06-01", label: "1 Jun 1997, Melbourne", place: { label: "Melbourne", lat: -37.81, lon: 144.96, tz: "Australia/Melbourne" } };
+app.get("/season", (c) => {
+  const tz = SEASON_SAMPLE.place.tz;
+  const day = lastMondayLocal(tz, new Date());
+  const at = localToUtc(day, "07:00", tz);
+  const comp = compute({ date: SEASON_SAMPLE.date, time: null, place: SEASON_SAMPLE.place }, at);
+  const sn = sampleNote(comp, at);
+  return c.html(seasonLandingPage({
+    siteUrl: c.env.SITE_URL,
+    monthlyPrice: Math.round(parseInt(c.env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100), yearlyPrice: Math.round(parseInt(c.env.PRICE_SEASON_YEARLY_CENTS, 10) / 100),
+    sample: { bornLabel: SEASON_SAMPLE.label, noteDate: `Mon ${fmtDay(day)}`, windowEnd: fmtDay(comp.window.windowEnd), position: sn.position, body: sn.body,
+      upcoming: sn.facts.upcoming.map((u) => ({ date: fmtDay(u.date), label: u.label })), reread: sn.facts.reread.name },
+  }), 200, { "cache-control": "public, max-age=3600" });
+});
 app.get("/sitemap.xml", (c) => {
-  const urls = ["/", "/gift", "/privacy", "/terms", "/refunds", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
+  const urls = ["/", "/season", "/gift", "/privacy", "/terms", "/refunds", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
   return c.body(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join("")}</urlset>`, 200, { "content-type": "application/xml" });
 });
 app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\nDisallow: /p/\nDisallow: /r/\nDisallow: /admin/\nSitemap: ${c.env.SITE_URL}/sitemap.xml\n`));
@@ -178,7 +200,7 @@ app.post("/preview", async (c) => {
   const time = String(form.time ?? "").trim() || null;
   const ref = String(form.ref ?? "").trim() || null;
   const gift = String(form.gift ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "") || null;
-  const back = (error: string) => c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: ref ?? undefined, error, form: { date, place: placeQ, time: time ?? "" } }), 400);
+  const back = (error: string) => c.html(landingPage({ siteUrl: c.env.SITE_URL, season: seasonTeaser(c.env), ref: ref ?? undefined, error, form: { date, place: placeQ, time: time ?? "" } }), 400);
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return back("Enter your birth date.");
   if (!placeQ) return back("Enter the city you were born in.");
@@ -315,9 +337,9 @@ app.get("/gift/thanks/:code", async (c) => {
 });
 app.get("/gift/:code", async (c) => {
   const g = await getGift(c.env, c.req.param("code"));
-  if (!g) return c.html(landingPage({ siteUrl: c.env.SITE_URL, error: "That gift code doesn't match anything. Check it and try again." }), 404);
+  if (!g) return c.html(landingPage({ siteUrl: c.env.SITE_URL, season: seasonTeaser(c.env), error: "That gift code doesn't match anything. Check it and try again." }), 404);
   if (g.redeemed_at) return c.redirect(`/r/${g.redeemed_purchase_id}`);
-  return c.html(landingPage({ siteUrl: c.env.SITE_URL, gift: { code: g.code, from: g.buyer_name, message: g.message } }));
+  return c.html(landingPage({ siteUrl: c.env.SITE_URL, season: seasonTeaser(c.env), gift: { code: g.code, from: g.buyer_name, message: g.message } }));
 });
 app.post("/redeem", async (c) => {
   const form = await c.req.parseBody();

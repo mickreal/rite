@@ -95,6 +95,11 @@ const CSS = `
 .row{opacity:0}.in .row{animation:aIn .8s cubic-bezier(.2,.8,.2,1) both}
 .mq{display:flex;width:max-content;animation:mq 70s linear infinite}@keyframes mq{to{transform:translateX(-50%)}}
 .echoLine{opacity:0}.in .echoLine{animation:fIn 1.2s ease 2.6s both}
+.snote{background:#14171D;border-radius:40px;padding:clamp(32px,5vw,64px) clamp(24px,5vw,64px);display:flex;flex-wrap:wrap;gap:40px 64px;align-items:center}
+.mininote{flex:0 1 340px;min-width:0;margin:0 auto;min-height:360px;border-radius:18px;background:#EDE6D6;color:#14110A;text-decoration:none;box-shadow:0 30px 60px rgba(0,0,0,.4);padding:26px;display:flex;flex-direction:column;gap:12px;transform:rotate(2deg);transition:transform .4s cubic-bezier(.2,.8,.2,1)}
+.mininote:hover{color:#14110A;transform:rotate(0) translateY(-4px)}
+.mininote .mtag{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:999px;background:#14110A;color:#EDE6D6;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+@media (max-width:520px){.mininote{transform:none;flex-basis:100%}}
 .nw{white-space:nowrap}@media (max-width:520px){.nw{white-space:normal}}
 @media (max-width:900px){.echo{right:-360px!important;opacity:.7}}
 `;
@@ -131,8 +136,9 @@ const FAQ: Array<[string, string]> = [
   ["What if it isn't useful?", "Email us within 14 days for a full refund."],
 ];
 
-export function landingPage(opts: { siteUrl: string; ref?: string; error?: string; form?: { date?: string; place?: string; time?: string }; gift?: { code: string; from: string | null; message: string | null } | null }) {
+export function landingPage(opts: { siteUrl: string; ref?: string; error?: string; form?: { date?: string; place?: string; time?: string }; gift?: { code: string; from: string | null; message: string | null } | null; season?: { monthly: number; yearly: number; saturnNow: string } }) {
   const f = opts.form ?? {};
+  const sea = opts.season ?? { monthly: 7, yearly: 59, saturnNow: "" };
   const body = html`
 <div class="heroWrap" style="position:relative">
 <div class="artLayer"><div class="artInner"><div class="artFade"><div class="art" id="art">
@@ -262,6 +268,25 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
       ${["Nine chapters built from your chart", "Every pass and turn dated to the day", "A month-by-month forecast and a workbook", "Five follow-up questions, plus a reminder before each pass"].map((t) => html`<div class="tick">${raw(SATURN_TICK)}<span>${t}</span></div>`)}
       <div style="display:flex;flex-wrap:wrap;gap:14px 20px;align-items:center;margin-top:12px"><a href="#start" class="cta dark">Start with the free preview</a><a href="/gift" style="color:#14110A;font-weight:500">Buy it as a gift</a></div>
     </div>
+  </div>
+</section>
+
+<section id="season-note" data-rv class="wrap" style="padding-bottom:140px">
+  <div class="snote f">
+    <div style="flex:1 1 400px;min-width:0;display:flex;flex-direction:column;gap:20px">
+      <span style="font-size:15px;color:#F2B544">After the reading, only if you want it</span>
+      <h2 class="disp" style="margin:0;font-size:clamp(36px,4vw,56px);line-height:1;letter-spacing:-.03em;font-weight:700">Saturn Season: a note every Monday.</h2>
+      <p style="margin:0;font-size:18px;line-height:1.6;color:#BDB6A8;max-width:520px">Where Saturn is this week against your own chart, what's dated in the month ahead, and one thing to do with it. $${sea.monthly} a month or $${sea.yearly} a year, separate from the reading, and it stops itself when your window closes.</p>
+      <div><a href="/season" class="ghost">See a sample note ${raw(ARROW)}</a></div>
+    </div>
+    <a href="/season" class="mininote" aria-label="A sample Saturn Season note">
+      <span style="display:flex;justify-content:space-between;align-items:center;gap:12px"><span class="mtag">Monday, 7am</span><span style="font-size:13px;color:rgba(20,17,10,.5)">Saturn Season</span></span>
+      <span class="disp" style="font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15">${sea.saturnNow ? `Saturn is at ${sea.saturnNow} this week.` : "Where Saturn is this week."}</span>
+      <span class="bar" style="width:94%"></span><span class="bar" style="width:86%"></span><span class="bar" style="width:62%"></span>
+      <span style="font-size:14px;font-weight:600;margin-top:6px">One thing this week</span><span class="bar" style="width:72%"></span>
+      <span style="font-size:14px;font-weight:600;margin-top:6px">Coming up in the next 30 days</span><span class="bar" style="width:48%"></span><span class="bar" style="width:56%"></span>
+      <span style="margin-top:auto;padding-top:14px;border-top:1px solid rgba(20,17,10,.14);font-size:13px;color:rgba(20,17,10,.55)">Stops itself when your window closes.</span>
+    </a>
   </div>
 </section>
 
