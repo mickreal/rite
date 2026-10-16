@@ -19,6 +19,14 @@ export interface ReportJson {
 }
 
 const CSS = `
+.strip{display:flex;flex-wrap:wrap;background:#14171D;border-radius:24px;border:1px solid rgba(237,230,214,.06);overflow:hidden}
+.strip .cell{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:6px;padding:18px 20px;border-right:1px solid rgba(237,230,214,.08);border-bottom:1px solid rgba(237,230,214,.08);margin-bottom:-1px}
+.strip .cell:last-child{border-right:0}
+.strip .cell span{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8F897E;white-space:nowrap}
+.strip .cell b{font-family:'Bricolage Grotesque',serif;font-size:clamp(17px,1.45vw,22px);font-weight:700;letter-spacing:-.02em;line-height:1.1;color:#EDE6D6;white-space:nowrap;display:flex;align-items:center;gap:8px}
+.strip .cell .dot{width:8px;height:8px;border-radius:50%;background:#F2B544;box-shadow:0 0 0 4px rgba(242,181,68,.18);flex:0 0 auto}
+@media (max-width:720px){.strip .cell{flex:1 1 50%;min-width:50%;padding:16px 18px}.strip .cell b{white-space:normal}}
+@media print{.strip{border:1px solid #ddd}.strip .cell b{color:#111}}
 .prog{position:fixed;top:0;left:0;right:0;height:3px;background:#F2B544;transform-origin:left center;transform:scaleX(0);z-index:10}
 @supports (animation-timeline: scroll()){.prog{animation:prog linear both;animation-timeline:scroll()}@keyframes prog{to{transform:scaleX(1)}}}
 .toc{flex:1 1 220px;max-width:260px;position:sticky;top:32px;display:flex;flex-direction:column}
@@ -88,13 +96,13 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
     <h1 class="disp" style="margin:0;font-size:clamp(60px,9vw,150px);line-height:.86;letter-spacing:-.05em;font-weight:800"><span style="display:block;overflow:hidden;padding-bottom:.04em"><span class="w">Your Saturn</span></span><span style="display:block;overflow:hidden;padding-bottom:.06em"><span class="w" style="animation-delay:.1s;color:#F2B544">return.</span></span></h1>
     <p class="disp" style="margin:0;max-width:820px;font-size:clamp(22px,2.2vw,30px);line-height:1.3">${r.cover_line}</p>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
-    <div class="stat"><span>Natal Saturn</span><b>${Math.floor(c.degree)}° ${c.sign}</b></div>
-    <div class="stat"><span>House</span><b>${c.house ? ORDINAL[c.house].replace(/(\d+)(st|nd|rd|th)/, "$1$2") : "—"}</b></div>
-    <div class="stat"><span>Window</span><b>${fmtMonYr(open)} to ${fmtMonYr(close)}</b></div>
-    ${w.hits.map((h, i) => html`<div class="stat"><span>${w.hits.length === 1 ? "Exact pass" : `Pass ${i + 1}`}</span><b style="color:#F2B544">${fmtDay(h)}</b></div>`)}
-    ${cy.turn ? html`<div class="stat"><span>Closest turn</span><b>${fmtDay(cy.turn.date)}</b></div>` : ""}
-    <div class="stat"><span>Where you are</span><b>${whereNow}</b></div>
+  <div class="strip">
+    <div class="cell"><span>Natal Saturn</span><b>${Math.floor(c.degree)}° ${c.sign}</b></div>
+    <div class="cell"><span>House</span><b>${c.house ? ORDINAL[c.house].replace(/(\d+)(st|nd|rd|th)/, "$1$2") : "—"}</b></div>
+    <div class="cell"><span>Window</span><b>${fmtMonYr(open)} – ${fmtMonYr(close)}</b></div>
+    ${w.hits.map((h, i) => html`<div class="cell"><span>${w.hits.length === 1 ? "Exact pass" : `Pass ${i + 1}`}</span><b style="color:#F2B544">${fmtDay(h)}</b></div>`)}
+    ${cy.turn ? html`<div class="cell"><span>Closest turn</span><b>${fmtDay(cy.turn.date)}</b></div>` : ""}
+    <div class="cell"><span>Where you are</span><b><i class="dot"></i>${whereNow.replace(", ", " · ")}</b></div>
   </div>
   <div class="card noprint" style="display:flex;flex-wrap:wrap;align-items:center;gap:20px 28px">
     <button type="button" id="playBtn" class="solid" aria-label="Play narration" style="width:56px;height:56px;padding:0;justify-content:center;flex:0 0 auto">
@@ -326,7 +334,7 @@ btn.addEventListener('click',function(){if(playing){au.pause();return}if(!ready)
 document.querySelectorAll('.askq').forEach(function(b){b.addEventListener('click',function(){$('#askq').value=b.textContent;$('#askq').focus()})});
 $('#askForm').addEventListener('submit',function(e){e.preventDefault();var q=$('#askq').value.trim();if(!q)return;var btn=$('#askBtn');btn.disabled=true;btn.textContent='Thinking\\u2026';
  fetch('/r/'+TOK+'/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q:q})}).then(function(r){return r.json()}).then(function(d){btn.textContent='Ask';var er=$('#askErr');if(d.error){btn.disabled=d.left<=0;er.textContent=d.error;er.style.display='';return}er.style.display='none';
- var el=document.createElement('div');el.className='ans swap';el.innerHTML='<b></b><span style="color:#CFC8BA;line-height:1.6"></span>';el.querySelector('b').textContent=q;el.querySelector('span').textContent=d.a;$('#askList').appendChild(el);$('#askq').value='';$('#askLeft').textContent=d.left;btn.disabled=d.left<=0}).catch(function(){btn.textContent='Ask';btn.disabled=false;var er=$('#askErr');er.textContent='Couldn\'t reach the server. Check your connection and try again.';er.style.display=''})});
+ var el=document.createElement('div');el.className='ans swap';el.innerHTML='<b></b><span style="color:#CFC8BA;line-height:1.6"></span>';el.querySelector('b').textContent=q;el.querySelector('span').textContent=d.a;$('#askList').appendChild(el);$('#askq').value='';$('#askLeft').textContent=d.left;btn.disabled=d.left<=0}).catch(function(){btn.textContent='Ask';btn.disabled=false;var er=$('#askErr');er.textContent="Couldn't reach the server. Check your connection and try again.";er.style.display=''})});
 })();`;
 
   return shell({ title: `Your Saturn return · Rite`, body, extraCss: CSS, script, nav, description: r.cover_line });
