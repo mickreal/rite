@@ -44,7 +44,7 @@ export function smoothPath(pts: Array<[number, number]>): string {
 
 export interface WindowChart {
   path: string; markPath: string; stationPath: string; y0: number; todayX: number;
-  x: (t: number) => number; yearTicks: Array<{ x: number; label: string }>; t0: number; t1: number;
+  x: (t: number) => number; y: (o: number) => number; yearTicks: Array<{ x: number; label: string }>; t0: number; t1: number;
   contactX0: number; contactX1: number; // x of first/last hit (contact band)
 }
 
@@ -67,7 +67,7 @@ export function windowChart(natalLon: number, w: ReturnWindow, today = new Date(
   for (let yr = new Date(t0).getUTCFullYear() + 1; yr <= new Date(t1).getUTCFullYear(); yr++) {
     const t = Date.UTC(yr, 0, 1); if (t > t0 && t < t1) yearTicks.push({ x: x(t), label: String(yr) });
   }
-  return { path, markPath, stationPath, y0, todayX, x, yearTicks, t0, t1, contactX0: x(Date.parse(w.hits[0])), contactX1: x(Date.parse(w.hits[w.hits.length - 1])) };
+  return { path, markPath, stationPath, y0, todayX, x, y, yearTicks, t0, t1, contactX0: x(Date.parse(w.hits[0])), contactX1: x(Date.parse(w.hits[w.hits.length - 1])) };
 }
 
 export interface MonthRow {

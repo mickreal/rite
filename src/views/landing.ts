@@ -43,7 +43,29 @@ const CSS = `
 .tw{animation:tw 3s ease-in-out infinite}@keyframes tw{0%,100%{opacity:.2}50%{opacity:.9}}
 .ringtilt{animation:tilt 9s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
 @keyframes tilt{0%,100%{transform:rotate(-22deg)}50%{transform:rotate(-14deg)}}
-@supports (animation-timeline: scroll()){.dial{animation:spin linear both;animation-timeline:scroll()}@keyframes spin{to{transform:rotate(140deg)}}}
+@supports (animation-timeline: view()){
+.heroWrap{timeline-scope:--season}
+.season{view-timeline-name:--season}
+.artFade{-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 40%,transparent 60%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0%,#000 40%,transparent 60%,transparent 100%);-webkit-mask-size:100% 250%;mask-size:100% 250%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:0 0;mask-position:0 0;animation:artOut linear both;animation-timeline:--season;animation-range:entry 20% entry 95%}
+@keyframes artOut{0%{-webkit-mask-position:0 0;mask-position:0 0;transform:none;opacity:1}100%{-webkit-mask-position:0 100%;mask-position:0 100%;transform:translateY(-24px) scale(.97);opacity:.6}}
+.dial{animation:spin linear both;animation-timeline:scroll()}@keyframes spin{to{transform:rotate(140deg)}}
+.pcard{view-timeline-name:--price}
+.pspin{animation:pspin linear both;animation-timeline:--price;animation-range:cover 0% cover 50%}@keyframes pspin{from{transform:rotate(-140deg)}to{transform:rotate(0)}}
+.echo{animation:echoPin linear both;animation-timeline:--price;animation-range:cover 0% cover 50%}@keyframes echoPin{from{top:calc(-50vh - 340px)}to{top:calc(50% - 340px)}}
+}
+@media (max-width:900px){.artFade{animation:none!important}}
+.tail{animation:tail 2.9s ease .7s both}@keyframes tail{0%{opacity:0}18%{opacity:.9}100%{opacity:0}}
+.echo .pdial,.echo .pring,.echo .parc,.echo .pmark,.echo .psat{opacity:0}
+.in .echo .pdial{animation:eDial 2.2s cubic-bezier(.3,.6,.3,1) .2s both}
+.in .echo .pring{animation:eRing 1.6s cubic-bezier(.3,.6,.3,1) .4s both}
+.in .echo .pmark{animation:eDrop .9s cubic-bezier(.2,1.5,.4,1) 1.1s both}
+.in .echo .parc{animation:fIn 1.2s ease 2.2s both}
+.in .echo .psat{animation:satEnter 3s cubic-bezier(.15,.6,.2,1) .9s both}
+.split{animation:split .7s cubic-bezier(.2,1.2,.4,1) both}@keyframes split{from{opacity:0;transform:translateX(-70%) scale(.9)}to{opacity:1;transform:none}}
+.hint:hover{color:#9A948A}
+.heroText>p,.heroText>form{contain:inline-size}
+@media (prefers-reduced-motion: reduce){.glyph,.popd,.row,.pg,.echoLine,.echo .pdial,.echo .pring,.echo .parc,.echo .pmark,.echo .psat,.split,.ln{opacity:1;transform:none}.drawp,.ringd{stroke-dashoffset:0}.fillt{transform:none}.p1{transform:translate(-120px,24px) rotate(-9deg)}.p3{transform:translate(120px,24px) rotate(9deg)}}
+.d7{animation-delay:.8s!important}.d8{animation-delay:.92s!important}.d9{animation-delay:1.04s!important}
 .rd0{display:flex;align-items:center;gap:12px;font-size:17px;color:#BDB6A8;white-space:nowrap}
 .dot{width:8px;height:8px;border-radius:50%;background:#F2B544;flex:0 0 auto;animation:dotp 2s ease-in-out infinite}
 @keyframes dotp{0%,100%{box-shadow:0 0 0 0 rgba(242,181,68,.5)}50%{box-shadow:0 0 0 8px rgba(242,181,68,0)}}
@@ -94,6 +116,7 @@ const ORBIT = `<svg viewBox="0 0 600 600" style="width:100%;height:100%;display:
 <circle class="vb eRing" cx="300" cy="300" r="7" fill="#EDE6D6" style="animation-delay:.2s"/>
 <g class="eDrop" style="animation-delay:1.3s"><line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="2"/><circle cx="300" cy="70" r="5" fill="#0E1014" stroke="#F2B544" stroke-width="2"/></g>
 <g class="vb satEnter"><g id="sat" class="sat vb free" style="transform:rotate(0deg)">
+<circle class="tail" cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" stroke-dasharray="200 2000" transform="rotate(-140 300 300)"/>
 <g class="pIn"><circle class="halo" cx="300" cy="70" r="34" fill="#F2B544"/><circle cx="300" cy="70" r="17" fill="#EDE6D6"/><path d="M285 64 Q300 60 315 64" stroke="rgba(14,16,20,.18)" stroke-width="2.5" fill="none"/><path d="M284 74 Q300 78 316 74" stroke="rgba(14,16,20,.12)" stroke-width="2" fill="none"/><g class="ringtilt"><ellipse cx="300" cy="70" rx="32" ry="8" fill="none" stroke="#F2B544" stroke-width="2.5"/></g></g>
 </g></g>
 </svg>`;
@@ -111,8 +134,8 @@ const FAQ: Array<[string, string]> = [
 export function landingPage(opts: { siteUrl: string; ref?: string; error?: string; form?: { date?: string; place?: string; time?: string } }) {
   const f = opts.form ?? {};
   const body = html`
-<div style="position:relative">
-<div class="artLayer"><div class="artInner"><div class="art" id="art" style="transition:opacity .2s linear,transform .2s linear">
+<div class="heroWrap" style="position:relative">
+<div class="artLayer"><div class="artInner"><div class="artFade"><div class="art" id="art">
   <div style="width:100%;aspect-ratio:1;position:relative">${raw(ORBIT)}
     <div class="disp eF" style="position:absolute;top:-6px;left:50%;transform:translate(-50%,-100%);font-size:13px;color:#F2B544;white-space:nowrap;font-weight:500;animation-delay:1.6s">where Saturn was when you were born</div>
   </div>
@@ -123,7 +146,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
       <span style="display:flex;flex-direction:column;gap:4px;font-size:17px;line-height:1.3"><span>of the way round</span><span id="nextLine" class="muted" style="white-space:nowrap"></span></span>
     </div>
   </div>
-</div></div></div>
+</div></div></div></div>
 
 <section id="top" class="hero">
   <div class="heroText">
@@ -219,13 +242,13 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
 </section>
 
 <section id="price" data-rv class="wrap" style="padding-bottom:140px">
-  <div class="f" style="position:relative;overflow:hidden;background:#EDE6D6;color:#14110A;border-radius:40px;padding:clamp(40px,5.5vw,80px) clamp(28px,5vw,72px);display:flex;flex-wrap:wrap;gap:56px 72px;align-items:center">
+  <div class="f pcard" style="position:relative;overflow:hidden;background:#EDE6D6;color:#14110A;border-radius:40px;padding:clamp(40px,5.5vw,80px) clamp(28px,5vw,72px);display:flex;flex-wrap:wrap;gap:56px 72px;align-items:center">
     <svg aria-hidden="true" viewBox="0 0 600 600" class="echo" style="position:absolute;right:-180px;top:calc(50% - 340px);width:680px;height:680px;pointer-events:none;overflow:visible">
-      <circle cx="300" cy="300" r="266" fill="none" stroke="rgba(20,17,10,.16)" stroke-width="10" stroke-dasharray="1.2 22.0126" stroke-dashoffset="0.6"/><circle cx="300" cy="300" r="266" fill="none" stroke="rgba(20,17,10,.22)" stroke-width="18" stroke-dasharray="1.6 137.6739" stroke-dashoffset="0.8"/>
-      <circle cx="300" cy="300" r="230" fill="none" stroke="rgba(20,17,10,.14)" stroke-dasharray="2 7"/><circle cx="300" cy="300" r="168" fill="none" stroke="rgba(20,17,10,.06)"/>
-      <circle id="arc2" cx="300" cy="300" r="230" fill="none" stroke="#B9861F" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90 300 300)" style="stroke-dasharray:0 2000;transition:stroke-dasharray 1.6s"/>
-      <circle cx="300" cy="300" r="6" fill="rgba(20,17,10,.3)"/><line x1="300" y1="46" x2="300" y2="94" stroke="#B9861F" stroke-width="2"/><circle cx="300" cy="70" r="5" fill="#EDE6D6" stroke="#B9861F" stroke-width="2"/>
-      <g id="sat2" class="vb" style="transform:rotate(0deg);transition:transform 1.6s cubic-bezier(.3,.7,.2,1)"><circle cx="300" cy="70" r="30" fill="#B9861F" opacity=".14"/><circle cx="300" cy="70" r="15" fill="#14110A"/><ellipse cx="300" cy="70" rx="29" ry="7.5" fill="none" stroke="#B9861F" stroke-width="2.5" transform="rotate(-22 300 70)"/></g>
+      <g class="vb pdial"><g class="vb pspin"><circle cx="300" cy="300" r="266" fill="none" stroke="rgba(20,17,10,.16)" stroke-width="10" stroke-dasharray="1.2 22.0126" stroke-dashoffset="0.6"/><circle cx="300" cy="300" r="266" fill="none" stroke="rgba(20,17,10,.22)" stroke-width="18" stroke-dasharray="1.6 137.6739" stroke-dashoffset="0.8"/></g></g>
+      <circle class="vb pring" cx="300" cy="300" r="230" fill="none" stroke="rgba(20,17,10,.14)" stroke-dasharray="2 7"/><circle class="vb pring" cx="300" cy="300" r="168" fill="none" stroke="rgba(20,17,10,.06)" style="animation-delay:.15s"/>
+      <circle id="arc2" class="arc parc" cx="300" cy="300" r="230" fill="none" stroke="#B9861F" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90 300 300)" style="stroke-dasharray:0 2000;transition:stroke-dasharray 1.6s"/>
+      <circle cx="300" cy="300" r="6" fill="rgba(20,17,10,.3)"/><g class="pmark"><line x1="300" y1="46" x2="300" y2="94" stroke="#B9861F" stroke-width="2"/><circle cx="300" cy="70" r="5" fill="#EDE6D6" stroke="#B9861F" stroke-width="2"/></g>
+      <g class="vb psat"><g id="sat2" class="vb" style="transform:rotate(0deg);transition:transform 1.6s cubic-bezier(.3,.7,.2,1)"><circle cx="300" cy="70" r="30" fill="#B9861F" opacity=".14"/><circle cx="300" cy="70" r="15" fill="#14110A"/><ellipse cx="300" cy="70" rx="29" ry="7.5" fill="none" stroke="#B9861F" stroke-width="2.5" transform="rotate(-22 300 70)"/></g></g>
     </svg>
     <div style="flex:1 1 380px;display:flex;flex-direction:column;gap:22px;position:relative">
       <div class="disp" style="display:flex;align-items:flex-start;font-size:clamp(104px,12vw,176px);font-weight:800;letter-spacing:-.05em;line-height:.82"><span style="font-size:.4em;font-weight:600;margin:.1em .06em 0 0">$</span><span>29</span></div>
@@ -245,7 +268,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
   <div class="wrap" style="display:flex;flex-direction:column;gap:48px">
     <h2 class="disp a" style="margin:0;font-size:clamp(40px,4.6vw,68px);line-height:1;letter-spacing:-.03em;font-weight:700;max-width:760px">Saturn comes back about every 29 years.</h2>
     <div style="display:flex;flex-wrap:wrap;gap:8px 48px;align-items:flex-end;min-height:1em">
-      <button type="button" class="age on" data-age="29">0</button><button type="button" class="age" data-age="58" style="display:none">0</button><button type="button" class="age" data-age="87" style="display:none">0</button>
+      <button type="button" class="age disp split on" data-age="29">0</button><button type="button" class="age disp split" data-age="58" style="display:none">0</button><button type="button" class="age disp split" data-age="87" style="display:none">0</button>
     </div>
     <div id="ageInfo" class="swap" style="display:none;flex-wrap:wrap;gap:16px 48px;align-items:baseline;border-top:1px solid rgba(237,230,214,.12);padding-top:28px">
       <p id="ageTitle" class="disp" style="margin:0;font-size:30px;font-weight:600;letter-spacing:-.02em"></p><p id="ageBody" style="margin:0;font-size:18px;line-height:1.6;color:#BDB6A8;max-width:560px"></p>
@@ -306,8 +329,8 @@ function apply(c){
   $('#demo3').style.display='none';$('#demo1').style.display='none';$('#realChart').style.display='';$('#chartPath').setAttribute('d',c.chart.path);$('#markPath').setAttribute('d',c.chart.mark);$('#natalLine').setAttribute('y1',c.chart.y0);$('#natalLine').setAttribute('y2',c.chart.y0);$('#natalLabel').setAttribute('y',c.chart.y0-10);$('#natalLabel').textContent='your natal Saturn, '+c.degree+'\\u00B0 '+c.sign;$('#todayL').setAttribute('x1',c.chart.todayX);$('#todayL').setAttribute('x2',c.chart.todayX);$('#todayT').setAttribute('x',c.chart.todayX);
 }
 // fade the pinned art as the season cards scroll over it
-var season=$('.season'),art=$('#art'),raf=null;
-function fade(){raf=null;if(window.innerWidth<=900){art.style.opacity='';art.style.transform='';return}var top=season.getBoundingClientRect().top,h=window.innerHeight,o=Math.max(0,Math.min(1,(top-h*0.25)/(h*0.5)));art.style.opacity=(0.08+0.92*o).toFixed(3);art.style.transform='translateY('+((1-o)*-24).toFixed(1)+'px) scale('+(0.97+0.03*o).toFixed(3)+')'}
+var season=$('.season'),art=$('#art'),raf=null;var hasST=window.CSS&&CSS.supports&&CSS.supports('animation-timeline: view()');if(!hasST){art.style.transition='opacity .2s linear,transform .2s linear'}
+function fade(){raf=null;if(hasST||window.innerWidth<=900){art.style.opacity='';art.style.transform='';return}var top=season.getBoundingClientRect().top,h=window.innerHeight,o=Math.max(0,Math.min(1,(top-h*0.25)/(h*0.5)));art.style.opacity=(0.08+0.92*o).toFixed(3);art.style.transform='translateY('+((1-o)*-24).toFixed(1)+'px) scale('+(0.97+0.03*o).toFixed(3)+')'}
 window.addEventListener('scroll',function(){if(!raf)raf=requestAnimationFrame(fade)},{passive:true});fade();
 $('#bd').addEventListener('change',calc);$('#bt').addEventListener('change',calc);var qd=new URLSearchParams(location.search).get('d');if(qd&&!$('#bd').value&&/^\\d{4}-\\d{2}-\\d{2}$/.test(qd))$('#bd').value=qd;if($('#bd').value)calc();
 $('#start').addEventListener('submit',function(){var b=$('#go');b.disabled=true;b.textContent='Calculating\\u2026'});

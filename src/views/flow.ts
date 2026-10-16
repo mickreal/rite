@@ -81,7 +81,7 @@ export function flowPage(opts: { siteUrl: string; ref?: string; form?: { date?: 
     <svg viewBox="0 0 600 600" style="width:280px;height:280px;overflow:visible" aria-hidden="true">
       <circle cx="300" cy="300" r="266" fill="none" stroke="rgba(237,230,214,.3)" stroke-width="10" stroke-dasharray="1.2 22.0126" stroke-dashoffset="0.6"/>
       <circle cx="300" cy="300" r="230" fill="none" stroke="rgba(237,230,214,.18)" stroke-dasharray="2 7"/>
-      <circle id="barc" cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" transform="rotate(-90 300 300)" style="stroke-dasharray:0 2000;transition:stroke-dasharray 2.4s cubic-bezier(.5,0,.2,1)"/>
+      <circle id="barc" cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" transform="rotate(-90 300 300)" style="stroke-dasharray:0 2000;transition:stroke-dasharray 3s cubic-bezier(.5,0,.2,1)"/>
       <line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="3"/><circle cx="300" cy="300" r="8" fill="#EDE6D6"/>
       <g id="bsat" class="vb spin"><circle class="halo" cx="300" cy="70" r="40" fill="#F2B544"/><circle cx="300" cy="70" r="20" fill="#EDE6D6"/><ellipse cx="300" cy="70" rx="38" ry="10" fill="none" stroke="#F2B544" stroke-width="3.5" transform="rotate(-22 300 70)"/></g>
     </svg>
@@ -103,7 +103,7 @@ $('#notime').addEventListener('click',function(){$('#ft').value='';build()});
 $('#flowForm').addEventListener('submit',function(e){e.preventDefault();build()});
 var busy=false;
 function build(){if(busy||!ok(3))return;busy=true;show(4);var NW=['','One','Two','Three','Four'];
- fetch('/api/calc?date='+encodeURIComponent($('#fd').value)+'&time='+encodeURIComponent($('#ft').value||'')).then(function(r){return r.ok?r.json():null}).then(function(c){if(!c)return;$('#bl1').textContent='Saturn in '+c.sign+', '+c.degree+'\\u00B0';var n=(c.hits||[]).length;$('#bl2').textContent=n===1?'One exact pass found':(NW[n]||n)+' exact passes found';$('#bsat').classList.remove('spin');$('#bsat').style.transition='transform 2.4s cubic-bezier(.5,0,.2,1)';$('#bsat').style.transform='rotate('+c.angle+'deg)';$('#barc').style.strokeDasharray=(c.angle/360*2*Math.PI*230).toFixed(1)+' 2000'}).catch(function(){});
+ fetch('/api/calc?date='+encodeURIComponent($('#fd').value)+'&time='+encodeURIComponent($('#ft').value||'')).then(function(r){return r.ok?r.json():null}).then(function(c){if(!c)return;$('#bl1').textContent='Saturn in '+c.sign+', '+c.degree+'\\u00B0';var n=(c.hits||[]).length;$('#bl2').textContent=n===1?'One exact pass found':(NW[n]||n)+' exact passes found';$('#bsat').classList.remove('spin');$('#bsat').style.transition='transform 3s cubic-bezier(.5,0,.2,1)';$('#bsat').style.transform='rotate('+c.angle+'deg)';$('#barc').style.strokeDasharray=(c.angle/360*2*Math.PI*230).toFixed(1)+' 2000'}).catch(function(){});
  var t0=Date.now();fetch('/preview',{method:'POST',body:new FormData($('#flowForm')),redirect:'follow'}).then(function(r){var wait=Math.max(0,3600-(Date.now()-t0));var url=r.redirected?r.url:null;
   if(!url)return r.text().then(function(h){var m=h.match(/<p class="err">([^<]*)</);var msg=m?m[1]:'Something went wrong. Try again.';var n=/place|city|find/i.test(msg)?2:/date/i.test(msg)?1:3;$('#e'+n).textContent=msg;$('#e'+n).style.display='';busy=false;show(n)});setTimeout(function(){location.href=url},wait)}).catch(function(){$('#e3').style.display='';busy=false;show(3)})}
 })();`;

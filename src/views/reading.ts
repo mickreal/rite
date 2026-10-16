@@ -3,6 +3,7 @@ import { shell } from "./theme";
 import type { Computed, Cycle } from "../compute";
 import { fmtDay, fmtMonth } from "../compute";
 import { STAGES, fmtMonYr, fmtMonYrL, untilText } from "../astro/cycle";
+import { saturnLongitude } from "../astro/saturn";
 import { ORDINAL } from "../content/notes";
 
 export interface ReportJson {
@@ -34,7 +35,8 @@ const CSS = `
 .mrow{display:grid;grid-template-columns:120px 92px minmax(0,1fr);gap:16px;align-items:baseline;padding:18px 0;border-top:1px solid rgba(237,230,214,.1)}
 .mrow.now{background:linear-gradient(90deg,rgba(242,181,68,.08),transparent 70%);border-top-color:rgba(242,181,68,.5)}
 .badge{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:3px 10px;border-radius:999px;width:fit-content}.badge.d{background:rgba(237,230,214,.08);color:#CFC8BA}.badge.r{background:rgba(242,181,68,.14);color:#F2B544}
-.meter{height:8px;border-radius:4px;background:rgba(237,230,214,.08);overflow:hidden}.meter div{height:100%;border-radius:4px;background:#F2B544}
+.meter{height:8px;border-radius:4px;background:rgba(237,230,214,.08);overflow:hidden}.meter div{height:100%;border-radius:4px;background:#F2B544;transform-origin:left center}
+@supports (animation-timeline: view()){.meter div{animation:mt linear both;animation-timeline:view();animation-range:entry 30% cover 45%}@keyframes mt{from{transform:scaleX(0)}to{transform:scaleX(1)}}}
 .scrub{width:100%;accent-color:#F2B544;height:44px;cursor:pointer}
 .qchip{min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(237,230,214,.18);background:none;color:#CFC8BA;font:500 14px 'Hanken Grotesk',sans-serif;cursor:pointer;transition:all .2s}.qchip:hover{border-color:#F2B544;color:#EDE6D6}.qchip.on{background:#EDE6D6;color:#0E1014;border-color:#EDE6D6}
 .nowrow{display:grid;grid-template-columns:120px minmax(0,1fr);gap:16px;padding:14px 0;border-top:1px solid rgba(237,230,214,.1);font-size:16px;line-height:1.55}
@@ -72,6 +74,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
     ...cy.ahead.filter((p) => p.kind === "return").map((p) => ({ age: p.ageApprox, name: c.returnNumber === 1 ? "Second return" : "Third return", from: p.from, to: p.to })),
   ];
   const d = today.toISOString().slice(0, 10);
+  const saturnPast = cy.turn ? (((saturnLongitude(new Date(cy.turn.date + 'T12:00:00Z')) - c.natalLon + 540) % 360) - 180) > 0 : false;
   const stageText = (k: string) => STAGES[k as keyof typeof STAGES];
 
   const nav = html`<nav class="main" style="gap:10px"><a href="/r/${opts.token}/calendar.ics" class="ghost" download="rite-saturn-return.ics">Add every date to my calendar</a><a href="javascript:window.print()" class="ghost">Printable PDF</a><a href="/card/r/${opts.token}.svg" class="ghost" download="rite-saturn-return.svg">Share card</a></nav>`;
@@ -160,10 +163,12 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
       ${cy.chart.todayX > 0 ? html`<line x1="${cy.chart.todayX.toFixed(1)}" y1="16" x2="${cy.chart.todayX.toFixed(1)}" y2="260" stroke="#EDE6D6" stroke-width="1.2" stroke-dasharray="2 4"/><text x="${cy.chart.todayX.toFixed(1)}" y="278" text-anchor="middle" fill="#EDE6D6" font-size="12" font-family="Hanken Grotesk, sans-serif">today</text>` : ""}
       <path class="draw" pathLength="1000" d="${cy.chart.path}" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
       <path d="${cy.chart.stationPath}" fill="#0E1014" stroke="#EDE6D6" stroke-width="2"/>
+      ${w.hits.map((h) => html`<circle class="pulse" cx="${cy.chart.x(Date.parse(h)).toFixed(1)}" cy="${cy.chart.y0.toFixed(1)}" r="9" fill="#F2B544"/>`)}
       <path d="${cy.chart.markPath}" fill="#0E1014" stroke="#F2B544" stroke-width="3"/>
+      ${cy.turn ? html`<circle cx="${cy.chart.x(Date.parse(cy.turn.date)).toFixed(1)}" cy="${cy.chart.y(cy.turn.orb * (saturnPast ? 1 : -1)).toFixed(1)}" r="7" fill="#0E1014" stroke="#F2B544" stroke-width="2.5" stroke-dasharray="3 3"/>` : ""}
       ${cy.chart.yearTicks.map((t) => html`<text x="${t.x.toFixed(1)}" y="296" fill="#6B675F" font-size="12" font-family="Hanken Grotesk, sans-serif">${t.label}</text>`)}
     </svg>
-    <p class="muted" style="margin:14px 0 0;font-size:14px">Gold rings: exact passes. Small rings: Saturn standing still before changing direction.</p>
+    <p class="muted" style="margin:14px 0 0;font-size:14px">Gold ring${w.hits.length > 1 ? "s" : ""}: exact pass${w.hits.length > 1 ? "es" : ""}.${cy.turn ? ` Dashed ring: Saturn turns ${cy.turn.orb}° from your degree without crossing.` : ""} Small rings: Saturn standing still before changing direction.</p>
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:28px;margin-top:8px">
     <div class="phase ${stage.key === "ra" ? "cur" : ""}"><span class="kicker">${fmtMonYr(open)} to ${fmtMonYr(Date.parse(w.hits[0]))}${stage.key === "ra" ? ", you are here" : ""}</span><h3>Approach</h3><p style="margin:0;color:#CFC8BA;line-height:1.6">${r.phase_approach}</p></div>
@@ -252,6 +257,8 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
     <span class="muted" style="font-size:14px"><span id="askLeft">${opts.askLeft}</span> questions left</span>
   </div>
 </section>
+
+<p class="muted" style="margin:-60px 0 60px;font-size:14px">Tropical zodiac${c.house ? `, ${c.houseSystem === "whole" ? "whole-sign" : "Placidus"} houses` : ""}. Dates are UTC and exact to the day. Your reading stays at this link.</p>
 
 <section id="season" class="ch rv noprint" style="padding-bottom:80px">
   ${opts.subscribed ? html`<div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="kicker">Saturn Season</span><h3>Your weekly note is on.</h3><p style="margin:0;color:#CFC8BA;line-height:1.6">Every Monday morning until your window closes, then it stops itself. <a href="/season/stop/${opts.token}">Stop it</a> any time.</p></div>`
