@@ -11,6 +11,7 @@ import { writePreview, writeReport, writeSeason, datesAreGrounded, parseJsonRepl
 import { sendEmail, deliveryEmail, seasonEmail, seasonCompleteEmail, stageReminderEmail, giftEmail } from "./email";
 import { readingPage, type ReportJson } from "./views/reading";
 import { shareCardSvg, ogSvg } from "./card";
+import { svgToPng } from "./png";
 import { saturnLongitude, signOf, degreeInSign, orb, isRetrograde, nextStation, type Phase } from "./astro/saturn";
 import { smallChart, fmtMonYr, fmtMonYrL, untilText } from "./astro/cycle";
 import { landingPage } from "./views/landing";
@@ -230,13 +231,34 @@ app.post("/remind", async (c) => {
 });
 
 // ---------- share cards ----------
+// SVG (vector, original) and PNG (1080×1920, what "Make my card" downloads; rasterised by resvg and
+// kept in KV for 30 days, so the dial angle can lag by up to a month, about a degree).
+const cardSvg = (env: Env, p: PreviewRow) => { const comp = recompute(p); return shareCardSvg(comp, { site: env.SITE_URL.replace(/^https?:\/\//, ""), angle: cycle(comp).stage.wa }); };
+async function cardPng(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, p: PreviewRow): Promise<ArrayBuffer> {
+  const key = `card:png:${p.id}`;
+  const hit = await env.CACHE.get(key, "arrayBuffer");
+  if (hit) return hit;
+  const out = await svgToPng(cardSvg(env, p));
+  const png = out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength) as ArrayBuffer;
+  ctx.waitUntil(env.CACHE.put(key, png, { expirationTtl: 30 * 86400 }));
+  return png;
+}
+app.get("/card/r/:tok{[^/]+\\.png}", async (c) => {
+  const pu = await getPurchase(c.env, c.req.param("tok").replace(/\.png$/, ""));
+  const p = pu && await getPreview(c.env, pu.preview_id);
+  if (!p) return c.notFound();
+  return c.body(await cardPng(c.env, c.executionCtx, p), 200, { "content-type": "image/png", "cache-control": "private, max-age=3600" });
+});
+app.get("/card/:id{[^/]+\\.png}", async (c) => {
+  const p = await getPreview(c.env, c.req.param("id").replace(/\.png$/, ""));
+  if (!p) return c.notFound();
+  return c.body(await cardPng(c.env, c.executionCtx, p), 200, { "content-type": "image/png", "cache-control": "public, max-age=3600" });
+});
 app.get("/card/:id{.+\\.svg}", async (c) => {
   const pid = c.req.param("id").replace(/\.svg$/, "");
   const p = await getPreview(c.env, pid);
   if (!p) return c.notFound();
-  const comp = recompute(p);
-  const svg = shareCardSvg(comp, { site: c.env.SITE_URL.replace(/^https?:\/\//, ""), angle: cycle(comp).stage.wa });
-  return c.body(svg, 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=3600" });
+  return c.body(cardSvg(c.env, p), 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=3600" });
 });
 app.get("/card/r/:tok{.+\\.svg}", async (c) => {
   const tok = c.req.param("tok").replace(/\.svg$/, "");
@@ -244,9 +266,7 @@ app.get("/card/r/:tok{.+\\.svg}", async (c) => {
   if (!pu) return c.notFound();
   const p = await getPreview(c.env, pu.preview_id);
   if (!p) return c.notFound();
-  const comp = recompute(p);
-  const svg = shareCardSvg(comp, { site: c.env.SITE_URL.replace(/^https?:\/\//, ""), angle: cycle(comp).stage.wa });
-  return c.body(svg, 200, { "content-type": "image/svg+xml", "cache-control": "private, max-age=3600" });
+  return c.body(cardSvg(c.env, p), 200, { "content-type": "image/svg+xml", "cache-control": "private, max-age=3600" });
 });
 
 // ---------- checkout ----------
