@@ -1,0 +1,21 @@
+{
+  "name": "rite-remotion",
+  "private": true,
+  "description": "Remotion templates for Rite content styles 2 (sign and cohort cards) and 6 (quote cards).",
+  "scripts": {
+    "data": "bun scripts/build-data.ts",
+    "studio": "remotion studio src/index.ts --browser-executable=/opt/pw-browsers/chromium",
+    "render:all": "bash render-all.sh"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.536",
+    "@remotion/renderer": "^4.0.536",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "remotion": "^4.0.536"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "typescript": "^7.0.2"
+  }
+}

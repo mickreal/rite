@@ -1,0 +1,139 @@
+{
+ "today": "2026-10-16",
+ "site": "rite.report",
+ "cohorts": [
+  {
+   "id": "aries-1996-97-separating",
+   "label": "Aries, first return, early degrees",
+   "sign": "Aries",
+   "returnNumber": 1,
+   "born": "8 Apr – 24 Oct 1996",
+   "alsoBorn": [
+    "11 Jan – 11 Mar 1997"
+   ],
+   "state": "open",
+   "headline": "open now",
+   "window": "25 May 2025 – 12 Apr 2028",
+   "passCount": 1,
+   "passes": [
+    "Mar – Apr 2026"
+   ],
+   "passSpan": null,
+   "note": null
+  },
+  {
+   "id": "aries-1997-three-pass",
+   "label": "Aries, first return, retrograde-pass band",
+   "sign": "Aries",
+   "returnNumber": 1,
+   "born": "12 Mar – 6 May 1997",
+   "alsoBorn": [
+    "10 Nov 1997 – 21 Jan 1998"
+   ],
+   "state": "open",
+   "headline": "open now",
+   "window": "25 May 2025 – 12 Apr 2028",
+   "passCount": 3,
+   "passes": [
+    "Apr – Jul 2026",
+    "Aug – Dec 2026",
+    "Dec 2026 – Mar 2027"
+   ],
+   "passSpan": null,
+   "note": null
+  },
+  {
+   "id": "aries-1997-98-approach",
+   "label": "Aries, first return, the 2027 band",
+   "sign": "Aries",
+   "returnNumber": 1,
+   "born": "7 May – 9 Nov 1997",
+   "alsoBorn": [
+    "22 Jan – 25 Mar 1998"
+   ],
+   "state": "open",
+   "headline": "open now",
+   "window": "25 May 2025 – 12 Apr 2028",
+   "passCount": 1,
+   "passes": [
+    "Mar – May 2027"
+   ],
+   "passSpan": null,
+   "note": null
+  },
+  {
+   "id": "aries-1998-three-pass",
+   "label": "Aries, first return, 2027-28 three-pass band",
+   "sign": "Aries",
+   "returnNumber": 1,
+   "born": "26 Mar – 20 May 1998",
+   "alsoBorn": [
+    "24 Nov 1998 – 2 Feb 1999"
+   ],
+   "state": "open",
+   "headline": "open now",
+   "window": "25 May 2025 – 12 Apr 2028",
+   "passCount": 3,
+   "passes": [
+    "May – Aug 2027",
+    "Aug – Dec 2027",
+    "Jan – Mar 2028"
+   ],
+   "passSpan": null,
+   "note": null
+  },
+  {
+   "id": "aries-1998-99-last-degrees",
+   "label": "Aries, first return, last-degree band",
+   "sign": "Aries",
+   "returnNumber": 1,
+   "born": "26 Oct – 23 Nov 1998",
+   "alsoBorn": [
+    "21 May – 9 Jun 1998",
+    "3 Feb – 1 Mar 1999"
+   ],
+   "state": "open",
+   "headline": "open now",
+   "window": "25 May 2025 – 12 Apr 2028",
+   "passCount": 1,
+   "passes": [
+    "Mar – Apr 2028"
+   ],
+   "passSpan": null,
+   "note": null
+  },
+  {
+   "id": "taurus-2028",
+   "label": "Taurus, first return (next)",
+   "sign": "Taurus",
+   "returnNumber": 1,
+   "born": "2 Mar 1999 – 10 Aug 2000",
+   "alsoBorn": [
+    "10 Jun – 25 Oct 1998",
+    "17 Oct 2000 – 20 Apr 2001"
+   ],
+   "state": "opens",
+   "headline": "opens April 2028",
+   "window": "13 Apr 2028 – 31 May 2030",
+   "passCount": 1,
+   "passes": [],
+   "passSpan": "One or three exact passes between Apr 2028 and May 2030",
+   "note": null
+  },
+  {
+   "id": "aries-second-return",
+   "label": "Aries, second return",
+   "sign": "Aries",
+   "returnNumber": 2,
+   "born": "4 Mar 1967 – 29 Apr 1969",
+   "alsoBorn": [],
+   "state": "open",
+   "headline": "open now",
+   "window": "25 May 2025 – 12 Apr 2028",
+   "passCount": 3,
+   "passes": [],
+   "passSpan": "One or three exact passes between May 2025 and Apr 2028",
+   "note": null
+  }
+ ]
+}
