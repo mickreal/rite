@@ -369,6 +369,7 @@ app.get("/gift/thanks/:code", async (c) => {
 app.get("/gift/:code", async (c) => {
   const g = await getGift(c.env, c.req.param("code"));
   if (!g) return c.html(landingPage({ siteUrl: c.env.SITE_URL, season: seasonTeaser(c.env), error: "That gift code doesn't match anything. Check it and try again." }), 404);
+  if (g.redeemed_at === "refunded" || (g.redeemed_at && !g.redeemed_purchase_id)) return c.html(landingPage({ siteUrl: c.env.SITE_URL, season: seasonTeaser(c.env), error: "That gift code was refunded, so it can't be redeemed." }), 410);
   if (g.redeemed_at) return c.redirect(`/r/${g.redeemed_purchase_id}`);
   return c.html(landingPage({ siteUrl: c.env.SITE_URL, season: seasonTeaser(c.env), gift: { code: g.code, from: g.buyer_name, message: g.message } }));
 });
