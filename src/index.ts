@@ -24,7 +24,7 @@ import { narrationText, splitForTts, CHAPTERS } from "./narration";
 import { resultPage } from "./views/result";
 import { seasonManagePage, type SeasonManageData } from "./views/season";
 import { seasonLandingPage } from "./views/season-landing";
-import { nextNoteDate, yearlyAllowed, unusedMonths, yearlyRefundCents, comingUpText, windowOpenSendOn, noteFacts, seasonFallbackBody, sampleNote, lastMondayLocal, type SeasonPlan } from "./season";
+import { nextNoteDate, nextNoteAfterLast, yearlyAllowed, unusedMonths, yearlyRefundCents, comingUpText, windowOpenSendOn, noteFacts, seasonFallbackBody, sampleNote, lastMondayLocal, type SeasonPlan } from "./season";
 import { SIGN_NOTES } from "./content/notes";
 import { localHour, localToUtc } from "./geo";
 
@@ -751,7 +751,7 @@ async function seasonManage(env: Env, tok: string, flash?: string) {
   const comp = recompute(p);
   const today = new Date();
   const status = (sub?.status ?? "none") as SeasonManageData["status"];
-  const nn = nextNoteDate(p.tz, today);
+  const nn = nextNoteAfterLast(p.tz, today, sub && (sub.status === "active" || sub.status === "past_due") ? sub.last_sent_at : null);
   const d: SeasonManageData = {
     token: pu.id, status: (["active", "past_due", "canceled", "complete"] as string[]).includes(status) ? status : "none",
     plan: sub?.plan === "year" ? "year" : sub?.plan === "month" ? "month" : null,

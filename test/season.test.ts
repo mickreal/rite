@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextNoteDate, unusedMonths, yearlyRefundCents, yearlyAllowed, windowOpenNotify, windowOpenSendOn, addMonths, seasonPhase, rereadChapter, upcomingDates, comingUpText } from "../src/season";
+import { nextNoteDate, nextNoteAfterLast, unusedMonths, yearlyRefundCents, yearlyAllowed, windowOpenNotify, windowOpenSendOn, addMonths, seasonPhase, rereadChapter, upcomingDates, comingUpText } from "../src/season";
 import { compute, cycle } from "../src/compute";
 import { resultPage } from "../src/views/result";
 import { seasonManagePage } from "../src/views/season";
@@ -153,5 +153,16 @@ describe("result page swaps to the window-open capture", () => {
     expect(h).toContain("Get a heads-up before each pass");
     expect(h).not.toContain("window_open");
     expect(h).toContain('data-kind="pass"');
+  });
+});
+
+describe("next note after the welcome note", () => {
+  it("skips a Monday that falls within six days of the last note, like runSeason does", () => {
+    // welcome sent Sat 17 Oct 2026 08:00 Melbourne; Mon 19 Oct 07:00 is too soon, so the next note is Mon 26 Oct
+    const from = new Date("2026-10-16T21:00:00Z");
+    expect(nextNoteAfterLast("Australia/Melbourne", from, "2026-10-16T21:00:00Z").toISOString()).toBe("2026-10-25T20:00:00.000Z");
+    expect(nextNoteAfterLast("Australia/Melbourne", from, null).toISOString()).toBe(nextNoteDate("Australia/Melbourne", from).toISOString());
+    // last note a week ago: this Monday is fine
+    expect(nextNoteAfterLast("Australia/Melbourne", from, "2026-10-11T20:00:00Z").toISOString()).toBe("2026-10-18T20:00:00.000Z");
   });
 });

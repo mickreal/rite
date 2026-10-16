@@ -79,7 +79,7 @@ ${d.flash === "started" && d.status !== "active" ? html`<meta http-equiv="refres
   </section>`
   : html`
   <section style="display:flex;flex-direction:column;gap:14px">
-    <h2>${d.status === "complete" ? "That's the season" : "Start it again"}</h2>
+    <h2>${d.status === "complete" ? "That's the season" : d.status === "none" ? "Start it" : "Start it again"}</h2>
     <p>${d.status === "complete" ? "Saturn has left your natal sign, so there's nothing weekly left to track. Your reading keeps updating as the long cycle moves on." : "Subscribe from the bottom of your reading whenever you like."} <a href="/r/${d.token}#season">Back to your reading</a>.</p>
   </section>`}
 
