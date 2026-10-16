@@ -793,6 +793,8 @@ async function seasonManage(env: Env, tok: string, flash?: string) {
 
 app.get("/season/manage/:tok", async (c) => {
   const m = await seasonManage(c.env, c.req.param("tok"), c.req.query("ok")); if (!m) return c.notFound();
+  const refund = parseInt(c.req.query("refund") ?? "", 10);
+  if (m.d.flash === "canceled" && refund > 0 && refund <= parseInt(c.env.PRICE_SEASON_YEARLY_CENTS, 10)) m.d.refundCents = refund;
   return c.html(seasonManagePage({ siteUrl: c.env.SITE_URL, d: m.d, supportEmail: c.env.SUPPORT_EMAIL }), 200, { "cache-control": "no-store" });
 });
 
@@ -822,13 +824,14 @@ app.post("/season/plan/:tok", async (c) => {
 
 app.post("/season/cancel/:tok", async (c) => {
   const tok = c.req.param("tok");
-  const sub = await c.env.DB.prepare("SELECT id FROM subscriptions WHERE purchase_id = ? AND status IN ('active','past_due')").bind(tok).first<{ id: string }>();
+  const sub = await c.env.DB.prepare("SELECT id, plan FROM subscriptions WHERE purchase_id = ? AND status IN ('active','past_due')").bind(tok).first<{ id: string; plan: string | null }>();
   if (!sub) return c.redirect(`/season/manage/${tok}`);
-  try { await stripe(c.env).subscriptions.cancel(sub.id); }
-  catch (e) { await log(c.env, "error", tok, { where: "season-cancel", e: String(e) }); return c.redirect(`/season/manage/${tok}?ok=error`); }
+  // Stopping ends it now (no further charges, no further notes); a yearly plan gets its unused full months back.
+  const { canceled, cents } = await closeSeasonSubscription(c.env, { sub_id: sub.id, plan: sub.plan, purchase_id: tok }, new Date());
+  if (!canceled) return c.redirect(`/season/manage/${tok}?ok=error`); // logged inside; nothing changed
   await c.env.DB.prepare("UPDATE subscriptions SET status='canceled' WHERE id=?").bind(sub.id).run();
-  await log(c.env, "season_cancel", tok);
-  return c.redirect(`/season/manage/${tok}?ok=canceled`);
+  await log(c.env, "season_cancel", tok, { refunded_cents: cents });
+  return c.redirect(`/season/manage/${tok}?ok=canceled${cents ? `&refund=${cents}` : ""}`);
 });
 
 // Old stop link (in notes already sent): the manage page now does this with a confirmation.
@@ -886,9 +889,33 @@ app.post("/webhook/stripe", async (c) => {
     const ch = event.data.object as Stripe.Charge;
     const pi = typeof ch.payment_intent === "string" ? ch.payment_intent : ch.payment_intent?.id;
     if (pi) {
-      await c.env.DB.prepare("UPDATE purchases SET status='refunded' WHERE stripe_payment_intent=?").bind(pi).run();
-      // a refunded, unredeemed gift code stops working (same marker as /admin/refund); a redeemed one keeps its reading
-      await c.env.DB.prepare("UPDATE gifts SET redeemed_at='refunded' WHERE stripe_payment_intent=? AND redeemed_at IS NULL").bind(pi).run();
+      // Readings and gifts are only ever refunded in full; a partial refund on one is logged and changes nothing.
+      const pu = await c.env.DB.prepare("SELECT id FROM purchases WHERE stripe_payment_intent=?").bind(pi).first<{ id: string }>();
+      const gi = await c.env.DB.prepare("SELECT code FROM gifts WHERE stripe_payment_intent=?").bind(pi).first<{ code: string }>();
+      if (pu || gi) {
+        if (ch.refunded) {
+          await c.env.DB.prepare("UPDATE purchases SET status='refunded' WHERE stripe_payment_intent=?").bind(pi).run();
+          // a refunded, unredeemed gift code stops working (same marker as /admin/refund); a redeemed one keeps its reading
+          await c.env.DB.prepare("UPDATE gifts SET redeemed_at='refunded' WHERE stripe_payment_intent=? AND redeemed_at IS NULL").bind(pi).run();
+        } else await log(c.env, "partial_refund_ignored", pu?.id ?? gi?.code ?? null, { pi, amount_refunded: ch.amount_refunded });
+      } else {
+        // Not a reading or gift: maybe a Saturn Season invoice. Any refund on one stops the subscription (no more charges or
+        // notes). Our own unused-months refund lands here too, after the row is already canceled/complete, and is a no-op.
+        try {
+          const ips = await stripe(c.env).invoicePayments.list({ payment: { type: "payment_intent", payment_intent: pi }, expand: ["data.invoice"], limit: 1 });
+          const inv = ips.data[0]?.invoice;
+          const subRef = inv && typeof inv !== "string" && "parent" in inv ? inv.parent?.subscription_details?.subscription : undefined;
+          const subId = typeof subRef === "string" ? subRef : subRef?.id;
+          const row = subId ? await c.env.DB.prepare("SELECT purchase_id FROM subscriptions WHERE id=? AND status IN ('active','past_due')").bind(subId).first<{ purchase_id: string }>() : null;
+          if (subId && row) {
+            // our own unused-months refund can arrive here before the row is updated; the sub is already canceled then
+            try { const live = await stripe(c.env).subscriptions.retrieve(subId); if (live.status !== "canceled") await stripe(c.env).subscriptions.cancel(subId); }
+            catch (e) { await log(c.env, "error", row.purchase_id, { where: "season-refund-cancel", e: String(e) }); }
+            await c.env.DB.prepare("UPDATE subscriptions SET status='canceled' WHERE id=?").bind(subId).run();
+            await log(c.env, "season_cancel", row.purchase_id, { via: "refund", amount_refunded: ch.amount_refunded });
+          }
+        } catch (e) { await log(c.env, "error", null, { where: "charge-refunded-season", pi, e: String(e) }); }
+      }
     }
   }
   return c.text("ok");
@@ -897,7 +924,17 @@ app.post("/webhook/stripe", async (c) => {
 // ---------- refund (used by the support inbox automation; protect with the webhook secret as a bearer) ----------
 app.post("/admin/refund", async (c) => {
   if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
-  const { email } = await c.req.json<{ email: string }>();
+  const { email, season } = await c.req.json<{ email: string; season?: boolean }>();
+  if (season) {
+    // Stop Saturn Season now and refund the unused full months of a yearly plan (monthly: stops, nothing to refund).
+    const sub = await c.env.DB.prepare("SELECT s.id, s.plan, s.purchase_id FROM subscriptions s JOIN purchases p ON p.id = s.purchase_id WHERE p.email=? AND s.status IN ('active','past_due') ORDER BY s.created_at DESC LIMIT 1").bind(email).first<{ id: string; plan: string | null; purchase_id: string }>();
+    if (!sub) return c.json({ refunded: false, season: true });
+    const { canceled, cents } = await closeSeasonSubscription(c.env, { sub_id: sub.id, plan: sub.plan, purchase_id: sub.purchase_id }, new Date());
+    if (!canceled) return c.json({ refunded: false, season: true, canceled: false, error: "stripe cancel failed (see /admin errors)" }, 502);
+    await c.env.DB.prepare("UPDATE subscriptions SET status='canceled' WHERE id=?").bind(sub.id).run();
+    await log(c.env, "season_cancel", sub.purchase_id, { via: "admin", refunded_cents: cents });
+    return c.json({ refunded: cents > 0, season: true, canceled: true, cents });
+  }
   const pu = await c.env.DB.prepare("SELECT id, stripe_payment_intent FROM purchases WHERE email=? AND status IN ('paid','writing','generated','failed') ORDER BY created_at DESC LIMIT 1").bind(email).first<{ id: string; stripe_payment_intent: string }>();
   if (!pu?.stripe_payment_intent) {
     // maybe a gift buyer
@@ -1000,34 +1037,38 @@ async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: s
 }
 
 /**
- * Saturn left the sign: cancel the Stripe subscription and, on a yearly plan, refund the full months that were paid for but
- * won't be used (the refunds page promises this). Every Stripe call is caught and logged; the cron must never throw.
+ * End a Season subscription now: cancel it in Stripe and, on a yearly plan, refund the full months that were paid for but
+ * won't be used. Used when the window closes (cron), when the subscriber stops it, and for an admin refund. Returns the cents
+ * refunded. Every Stripe call is caught and logged; callers (the cron especially) must never throw.
  */
-async function closeSeasonSubscription(env: Env, r: SeasonRow, today: Date) {
-  if (r.sub_id === "none") return;
+async function closeSeasonSubscription(env: Env, r: Pick<SeasonRow, "sub_id" | "plan" | "purchase_id">, today: Date): Promise<{ canceled: boolean; cents: number }> {
+  if (r.sub_id === "none") return { canceled: false, cents: 0 };
+  let canceled = false;
   const s = stripe(env);
   let periodEnd: number | null = null;
   try {
     const sub = await s.subscriptions.retrieve(r.sub_id);
     periodEnd = sub.items.data[0]?.current_period_end ?? null; // API 2025-03+: the period lives on the item
   } catch (e) { await log(env, "error", r.purchase_id, { where: "season-close-retrieve", e: String(e) }); }
-  try { await s.subscriptions.cancel(r.sub_id); }
+  try { await s.subscriptions.cancel(r.sub_id); canceled = true; }
   catch (e) { await log(env, "error", r.purchase_id, { where: "season-close-cancel", e: String(e) }); }
-  if (r.plan !== "year") return;
+  if (r.plan !== "year") return { canceled, cents: 0 };
   try {
     const unused = periodEnd ? unusedMonths(today, new Date(periodEnd * 1000)) : 0;
     let cents = yearlyRefundCents(parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10), unused);
-    if (cents <= 0) { await log(env, "season_refund", r.purchase_id, { amount: 0, unused, reason: "no unused months" }); return; }
+    if (cents <= 0) { await log(env, "season_refund", r.purchase_id, { amount: 0, unused, reason: "no unused months" }); return { canceled, cents: 0 }; }
     const inv = await s.invoices.list({ subscription: r.sub_id, status: "paid", limit: 1, expand: ["data.payments"] });
     const invoice = inv.data[0];
     const pay = invoice?.payments?.data.find((x) => x.payment?.payment_intent);
     const pi = pay ? (typeof pay.payment.payment_intent === "string" ? pay.payment.payment_intent : pay.payment.payment_intent?.id) : undefined;
-    if (!invoice || !pi) { await log(env, "error", r.purchase_id, { where: "season-refund", e: "no paid invoice / payment intent", unused, cents }); return; }
+    if (!invoice || !pi) { await log(env, "error", r.purchase_id, { where: "season-refund", e: "no paid invoice / payment intent", unused, cents }); return { canceled, cents: 0 }; }
     cents = Math.min(cents, invoice.amount_paid); // a promo code may have made the year cheaper than list
-    if (cents <= 0) { await log(env, "season_refund", r.purchase_id, { amount: 0, unused, reason: "nothing paid" }); return; }
+    if (cents <= 0) { await log(env, "season_refund", r.purchase_id, { amount: 0, unused, reason: "nothing paid" }); return { canceled, cents: 0 }; }
     const rf = await s.refunds.create({ payment_intent: pi, amount: cents });
     await log(env, "season_refund", r.purchase_id, { amount: cents, unused, refund: rf.id, invoice: invoice.id });
+    return { canceled, cents };
   } catch (e) { await log(env, "error", r.purchase_id, { where: "season-refund", e: String(e) }); }
+  return { canceled, cents: 0 };
 }
 
 /** Daily digest of errors to the admin inbox (08:00 Brisbane), only when there is something to say. */

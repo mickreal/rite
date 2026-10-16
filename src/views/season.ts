@@ -25,6 +25,7 @@ export interface SeasonManageData {
   yearlyAllowed: boolean;
   monthlyPrice: number; yearlyPrice: number;
   flash?: "switched" | "canceled" | "error" | "started" | null;
+  refundCents?: number;        // set after stopping a yearly plan with unused months
 }
 
 export function seasonManagePage(opts: { siteUrl: string; d: SeasonManageData; supportEmail: string }) {
@@ -35,7 +36,7 @@ export function seasonManagePage(opts: { siteUrl: string; d: SeasonManageData; s
   };
   const flash = d.flash === "started" ? (d.status === "active" ? html`<div class="note">You're in. The first note is on its way to your inbox now; the next lands ${d.nextNote}.</div>` : html`<div class="note">Thanks. Stripe is confirming the payment; this page fills in by itself in a few seconds, and your first note follows straight after.</div>`)
     : d.flash === "switched" ? html`<div class="note">Done. Your plan is now ${planLabel}. Stripe prorates the change on your next invoice.</div>`
-    : d.flash === "canceled" ? html`<div class="note">Stopped. You won't be charged again, and the Monday notes end here. Your reading stays where it is.</div>`
+    : d.flash === "canceled" ? html`<div class="note">Stopped. You won't be charged again, and the Monday notes end here.${d.refundCents ? ` The unused months of your year, $${(d.refundCents / 100).toFixed(2)}, are on their way back to your card (usually 5–10 business days).` : ""} Your reading stays where it is.</div>`
     : d.flash === "error" ? html`<div class="note danger">That didn't go through on Stripe's side. Nothing changed. Try again in a minute, or email <a href="mailto:${opts.supportEmail}">${opts.supportEmail}</a>.</div>` : "";
 
   const body = html`
@@ -68,7 +69,7 @@ ${d.flash === "started" && d.status !== "active" ? html`<meta http-equiv="refres
 
   <section style="display:flex;flex-direction:column;gap:14px">
     <h2>Stop it</h2>
-    <p>Stops the notes and the billing straight away. No questions, nothing to confirm by email. Your reading at <a href="/r/${d.token}">this link</a> stays exactly as it is.</p>
+    <p>Stops the notes and the billing straight away. No questions, nothing to confirm by email.${d.plan === "year" ? " On the yearly plan, the full months you haven't used are refunded automatically." : ""} Your reading at <a href="/r/${d.token}">this link</a> stays exactly as it is.</p>
     <form method="post" action="/season/cancel/${d.token}" onsubmit="return confirm('Stop Saturn Season now? You can start it again from your reading.')"><button type="submit" class="ghost">Stop Saturn Season</button></form>
   </section>`
   : d.status === "past_due" ? html`

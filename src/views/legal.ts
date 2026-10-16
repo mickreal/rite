@@ -15,7 +15,7 @@ const CSS = `
 const OPERATOR = "Rite is operated by MickMade (Australia)";
 
 export function legalPage(opts: { siteUrl: string; page: "privacy" | "terms" | "refunds"; supportEmail: string }) {
-  const updated = "16 October 2026";
+  const updated = "17 October 2026";
   const e = opts.supportEmail;
   const pages = {
     privacy: {
@@ -87,7 +87,7 @@ export function legalPage(opts: { siteUrl: string; page: "privacy" | "terms" | "
 <h2>Gift codes</h2>
 <p>Unredeemed gift codes are refundable within 14 days of purchase. Once a code has been redeemed, the 14-day window applies to the recipient's reading instead.</p>
 <h2>Saturn Season</h2>
-<p>Cancel any time from the link in any note; you keep the notes through the end of the period you've paid for and aren't charged again. It stops itself when your window closes. If a yearly plan is cut short because your window closed, email us and we'll refund the unused months.</p>
+<p>Stop it any time from the link in any note. It stops straight away: no more notes and no more charges. On a yearly plan, the full months you haven't used are refunded to your card automatically; a monthly plan has nothing left to refund. It also stops itself when your window closes, with the same refund on a yearly plan. If you refund a Saturn Season payment through us for any other reason, the subscription stops too.</p>
 <h2>Wrong sign or date</h2>
 <p>If a sign or date in your reading is wrong because of our calculation, we'll correct it and refund you at any time, not only in the first 14 days.</p>
 <h2>Consumer law</h2>

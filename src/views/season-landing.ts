@@ -80,7 +80,7 @@ export function seasonLandingPage(opts: { siteUrl: string; sample: SeasonSample;
     <h2>Price</h2>
     <div class="prices">
       <div class="price"><b>$${opts.monthlyPrice}<small>a month</small></b><span>Cancel any time from the link in every note.</span></div>
-      <div class="price"><b>$${opts.yearlyPrice}<small>a year</small></b><span>${save}% less than monthly. Offered when at least nine months of your window remain; if it closes early, the unused months are refunded.</span></div>
+      <div class="price"><b>$${opts.yearlyPrice}<small>a year</small></b><span>${save}% less than monthly. Offered when at least nine months of your window remain; stop it early or the window closes first and the unused months are refunded.</span></div>
     </div>
     <p>Either way it <b style="color:#EDE6D6;font-weight:600">stops itself when your window closes</b>. Saturn leaves your sign, you get a last note, the subscription cancels. Nothing to remember.</p>
   </section>
