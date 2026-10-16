@@ -27,6 +27,8 @@ import { seasonLandingPage } from "./views/season-landing";
 import { nextNoteDate, yearlyAllowed, unusedMonths, yearlyRefundCents, comingUpText, windowOpenSendOn, noteFacts, seasonFallbackBody, sampleNote, lastMondayLocal, type SeasonPlan } from "./season";
 import { SIGN_NOTES } from "./content/notes";
 import { localHour, localToUtc } from "./geo";
+import { adminAuthorized, adminStats, adminExtras, adminDays } from "./admin";
+import { adminPage } from "./views/admin";
 
 export interface Env {
   DB: D1Database;
@@ -47,7 +49,7 @@ app.use("*", async (c, next) => { await next(); if (c.res && c.req.method === "G
 const id = (n = 12) => { const b = new Uint8Array(n); crypto.getRandomValues(b); return [...b].map((x) => x.toString(36).padStart(2, "0")).join("").slice(0, n); };
 const token = () => id(32);
 const now = () => new Date().toISOString();
-const adminOk = (env: Env, auth: string | undefined) => !!env.STRIPE_WEBHOOK_SECRET && env.STRIPE_WEBHOOK_SECRET.length > 10 && auth === `Bearer ${env.STRIPE_WEBHOOK_SECRET}`;
+const adminOk = (env: Env, auth: string | undefined, key?: string) => adminAuthorized(env.STRIPE_WEBHOOK_SECRET, auth, key); // constant-time; key = ?key= (GET /admin only)
 const stripe = (env: Env) => new Stripe(env.STRIPE_SECRET_KEY, { httpClient: Stripe.createFetchHttpClient() });
 const FUNNEL = new Set(["preview", "checkout", "paid", "generated", "gift_paid", "gift_redeemed", "season_start", "season_sent", "ask", "narrated", "refund", "story", "error"]);
 async function log(env: Env, kind: string, ref?: string | null, detail?: unknown) {
@@ -64,6 +66,7 @@ async function log(env: Env, kind: string, ref?: string | null, detail?: unknown
 // pages call window.rite.track(name, props) for the funnel events, and every page sends one pageview.
 function withAnalytics(env: Env, res: Response, path: string): Response {
   if (!env.POSTHOG_KEY || !(res.headers.get("content-type") || "").includes("text/html")) return res;
+  if (path === "/admin" || path.startsWith("/admin/")) return res; // admin pages carry the secret in the URL
   // never tag the private pages with their tokens
   const page = path.startsWith("/r/") ? "/r/:tok" : path.startsWith("/p/") ? "/p/:id" : path.startsWith("/gift/") ? "/gift/:code" : path;
   const snippet = `<script>!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload identify alias people.set people.set_once set_config startSessionRecording stopSessionRecording get_distinct_id".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
@@ -885,19 +888,14 @@ app.get("/health", (c) => c.json({ ok: true, saturn: saturnLongitude(new Date())
 app.get("/admin/stats", async (c) => {
   if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
   const days = Math.min(90, Math.max(1, parseInt(c.req.query("days") ?? "30", 10)));
-  const since = new Date(Date.now() - days * 86400000).toISOString();
-  const [kinds, byRef, bySign, rev, gifts, subs, daily] = await Promise.all([
-    c.env.DB.prepare("SELECT kind, COUNT(*) n FROM events WHERE at > ? GROUP BY kind ORDER BY n DESC").bind(since).all(),
-    c.env.DB.prepare("SELECT COALESCE(pv.ref,'(none)') ref, COUNT(DISTINCT pv.id) previews, COUNT(DISTINCT pu.id) purchases, COALESCE(SUM(pu.amount_cents),0) cents FROM previews pv LEFT JOIN purchases pu ON pu.preview_id = pv.id AND pu.status IN ('paid','writing','generated') WHERE pv.created_at > ? GROUP BY 1 ORDER BY previews DESC").bind(since).all(),
-    c.env.DB.prepare("SELECT pv.natal_sign sign, pv.return_number rn, COUNT(DISTINCT pv.id) previews, COUNT(DISTINCT pu.id) purchases FROM previews pv LEFT JOIN purchases pu ON pu.preview_id = pv.id AND pu.status IN ('paid','writing','generated') WHERE pv.created_at > ? GROUP BY 1,2 ORDER BY previews DESC").bind(since).all(),
-    c.env.DB.prepare("SELECT COALESCE(SUM(amount_cents),0) cents, COUNT(*) n, SUM(CASE WHEN amount_cents=0 THEN 1 ELSE 0 END) free_or_gift FROM purchases WHERE status IN ('paid','writing','generated') AND created_at > ?").bind(since).first(),
-    c.env.DB.prepare("SELECT COUNT(*) sold, SUM(CASE WHEN redeemed_at IS NOT NULL AND redeemed_at != 'refunded' THEN 1 ELSE 0 END) redeemed FROM gifts WHERE created_at > ?").bind(since).first(),
-    c.env.DB.prepare("SELECT status, COUNT(*) n FROM subscriptions GROUP BY status").all(),
-    c.env.DB.prepare("SELECT substr(at,1,10) day, SUM(kind='preview') previews, SUM(kind='checkout') checkouts, SUM(kind='paid') paid FROM events WHERE at > ? GROUP BY 1 ORDER BY 1").bind(since).all(),
-  ]);
-  const k = Object.fromEntries((kinds.results as Array<{ kind: string; n: number }>).map((r) => [r.kind, r.n]));
-  const funnel = { previews: k.preview ?? 0, checkouts: k.checkout ?? 0, paid: k.paid ?? 0, generated: k.generated ?? 0, preview_to_checkout: k.preview ? +((k.checkout ?? 0) / k.preview * 100).toFixed(1) : 0, checkout_to_paid: k.checkout ? +((k.paid ?? 0) / k.checkout * 100).toFixed(1) : 0 };
-  return c.json({ days, funnel, revenue: rev, gifts, subscriptions: subs.results, by_ref: byRef.results, by_sign: bySign.results, daily: daily.results, events: kinds.results });
+  return c.json(await adminStats(c.env.DB, days));
+});
+// HTML view of /admin/stats + recent errors, stories and email queues. Bearer header or ?key= (same secret); 404 otherwise.
+app.get("/admin", async (c) => {
+  if (!adminOk(c.env, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
+  const [stats, extras] = await Promise.all([adminStats(c.env.DB, adminDays(c.req.query("days"))), adminExtras(c.env.DB)]);
+  return c.html(adminPage({ stats, extras, currency: c.env.CURRENCY, key: c.req.query("key"), generatedAt: now() }), 200,
+    { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
 });
 
 // ---------- cron: Saturn Season ----------
