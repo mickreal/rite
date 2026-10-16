@@ -19,7 +19,9 @@ export interface ReportJson {
 }
 
 const CSS = `
-.strip{display:flex;flex-wrap:wrap;background:#14171D;border-radius:24px;border:1px solid rgba(237,230,214,.06);overflow:hidden}
+.strip{background:#14171D;border-radius:24px;border:1px solid rgba(237,230,214,.06);overflow:hidden}
+.strip .cells{display:flex;flex-wrap:wrap}
+.strip .player{display:flex;flex-wrap:wrap;align-items:center;gap:18px 24px;padding:18px 20px;border-top:1px solid rgba(237,230,214,.08)}
 .strip .cell{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:6px;padding:18px 20px;border-right:1px solid rgba(237,230,214,.08);border-bottom:1px solid rgba(237,230,214,.08);margin-bottom:-1px}
 .strip .cell:last-child{border-right:0}
 .strip .cell span{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8F897E;white-space:nowrap}
@@ -97,23 +99,25 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
     <p class="disp" style="margin:0;max-width:820px;font-size:clamp(22px,2.2vw,30px);line-height:1.3">${r.cover_line}</p>
   </div>
   <div class="strip">
-    <div class="cell"><span>Natal Saturn</span><b>${Math.floor(c.degree)}° ${c.sign}</b></div>
-    <div class="cell"><span>House</span><b>${c.house ? ORDINAL[c.house].replace(/(\d+)(st|nd|rd|th)/, "$1$2") : "—"}</b></div>
-    <div class="cell"><span>Window</span><b>${fmtMonYr(open)} – ${fmtMonYr(close)}</b></div>
-    ${w.hits.map((h, i) => html`<div class="cell"><span>${w.hits.length === 1 ? "Exact pass" : `Pass ${i + 1}`}</span><b style="color:#F2B544">${fmtDay(h)}</b></div>`)}
-    ${cy.turn ? html`<div class="cell"><span>Closest turn</span><b>${fmtDay(cy.turn.date)}</b></div>` : ""}
-    <div class="cell"><span>Where you are</span><b><i class="dot"></i>${whereNow.replace(", ", " · ")}</b></div>
-  </div>
-  <div class="card noprint" style="display:flex;flex-wrap:wrap;align-items:center;gap:20px 28px">
-    <button type="button" id="playBtn" class="solid" aria-label="Play narration" style="width:56px;height:56px;padding:0;justify-content:center;flex:0 0 auto">
-      <span id="playEq" class="eq" aria-hidden="true" style="display:none;align-items:center;height:16px"><span></span><span style="animation-delay:.2s"></span><span style="animation-delay:.4s"></span></span>
-      <svg id="playIco" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M5 3l10 6-10 6z" fill="#14110A"/></svg>
-    </button>
-    <div style="flex:1 1 280px;display:flex;flex-direction:column;gap:10px">
-      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span class="disp" style="font-size:20px;font-weight:600">Listen to your reading</span><span id="playMeta" class="muted" style="font-size:14px">Narrated, about 20 minutes</span></div>
-      <div style="height:6px;border-radius:3px;background:rgba(237,230,214,.1);overflow:hidden"><div id="playBar" style="height:100%;width:0;background:#F2B544;transition:width .4s linear"></div></div>
+    <div class="cells">
+      <div class="cell"><span>Natal Saturn</span><b>${Math.floor(c.degree)}° ${c.sign}</b></div>
+      <div class="cell"><span>House</span><b>${c.house ? ORDINAL[c.house].replace(/(\d+)(st|nd|rd|th)/, "$1$2") : "—"}</b></div>
+      <div class="cell"><span>Window</span><b>${fmtMonYr(open)} – ${fmtMonYr(close)}</b></div>
+      ${w.hits.map((h, i) => html`<div class="cell"><span>${w.hits.length === 1 ? "Exact pass" : `Pass ${i + 1}`}</span><b style="color:#F2B544">${fmtDay(h)}</b></div>`)}
+      ${cy.turn ? html`<div class="cell"><span>Closest turn</span><b>${fmtDay(cy.turn.date)}</b></div>` : ""}
+      <div class="cell"><span>Where you are</span><b><i class="dot"></i>${whereNow.replace(", ", " · ")}</b></div>
     </div>
-    <a href="/r/${opts.token}/calendar.ics" class="ghost" download="rite-saturn-return.ics">Add every date to my calendar</a>
+    <div class="player noprint">
+      <button type="button" id="playBtn" class="solid" aria-label="Play narration" style="width:56px;height:56px;padding:0;justify-content:center;flex:0 0 auto">
+        <span id="playEq" class="eq" aria-hidden="true" style="display:none;align-items:center;height:16px"><span></span><span style="animation-delay:.2s"></span><span style="animation-delay:.4s"></span></span>
+        <svg id="playIco" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M5 3l10 6-10 6z" fill="#14110A"/></svg>
+      </button>
+      <div style="flex:1 1 200px;min-width:0;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span class="disp" style="font-size:19px;font-weight:600">Listen to your reading</span><span id="playMeta" class="muted" style="font-size:14px">Narrated, about 20 minutes</span></div>
+        <div style="height:6px;border-radius:3px;background:rgba(237,230,214,.1);overflow:hidden"><div id="playBar" style="height:100%;width:0;background:#F2B544;transition:width .4s linear"></div></div>
+      </div>
+      <a href="/r/${opts.token}/calendar.ics" class="ghost" download="rite-saturn-return.ics">Add every date to my calendar</a>
+    </div>
   </div>
 </section>
 
