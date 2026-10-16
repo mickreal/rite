@@ -4,3 +4,8 @@ node_modules
 dist
 _rite-archive.tgz
 rite.bundle
+
+# content engine renders (samples live in content/samples/)
+content/out/
+content/remotion/out/
+content/clips/vo/

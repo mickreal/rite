@@ -1,0 +1,14 @@
+{
+  "name": "rite-content",
+  "private": true,
+  "type": "module",
+  "description": "Content engine for Rite (styles 1, 2 and 6 in docs/gtm-plan.md). Not part of the Worker bundle.",
+  "scripts": {
+    "check": "bun clips/check-cohorts.ts",
+    "clips": "bun clips/render-clip.ts",
+    "data": "bun remotion/scripts/build-data.ts",
+    "cards": "bash remotion/render-all.sh",
+    "export": "bun scripts/export-batch.ts",
+    "fonts": "python3 fonts/make-static.py"
+  }
+}
