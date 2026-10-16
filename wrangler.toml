@@ -4,7 +4,7 @@ compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-SITE_URL = "https://rite.report"
+SITE_URL = "https://rite.mickreal.workers.dev"   # switch to https://rite.report once the domain is attached
 PRICE_FULL_CENTS = "2900"
 PRICE_NOTIME_CENTS = "1900"
 PRICE_SEASON_MONTHLY_CENTS = "700"
@@ -21,11 +21,11 @@ SUPPORT_EMAIL = "hello@rite.report"
 [[d1_databases]]
 binding = "DB"
 database_name = "rite"
-database_id = "00000000-0000-0000-0000-000000000000"   # replace: wrangler d1 create rite
+database_id = "080917d1-8478-4204-92ba-cc4f951eee60"   # replace: wrangler d1 create rite
 
 [[kv_namespaces]]
 binding = "CACHE"
-id = "00000000000000000000000000000000"            # replace: wrangler kv namespace create CACHE
+id = "d6c3a395f8414c0e910e526d57700199"            # replace: wrangler kv namespace create CACHE
 
 [triggers]
 crons = ["0 * * * *"]  # hourly; the handler sends Saturn Season mail at 07:00 in each subscriber's own timezone

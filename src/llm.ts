@@ -12,7 +12,7 @@ async function complete(env: Env, model: string, system: string, user: string, m
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model, max_tokens: maxTokens, temperature: 0.7,
+      model, max_tokens: maxTokens,
       system,
       messages: [{ role: "user", content: user }],
     }),
