@@ -1,0 +1,33 @@
+{
+  "id": "evt_1Rite0PaymentCompleted",
+  "object": "event",
+  "api_version": "2026-09-30.endive",
+  "created": 0,
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": { "id": null, "idempotency_key": null },
+  "type": "checkout.session.completed",
+  "data": {
+    "object": {
+      "id": "cs_test_reading_0001",
+      "object": "checkout.session",
+      "mode": "payment",
+      "status": "complete",
+      "payment_status": "paid",
+      "amount_subtotal": 2900,
+      "amount_total": 2900,
+      "currency": "usd",
+      "customer": null,
+      "customer_email": null,
+      "customer_details": { "email": "reader@example.com", "name": "Sam Reader", "address": { "country": "AU" } },
+      "custom_fields": [
+        { "key": "first_name", "type": "text", "optional": true, "label": { "type": "custom", "custom": "First name (for the report)" }, "text": { "value": "  Sam  " } }
+      ],
+      "metadata": { "preview_id": "pv_test_0001", "tier": "full" },
+      "payment_intent": "pi_test_reading_0001",
+      "subscription": null,
+      "success_url": "https://rite.test/thanks?session_id={CHECKOUT_SESSION_ID}",
+      "cancel_url": "https://rite.test/p/pv_test_0001"
+    }
+  }
+}

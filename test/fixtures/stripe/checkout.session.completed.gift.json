@@ -1,0 +1,34 @@
+{
+  "id": "evt_1Rite0GiftCompleted",
+  "object": "event",
+  "api_version": "2026-09-30.endive",
+  "created": 0,
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": { "id": null, "idempotency_key": null },
+  "type": "checkout.session.completed",
+  "data": {
+    "object": {
+      "id": "cs_test_gift_0001",
+      "object": "checkout.session",
+      "mode": "payment",
+      "status": "complete",
+      "payment_status": "paid",
+      "amount_subtotal": 2900,
+      "amount_total": 2900,
+      "currency": "usd",
+      "customer": null,
+      "customer_email": null,
+      "customer_details": { "email": "buyer@example.com", "name": "Alex Buyer" },
+      "custom_fields": [
+        { "key": "from_name", "type": "text", "optional": true, "label": { "type": "custom", "custom": "Your name, as they'll see it" }, "text": { "value": "Alex" } },
+        { "key": "message", "type": "text", "optional": true, "label": { "type": "custom", "custom": "A note for them (optional)" }, "text": { "value": "Happy 29th" } }
+      ],
+      "metadata": { "gift": "1" },
+      "payment_intent": "pi_test_gift_0001",
+      "subscription": null,
+      "success_url": "https://rite.test/thanks?session_id={CHECKOUT_SESSION_ID}",
+      "cancel_url": "https://rite.test/gift"
+    }
+  }
+}

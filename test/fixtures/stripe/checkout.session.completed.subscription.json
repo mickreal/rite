@@ -1,0 +1,32 @@
+{
+  "id": "evt_1Rite0SeasonCompleted",
+  "object": "event",
+  "api_version": "2026-09-30.endive",
+  "created": 0,
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": { "id": null, "idempotency_key": null },
+  "type": "checkout.session.completed",
+  "data": {
+    "object": {
+      "id": "cs_test_season_0001",
+      "object": "checkout.session",
+      "mode": "subscription",
+      "status": "complete",
+      "payment_status": "paid",
+      "amount_subtotal": 700,
+      "amount_total": 700,
+      "currency": "usd",
+      "customer": "cus_test_0001",
+      "customer_email": "reader@example.com",
+      "customer_details": { "email": "reader@example.com" },
+      "custom_fields": [],
+      "metadata": { "purchase_id": "tok_test_purchase_000000000000001", "plan": "month" },
+      "payment_intent": null,
+      "subscription": "sub_test_0001",
+      "invoice": "in_test_first_0001",
+      "success_url": "https://rite.test/season/manage/tok_test_purchase_000000000000001?ok=started",
+      "cancel_url": "https://rite.test/r/tok_test_purchase_000000000000001"
+    }
+  }
+}
