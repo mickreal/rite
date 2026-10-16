@@ -7,5 +7,5 @@ rite.bundle
 
 # content engine renders (samples live in content/samples/)
 content/out/
-content/remotion/out/
+content/remotion/build/
 content/clips/vo/
