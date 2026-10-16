@@ -66,7 +66,7 @@ var lines=document.querySelectorAll('#steps .ln'),dots=document.querySelectorAll
 var stepT=setInterval(function(){if(li<lines.length-1){lines[li].classList.remove('on');lines[li].classList.add('done');li++;lines[li].classList.add('on')}else clearInterval(stepT)},2600);
 var dotT=setInterval(function(){if(di<8){dots[di].classList.add('on');di++}else clearInterval(dotT)},5500);
 function finish(){clearInterval(stepT);clearInterval(dotT);lines.forEach(function(l){l.classList.remove('on');l.classList.add('done')});dots.forEach(function(d){d.classList.add('on')});arc.style.strokeDasharray='1445 2000'}
-function tick(){n++;arc.style.strokeDasharray=Math.min(1300,n*55)+' 2000';if(n===18)document.getElementById('slow').style.display='';
+function tick(){n++;arc.style.strokeDasharray=Math.min(1300,n*55)+' 2000';if(n===18)document.getElementById('slow').style.display='';if(n%50===0){location.replace('/r/'+TOK);return}
  fetch('/r/'+TOK+'/status',{cache:'no-store'}).then(function(r){return r.json()}).then(function(s){if(s.ready){finish();setTimeout(function(){location.replace('/r/'+TOK)},900)}else if(s.failed){location.replace('/r/'+TOK)}else setTimeout(tick,4000)}).catch(function(){setTimeout(tick,6000)})}
 setTimeout(tick,4000)})();` : "";
   return shell({ title: opts.state === "writing" ? "Writing your reading · Rite" : "One moment · Rite", body, extraCss: CSS, script, nav: html``, noFooter: true });

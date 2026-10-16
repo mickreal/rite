@@ -298,7 +298,7 @@ app.post("/internal/generate/:tok", async (c) => {
   if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
   const tok = c.req.param("tok");
   // lock so refreshes don't start parallel LLM calls
-  const lock = await c.env.DB.prepare("UPDATE purchases SET status='writing', delivered_at=? WHERE id=? AND (status='paid' OR status='failed' OR (status='writing' AND delivered_at < ?))").bind(now(), tok, new Date(Date.now() - 4 * 60000).toISOString()).run();
+  const lock = await c.env.DB.prepare("UPDATE purchases SET status='writing', delivered_at=? WHERE id=? AND (status='paid' OR status='failed' OR (status='writing' AND delivered_at < ?))").bind(now(), tok, new Date(Date.now() - 3 * 60000).toISOString()).run();
   if (!lock.meta.changes) return c.text("busy or done");
   await generateReport(c.env, tok);
   return c.text("ok");
