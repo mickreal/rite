@@ -97,7 +97,10 @@ const cohorts = cfg.cohorts.map((c) => {
   const spread = (hs: string[]) => (Date.parse(hs[hs.length - 1]) - Date.parse(hs[0])) / 86400000;
   const perPass = Array.from({ length: mode }, (_, k) => typical.map((r) => r.hits[k]).sort());
   // a wide band (a whole sign) has passes all over the window: say so instead of listing meaningless ranges
-  const wide = perPass.some((hs) => spread(hs) > 190);
+  // so does a band where more than a tenth of birth dates get a different pass count (e.g. Oct 1998 – Feb 1999: the
+  // last-degree one-pass people either side of the three-pass loop), or the card's pass months would be wrong for them
+  const mixed = counts.size > 1 && Math.min(...counts.values()) / runs.length > 0.1;
+  const wide = mixed || perPass.some((hs) => spread(hs) > 190);
   const allHits = runs.flatMap((r) => r.hits).sort();
   const passes = wide ? [] : perPass.map((hs) => monthRange(hs[0], hs[hs.length - 1]));
   const passSpan = wide ? `One or three exact passes between ${month(allHits[0])} and ${month(allHits[allHits.length - 1])}` : null;
@@ -119,6 +122,9 @@ const quotes = cfg.quotes.map((q) => ({ id: q.id, text: q.signOpener ? SIGN_PAGE
 writeFileSync(join(DATA, "signs.json"), JSON.stringify({ today: NOW, site: SITE, signs }, null, 1));
 writeFileSync(join(DATA, "cohorts.json"), JSON.stringify({ today: NOW, site: SITE, cohorts }, null, 1));
 writeFileSync(join(DATA, "quotes.json"), JSON.stringify({ site: SITE, quotes }, null, 1));
+// carousels: typed in remotion/carousels.json from the kit (dates checked by clips/check-cohorts.ts), copied as-is
+const carousels = (JSON.parse(readFileSync(join(HERE, "..", "carousels.json"), "utf8")) as { carousels: unknown[] }).carousels;
+writeFileSync(join(DATA, "carousels.json"), JSON.stringify({ site: SITE, carousels }, null, 1));
 const sl = saturnLongitude(today);
 console.log(`Data for ${NOW} (Saturn ${degreeInSign(sl).toFixed(1)}° ${signOf(sl)}): ${signs.length} signs, ${cohorts.length} cohorts, ${quotes.length} quotes → remotion/data/`);
 for (const c of cohorts) console.log(`  ${c.id}: born ${c.born}${c.alsoBorn.length ? ` (+${c.alsoBorn.length})` : ""} · ${c.headline} · ${c.passSpan ?? c.passes.join(" / ")}`);

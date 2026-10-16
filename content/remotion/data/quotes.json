@@ -8,6 +8,12 @@
    "source": "src/content/signs.ts Aries opener"
   },
   {
+   "id": "aries-sign-line",
+   "text": "Aries is the sign of starting things, acting on your own and going first. Saturn there asks for the slower version of that: leadership that holds up over time.",
+   "footer": "Saturn in Aries until 12 Apr 2028",
+   "source": "launch-kit-v2 (c) bonus style 6: the Aries sign page's about line, as the kit shortens it"
+  },
+  {
    "id": "not-a-birthday",
    "text": "Three passes. Not a day. Not a birthday.",
    "footer": "Your Saturn return is a season, with dates",

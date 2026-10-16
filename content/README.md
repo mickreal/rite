@@ -10,6 +10,9 @@ the root `tsconfig.json` and `vitest.config.ts` only see `src/` and `test/`, and
 | 2 | Sign card, 1080×1920, 8 s animated | `remotion/src/SignCard.tsx` (`SignCardVertical`) | `out/signs/sign-<sign>-vertical.mp4` |
 | 2 | Cohort card, 1080×1350 | `remotion/src/CohortCard.tsx` | `out/cohorts/cohort-<id>.png` |
 | 6 | Quote card (cream), 1080×1350 | `remotion/src/QuoteCard.tsx` | `out/quotes/quote-<id>.png` |
+| 2/6 | Cohort or quote card on a 1080×1920 frame, 10 s push-in (TikTok / Reels slot) | `remotion/src/VerticalCard.tsx` | `out/cohorts/cohort-<id>-vertical.mp4`, `out/quotes/quote-<id>-vertical.mp4` |
+| — | Instagram carousel slides (kit (e)), 1080×1350, cream | `remotion/src/CarouselSlide.tsx` + `remotion/carousels.json` | `out/carousels/<carousel id>-NN.png` |
+| 5 | Caption-free result screen, 1080×1920 (green-screen backdrop) | `clips/render-clip.ts --stills` | `out/stills/<cohort>-summary.png` |
 
 `out/` is git-ignored. `samples/` has four stills and one clip so you can see the look on GitHub.
 
@@ -26,7 +29,8 @@ the root `tsconfig.json` and `vitest.config.ts` only see `src/` and `test/`, and
 From `content/`:
 
 ```sh
-bun clips/check-cohorts.ts        # every on-screen date in cohorts.json vs src/compute.ts; fails if one is stale
+bun clips/check-cohorts.ts        # every on-screen date in cohorts.json vs src/compute.ts, plus every date typed on a
+                                  # carousel or quote card (and every degree in a clip caption); fails if one is stale
 bun clips/render-clip.ts          # all style-1 clips (starts wrangler dev --local on :8791 and stops it after)
 bash remotion/render-all.sh       # data → 12 sign stills, Aries + Taurus vertical MP4s, all cohort and quote cards
 ```
@@ -57,6 +61,10 @@ Dates depend on "today": the clip uses the site's live clock, and the card data 
 
 Birthplace matters by a day: born 1 Apr 1997, London gives 12 May / 2 Feb, New York gives 13 May / 3 Feb (the kit's dates). The check stops on-screen dates drifting from what the site shows for the city typed in the clip.
 
+## Add a carousel
+
+Edit `remotion/carousels.json`: one entry per carousel, `slides` in order, each with `head` / `text` / `tag` / `list` (layout only, the words are the kit's), `kind: "cover"` or `"cta"` for the first and last, and `alt`. Any full date you type must be one `check-cohorts.ts` verifies (its card-facts section); add a fact there if it's new. Then `ONLY=carousels bash remotion/render-all.sh`.
+
 ## Add a cohort card or a quote
 
 Edit `remotion/cards.config.json`. Cohorts take birth ranges (`[from, to]`, the first is the headline); the card computes pass months by sampling every birth date in the range, so you never type a pass date. A wide band (a whole sign) gets "One or three exact passes between …" instead of pass months. Quotes take either `text` or `signOpener` (pulls the opener from `src/content/signs.ts`) plus a `footer`. Then `bash remotion/render-all.sh` (or `ONLY=cohorts`).
@@ -82,4 +90,6 @@ bun scripts/export-batch.ts --start 2026-10-19                 # one post a day,
 bun scripts/export-batch.ts --plan scripts/plan.example.json   # explicit dates, assets and platforms
 ```
 
-Writes `out/export/batch-<first date>/` with one file per platform per post, named `<YYYY-MM-DD>_<platform>_<asset>.<ext>` (videos → tiktok, reels, shorts; stills → instagram, x, threads unless `platforms` says otherwise), plus `manifest.csv` (date, platform, file, caption) to import into Buffer / Later / Metricool or work from by hand. Captions are a starting point: clip hooks plus "Free preview at rite.report". Edit them in the CSV.
+A plan can also be `{ title, notes, posts }`, where a post may carry `caption`, `alt` (a list for a carousel), `slot`, `kit` and `note`, and may have no `asset` (a text post: it goes in the manifests only). A carousel id as `asset` exports every slide. `--dest <folder>` writes under `out/<folder>/` instead. Example: `scripts/plan-2026-10-weeks-1-2.json` (the kit calendar, days 1–14), whose manifest is committed at `docs/content/2026-10-weeks-1-2.md`.
+
+Writes `out/export/batch-<first date>/` with one file per platform per post, named `<YYYY-MM-DD>_<platform>_<asset>.<ext>` (videos → tiktok, reels, shorts; stills → instagram, x, threads unless `platforms` says otherwise), plus `manifest.csv` (date, platform, file, caption, alt) and `manifest.md` to import into Buffer / Later / Metricool or work from by hand. Captions are a starting point: clip hooks plus "Free preview at rite.report". Edit them in the CSV.

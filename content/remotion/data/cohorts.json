@@ -1,7 +1,39 @@
 {
- "today": "2026-10-16",
+ "today": "2026-10-19",
  "site": "rite.report",
  "cohorts": [
+  {
+   "id": "aries-first-return",
+   "label": "Aries, first return, the whole sign (calendar: born Apr 96 - Jun 98)",
+   "sign": "Aries",
+   "returnNumber": 1,
+   "born": "8 Apr 1996 – 9 Jun 1998",
+   "alsoBorn": [
+    "26 Oct 1998 – 1 Mar 1999"
+   ],
+   "state": "open",
+   "headline": "open now",
+   "window": "25 May 2025 – 12 Apr 2028",
+   "passCount": 1,
+   "passes": [],
+   "passSpan": "One or three exact passes between May 2025 and Apr 2028",
+   "note": null
+  },
+  {
+   "id": "aries-1998-99",
+   "label": "Aries, first return, the Oct 1998 - Feb 1999 stretch (calendar: born Oct 98 - Feb 99)",
+   "sign": "Aries",
+   "returnNumber": 1,
+   "born": "26 Oct 1998 – 1 Mar 1999",
+   "alsoBorn": [],
+   "state": "open",
+   "headline": "open now",
+   "window": "25 May 2025 – 12 Apr 2028",
+   "passCount": 3,
+   "passes": [],
+   "passSpan": "One or three exact passes between Jul 2027 and Apr 2028",
+   "note": null
+  },
   {
    "id": "aries-1996-97-separating",
    "label": "Aries, first return, early degrees",

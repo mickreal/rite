@@ -2,6 +2,8 @@
   "_note": "Inputs for scripts/build-data.ts. Cohort birth ranges are the bands in docs/launch-kit-v2.md (b); the pass months on each card are computed by sampling every birth date in the band. Quote lines are from src/content/signs.ts openers (signOpener) or the launch kit (text).",
   "site": "rite.report",
   "cohorts": [
+    { "id": "aries-first-return", "label": "Aries, first return, the whole sign (calendar: born Apr 96 - Jun 98)", "ranges": [["1996-04-08", "1998-06-09"], ["1998-10-26", "1999-03-01"]] },
+    { "id": "aries-1998-99", "label": "Aries, first return, the Oct 1998 - Feb 1999 stretch (calendar: born Oct 98 - Feb 99)", "ranges": [["1998-10-26", "1999-03-01"]] },
     { "id": "aries-1996-97-separating", "label": "Aries, first return, early degrees", "ranges": [["1996-04-08", "1996-10-24"], ["1997-01-11", "1997-03-11"]] },
     { "id": "aries-1997-three-pass", "label": "Aries, first return, retrograde-pass band", "ranges": [["1997-03-12", "1997-05-06"], ["1997-11-10", "1998-01-21"]] },
     { "id": "aries-1997-98-approach", "label": "Aries, first return, the 2027 band", "ranges": [["1997-05-07", "1997-11-09"], ["1998-01-22", "1998-03-25"]] },
@@ -12,6 +14,7 @@
   ],
   "quotes": [
     { "id": "aries-opener", "signOpener": "Aries", "footer": "Saturn in Aries until 12 Apr 2028", "source": "src/content/signs.ts Aries opener" },
+    { "id": "aries-sign-line", "text": "Aries is the sign of starting things, acting on your own and going first. Saturn there asks for the slower version of that: leadership that holds up over time.", "footer": "Saturn in Aries until 12 Apr 2028", "source": "launch-kit-v2 (c) bonus style 6: the Aries sign page's about line, as the kit shortens it" },
     { "id": "not-a-birthday", "text": "Three passes. Not a day. Not a birthday.", "footer": "Your Saturn return is a season, with dates", "source": "launch-kit-v2 script 1" },
     { "id": "second-return", "text": "The first one was about what you had to prove. This one's about what outlasts you.", "footer": "Second Saturn return · born 1967–69", "source": "launch-kit-v2 script 4" },
     { "id": "taurus-opener", "signOpener": "Taurus", "footer": "Saturn enters Taurus 13 Apr 2028", "source": "src/content/signs.ts Taurus opener" },

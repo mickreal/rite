@@ -5,6 +5,7 @@
 //   bun clips/render-clip.ts                      all cohorts in clips/cohorts.json, against a local `wrangler dev`
 //   bun clips/render-clip.ts --only taurus-2028   one or more ids, comma-separated
 //   bun clips/render-clip.ts --only taurus-2028 --vo vo/taurus-2028.mp3   mux a voiceover
+//   bun clips/render-clip.ts --only celeb-lisa-1997 --stills   also save the summary screen as a PNG (out/stills/)
 //   BASE_URL=https://rite.mickreal.workers.dev bun clips/render-clip.ts   record the live site instead
 //
 // A voiceover is also picked up automatically from clips/vo/<cohort id>.mp3 when it exists.
@@ -32,6 +33,10 @@ const arg = (name: string) => { const i = argv.indexOf(`--${name}`); return i >=
 const only = arg("only")?.split(",").map((s) => s.trim()).filter(Boolean);
 const voArg = arg("vo");
 const keepRaw = argv.includes("--keep-raw");
+// --stills also saves a caption-free 1080×1920 screenshot of the summary to out/stills/<id>-summary.png
+// (the backdrop for a style-5 green-screen reaction)
+const stills = argv.includes("--stills");
+const STILLS = join(CONTENT, "out", "stills");
 const cohorts = only ? cfg.cohorts.filter((c) => only.includes(c.id)) : cfg.cohorts;
 if (only && cohorts.length !== only.length) { console.error(`Unknown cohort id in --only. Known: ${cfg.cohorts.map((c) => c.id).join(", ")}`); process.exit(1); }
 if (voArg && cohorts.length !== 1) { console.error("--vo needs exactly one cohort (use --only <id>), or drop files in clips/vo/<id>.mp3"); process.exit(1); }
@@ -135,7 +140,10 @@ async function record(browser: import("playwright").Browser, base: string, c: Co
   const [y, m, d] = c.date.split("-");
   await page.click("#fd");
   await page.keyboard.type(`${d}${m}${y}`, { delay: 170 });  // en-GB date field: dd/mm/yyyy
-  if ((await page.inputValue("#fd")) !== c.date) await page.fill("#fd", c.date); // other locales/field orders
+  if ((await page.inputValue("#fd")) !== c.date) { // other locales/field orders: correct it, but the typing on screen was wrong
+    console.warn(`\n  ${c.id}: typed date didn't land as dd/mm/yyyy (got "${await page.inputValue("#fd")}"); fixed with fill(), re-check the clip`);
+    await page.fill("#fd", c.date);
+  }
   await sleep(700);
   await page.click('#s1 [data-go="2"]');
   await sleep(650);
@@ -162,6 +170,12 @@ async function record(browser: import("playwright").Browser, base: string, c: Co
   const summary = at();
   await sleep(7200);                                     // hold on the summary while the cards pop in
   const end = at();
+  if (stills) {                                          // after `end`, so none of this is in the clip
+    mkdirSync(STILLS, { recursive: true });
+    await page.addStyleTag({ content: `body{padding-top:120px!important}` });
+    await sleep(300);
+    await page.screenshot({ path: join(STILLS, `${c.id}-summary.png`) });
+  }
   const video = await page.video()!.path();
   await ctx.close();                                     // flushes the .webm
   return { video, marks: { load, input, build, summary, end } };
@@ -240,8 +254,10 @@ try {
   let base = process.env.BASE_URL?.replace(/\/$/, "");
   if (!base) ({ base, child } = await startLocal());
   else console.log(`Recording ${base} (note: every clip writes a real preview row there, tagged ref=content-render)`);
-  // --lang makes the native date field dd/mm/yyyy (the context locale alone doesn't change it)
-  const browser = await chromium.launch({ args: ["--lang=en-GB"], executablePath: process.env.CHROMIUM ?? (existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined) });
+  // --lang makes the native date field dd/mm/yyyy (the context locale alone doesn't change it). On Linux Chromium
+  // ignores --lang for the field order and follows LC_ALL/LANG, so set those too (otherwise it records mm/dd/yyyy
+  // and "01/04/1997" reads as 4 January on screen).
+  const browser = await chromium.launch({ args: ["--lang=en-GB"], env: { ...process.env, LC_ALL: "en_GB.UTF-8", LANG: "en_GB.UTF-8", LANGUAGE: "en_GB" } as Record<string, string>, executablePath: process.env.CHROMIUM ?? (existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined) });
   for (const c of cohorts) {
     process.stdout.write(`● ${c.id}: recording… `);
     const { video, marks } = await record(browser, base!, c);
