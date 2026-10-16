@@ -1,0 +1,35 @@
+{
+ "site": "rite.report",
+ "quotes": [
+  {
+   "id": "aries-opener",
+   "text": "The return for people who start fast and are now being asked what they'll stay for.",
+   "footer": "Saturn in Aries until 12 Apr 2028",
+   "source": "src/content/signs.ts Aries opener"
+  },
+  {
+   "id": "not-a-birthday",
+   "text": "Three passes. Not a day. Not a birthday.",
+   "footer": "Your Saturn return is a season, with dates",
+   "source": "launch-kit-v2 script 1"
+  },
+  {
+   "id": "second-return",
+   "text": "The first one was about what you had to prove. This one's about what outlasts you.",
+   "footer": "Second Saturn return · born 1967–69",
+   "source": "launch-kit-v2 script 4"
+  },
+  {
+   "id": "taurus-opener",
+   "text": "The return for people who built something safe and now have to ask whether it's still good.",
+   "footer": "Saturn enters Taurus 13 Apr 2028",
+   "source": "src/content/signs.ts Taurus opener"
+  },
+  {
+   "id": "closest-turn",
+   "text": "Saturn stops on 11 December at 7.9° Aries. If yours is within a degree, this is your closest turn.",
+   "footer": "11 Dec 2026 · 7.9° Aries",
+   "source": "launch-kit-v2 script 10"
+  }
+ ]
+}

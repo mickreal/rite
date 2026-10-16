@@ -1,0 +1,361 @@
+{
+ "today": "2026-10-16",
+ "site": "rite.report",
+ "signs": [
+  {
+   "sign": "Aries",
+   "slug": "aries",
+   "glyph": "♈",
+   "status": "now",
+   "statusLine": "Saturn is in Aries until 12 Apr 2028",
+   "angle": 355.3,
+   "transit": {
+    "from": "25 May 2025",
+    "to": "12 Apr 2028",
+    "main": "14 Feb 2026 – 12 Apr 2028",
+    "parts": [
+     "25 May 2025 – 31 Aug 2025",
+     "14 Feb 2026 – 12 Apr 2028"
+    ]
+   },
+   "firstBorn": {
+    "main": "Apr 1996 – Jun 1998",
+    "also": [
+     "Oct 1998 – Feb 1999"
+    ]
+   },
+   "secondBorn": {
+    "main": "Mar 1967 – Apr 1969",
+    "also": []
+   },
+   "opener": "The return for people who start fast and are now being asked what they'll stay for."
+  },
+  {
+   "sign": "Taurus",
+   "slug": "taurus",
+   "glyph": "♉",
+   "status": "next",
+   "statusLine": "Saturn enters Taurus on 13 Apr 2028",
+   "angle": 325.3,
+   "transit": {
+    "from": "13 Apr 2028",
+    "to": "31 May 2030",
+    "main": "13 Apr 2028 – 31 May 2030",
+    "parts": [
+     "13 Apr 2028 – 31 May 2030"
+    ]
+   },
+   "firstBorn": {
+    "main": "Mar 1999 – Aug 2000",
+    "also": [
+     "Jun 1998 – Oct 1998",
+     "Oct 2000 – Apr 2001"
+    ]
+   },
+   "secondBorn": {
+    "main": "Apr 1969 – Jun 1971",
+    "also": [
+     "Jan 1972 – Feb 1972"
+    ]
+   },
+   "opener": "The return for people who built something safe and now have to ask whether it's still good."
+  },
+  {
+   "sign": "Gemini",
+   "slug": "gemini",
+   "glyph": "♊",
+   "status": "next",
+   "statusLine": "Saturn enters Gemini on 1 Jun 2030",
+   "angle": 295.3,
+   "transit": {
+    "from": "1 Jun 2030",
+    "to": "13 Jul 2032",
+    "main": "1 Jun 2030 – 13 Jul 2032",
+    "parts": [
+     "1 Jun 2030 – 13 Jul 2032"
+    ]
+   },
+   "firstBorn": {
+    "main": "Apr 2001 – Jun 2003",
+    "also": [
+     "Aug 2000 – Oct 2000"
+    ]
+   },
+   "secondBorn": {
+    "main": "Feb 1972 – Jul 1973",
+    "also": [
+     "Jun 1971 – Jan 1972",
+     "Jan 1974 – Apr 1974"
+    ]
+   },
+   "opener": "The return for people who can talk their way through anything and are being asked to say one true thing."
+  },
+  {
+   "sign": "Cancer",
+   "slug": "cancer",
+   "glyph": "♋",
+   "status": "next",
+   "statusLine": "Saturn enters Cancer on 14 Jul 2032",
+   "angle": 265.3,
+   "transit": {
+    "from": "14 Jul 2032",
+    "to": "10 May 2035",
+    "main": "14 Jul 2032 – 26 Aug 2034",
+    "parts": [
+     "14 Jul 2032 – 26 Aug 2034",
+     "15 Feb 2035 – 10 May 2035"
+    ]
+   },
+   "firstBorn": {
+    "main": "Jun 2003 – Jul 2005",
+    "also": []
+   },
+   "secondBorn": {
+    "main": "Apr 1974 – Sep 1975",
+    "also": [
+     "Aug 1973 – Jan 1974",
+     "Jan 1976 – Jun 1976"
+    ]
+   },
+   "opener": "The return for people who hold the family together and are being asked who holds them."
+  },
+  {
+   "sign": "Leo",
+   "slug": "leo",
+   "glyph": "♌",
+   "status": "next",
+   "statusLine": "Saturn enters Leo on 27 Aug 2034",
+   "angle": 235.3,
+   "transit": {
+    "from": "27 Aug 2034",
+    "to": "6 Jul 2037",
+    "main": "11 May 2035 – 15 Oct 2036",
+    "parts": [
+     "27 Aug 2034 – 14 Feb 2035",
+     "11 May 2035 – 15 Oct 2036",
+     "11 Feb 2037 – 6 Jul 2037"
+    ]
+   },
+   "firstBorn": {
+    "main": "Jul 2005 – Sep 2007",
+    "also": []
+   },
+   "secondBorn": {
+    "main": "Jun 1976 – Nov 1977",
+    "also": [
+     "Sep 1975 – Jan 1976",
+     "Jan 1978 – Jul 1978"
+    ]
+   },
+   "opener": "The return for people who make things and are being asked whether they'd still make them with no one watching."
+  },
+  {
+   "sign": "Virgo",
+   "slug": "virgo",
+   "glyph": "♍",
+   "status": "next",
+   "statusLine": "Saturn enters Virgo on 16 Oct 2036",
+   "angle": 205.3,
+   "transit": {
+    "from": "16 Oct 2036",
+    "to": "4 Sep 2039",
+    "main": "7 Jul 2037 – 4 Sep 2039",
+    "parts": [
+     "16 Oct 2036 – 10 Feb 2037",
+     "7 Jul 2037 – 4 Sep 2039"
+    ]
+   },
+   "firstBorn": {
+    "main": "Sep 2007 – Oct 2009",
+    "also": [
+     "Apr 2010 – Jul 2010"
+    ]
+   },
+   "secondBorn": {
+    "main": "Jul 1978 – Sep 1980",
+    "also": [
+     "Nov 1977 – Jan 1978"
+    ]
+   },
+   "opener": "The return for people who do things properly and are being asked to let something be finished."
+  },
+  {
+   "sign": "Libra",
+   "slug": "libra",
+   "glyph": "♎",
+   "status": "next",
+   "statusLine": "Saturn enters Libra on 5 Sep 2039",
+   "angle": 175.3,
+   "transit": {
+    "from": "5 Sep 2039",
+    "to": "13 Jul 2042",
+    "main": "5 Sep 2039 – 10 Nov 2041",
+    "parts": [
+     "5 Sep 2039 – 10 Nov 2041",
+     "21 Jun 2042 – 13 Jul 2042"
+    ]
+   },
+   "firstBorn": {
+    "main": "Jul 2010 – Oct 2012",
+    "also": [
+     "Oct 2009 – Apr 2010"
+    ]
+   },
+   "secondBorn": {
+    "main": "Sep 1980 – Nov 1982",
+    "also": [
+     "May 1983 – Aug 1983"
+    ]
+   },
+   "opener": "The return for people who keep the peace and are being asked what it has cost them."
+  },
+  {
+   "sign": "Scorpio",
+   "slug": "scorpio",
+   "glyph": "♏",
+   "status": "recent",
+   "statusLine": "Saturn left Scorpio on 17 Sep 2015",
+   "angle": 145.3,
+   "transit": {
+    "from": "5 Oct 2012",
+    "to": "17 Sep 2015",
+    "main": "5 Oct 2012 – 22 Dec 2014",
+    "parts": [
+     "5 Oct 2012 – 22 Dec 2014",
+     "15 Jun 2015 – 17 Sep 2015"
+    ]
+   },
+   "firstBorn": {
+    "main": "Aug 1983 – Nov 1985",
+    "also": [
+     "Nov 1982 – May 1983"
+    ]
+   },
+   "secondBorn": {
+    "main": "Oct 1953 – Jan 1956",
+    "also": [
+     "May 1956 – Oct 1956"
+    ]
+   },
+   "opener": "The return for people who keep their own counsel and are being asked to let someone in."
+  },
+  {
+   "sign": "Sagittarius",
+   "slug": "sagittarius",
+   "glyph": "♐",
+   "status": "recent",
+   "statusLine": "Saturn left Sagittarius on 19 Dec 2017",
+   "angle": 115.3,
+   "transit": {
+    "from": "23 Dec 2014",
+    "to": "19 Dec 2017",
+    "main": "18 Sep 2015 – 19 Dec 2017",
+    "parts": [
+     "23 Dec 2014 – 14 Jun 2015",
+     "18 Sep 2015 – 19 Dec 2017"
+    ]
+   },
+   "firstBorn": {
+    "main": "Nov 1985 – Feb 1988",
+    "also": [
+     "Jun 1988 – Nov 1988"
+    ]
+   },
+   "secondBorn": {
+    "main": "Oct 1956 – Jan 1959",
+    "also": [
+     "Jan 1956 – May 1956"
+    ]
+   },
+   "opener": "The return for people who always have a bigger plan and are being asked to pick one road."
+  },
+  {
+   "sign": "Capricorn",
+   "slug": "capricorn",
+   "glyph": "♑",
+   "status": "recent",
+   "statusLine": "Saturn left Capricorn on 16 Dec 2020",
+   "angle": 85.3,
+   "transit": {
+    "from": "20 Dec 2017",
+    "to": "16 Dec 2020",
+    "main": "20 Dec 2017 – 21 Mar 2020",
+    "parts": [
+     "20 Dec 2017 – 21 Mar 2020",
+     "1 Jul 2020 – 16 Dec 2020"
+    ]
+   },
+   "firstBorn": {
+    "main": "Nov 1988 – Feb 1991",
+    "also": [
+     "Feb 1988 – Jun 1988"
+    ]
+   },
+   "secondBorn": {
+    "main": "Jan 1959 – Jan 1962",
+    "also": []
+   },
+   "opener": "The return for people who already work hard and are being asked who they're working for."
+  },
+  {
+   "sign": "Aquarius",
+   "slug": "aquarius",
+   "glyph": "♒",
+   "status": "recent",
+   "statusLine": "Saturn left Aquarius on 6 Mar 2023",
+   "angle": 55.3,
+   "transit": {
+    "from": "22 Mar 2020",
+    "to": "6 Mar 2023",
+    "main": "17 Dec 2020 – 6 Mar 2023",
+    "parts": [
+     "22 Mar 2020 – 30 Jun 2020",
+     "17 Dec 2020 – 6 Mar 2023"
+    ]
+   },
+   "firstBorn": {
+    "main": "Feb 1991 – May 1993",
+    "also": [
+     "Jun 1993 – Jan 1994"
+    ]
+   },
+   "secondBorn": {
+    "main": "Jan 1962 – Mar 1964",
+    "also": [
+     "Sep 1964 – Dec 1964"
+    ]
+   },
+   "opener": "The return for people who stand apart and are being asked what they'd stand with."
+  },
+  {
+   "sign": "Pisces",
+   "slug": "pisces",
+   "glyph": "♓",
+   "status": "recent",
+   "statusLine": "Saturn left Pisces on 13 Feb 2026",
+   "angle": 25.3,
+   "transit": {
+    "from": "7 Mar 2023",
+    "to": "13 Feb 2026",
+    "main": "7 Mar 2023 – 24 May 2025",
+    "parts": [
+     "7 Mar 2023 – 24 May 2025",
+     "1 Sep 2025 – 13 Feb 2026"
+    ]
+   },
+   "firstBorn": {
+    "main": "Jan 1994 – Apr 1996",
+    "also": [
+     "May 1993 – Jun 1993"
+    ]
+   },
+   "secondBorn": {
+    "main": "Dec 1964 – Mar 1967",
+    "also": [
+     "Mar 1964 – Sep 1964"
+    ]
+   },
+   "opener": "The return for people who feel everything and are being asked where their edges are."
+  }
+ ]
+}
