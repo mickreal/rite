@@ -86,7 +86,7 @@ ${rows(s.daily as Array<{ day: string; previews: number; checkouts: number; paid
 </tbody></table></div></section>
 
 <section class="card" aria-labelledby="h-errors"><h2 id="h-errors">Last 20 errors</h2><div class="scroll"><table><thead><tr><th>At (UTC)</th><th>Ref</th><th>Detail</th></tr></thead><tbody>
-${rows(x.errors, 3, (r) => html`<tr><td style="white-space:nowrap">${when(r.at)}</td><td class="mono">${(r.ref ?? "-").slice(0, 12)}</td><td class="mono">${r.detail ?? ""}</td></tr>`)}
+${rows(x.errors, 3, (r) => html`<tr><td style="white-space:nowrap">${when(r.at)}</td><td class="mono">${r.ref ? `${r.ref.slice(0, 6)}…` : "-"}</td><td class="mono">${r.detail ?? ""}</td></tr>`)}
 </tbody></table></div></section>
 
 <section class="card" aria-labelledby="h-stories"><h2 id="h-stories">Last 20 stories</h2>

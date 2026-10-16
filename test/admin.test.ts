@@ -57,6 +57,12 @@ describe("GET /admin", () => {
     expect(seen.some((s) => s.includes("FROM stories"))).toBe(true);
     expect((await get("/admin", { authorization: `Bearer ${SECRET}` })).status).toBe(200);
   });
+  it("is never tagged with the PostHog snippet", async () => {
+    // withAnalytics would reach HTMLRewriter (absent under node) if /admin weren't excluded
+    const r = await worker.fetch(new Request(`https://rite.test/admin?key=${SECRET}`), { ...env(), POSTHOG_KEY: "phc_test" } as never, {} as ExecutionContext);
+    expect(r.status).toBe(200);
+    expect(await r.text()).not.toContain("posthog");
+  });
   it("/admin/stats is unchanged: 401 without bearer, JSON shape with it", async () => {
     expect((await get("/admin/stats")).status).toBe(401);
     expect((await get(`/admin/stats?key=${SECRET}`)).status).toBe(401); // ?key= is for the HTML page only
