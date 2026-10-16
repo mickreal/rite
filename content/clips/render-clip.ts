@@ -5,6 +5,7 @@
 //   bun clips/render-clip.ts                      all cohorts in clips/cohorts.json, against a local `wrangler dev`
 //   bun clips/render-clip.ts --only taurus-2028   one or more ids, comma-separated
 //   bun clips/render-clip.ts --only taurus-2028 --vo vo/taurus-2028.mp3   mux a voiceover
+//   bun clips/render-clip.ts --only celeb-lisa-1997 --stills   also save the summary screen as a PNG (out/stills/)
 //   BASE_URL=https://rite.mickreal.workers.dev bun clips/render-clip.ts   record the live site instead
 //
 // A voiceover is also picked up automatically from clips/vo/<cohort id>.mp3 when it exists.
@@ -32,6 +33,10 @@ const arg = (name: string) => { const i = argv.indexOf(`--${name}`); return i >=
 const only = arg("only")?.split(",").map((s) => s.trim()).filter(Boolean);
 const voArg = arg("vo");
 const keepRaw = argv.includes("--keep-raw");
+// --stills also saves a caption-free 1080×1920 screenshot of the summary to out/stills/<id>-summary.png
+// (the backdrop for a style-5 green-screen reaction)
+const stills = argv.includes("--stills");
+const STILLS = join(CONTENT, "out", "stills");
 const cohorts = only ? cfg.cohorts.filter((c) => only.includes(c.id)) : cfg.cohorts;
 if (only && cohorts.length !== only.length) { console.error(`Unknown cohort id in --only. Known: ${cfg.cohorts.map((c) => c.id).join(", ")}`); process.exit(1); }
 if (voArg && cohorts.length !== 1) { console.error("--vo needs exactly one cohort (use --only <id>), or drop files in clips/vo/<id>.mp3"); process.exit(1); }
@@ -165,6 +170,12 @@ async function record(browser: import("playwright").Browser, base: string, c: Co
   const summary = at();
   await sleep(7200);                                     // hold on the summary while the cards pop in
   const end = at();
+  if (stills) {                                          // after `end`, so none of this is in the clip
+    mkdirSync(STILLS, { recursive: true });
+    await page.addStyleTag({ content: `body{padding-top:120px!important}` });
+    await sleep(300);
+    await page.screenshot({ path: join(STILLS, `${c.id}-summary.png`) });
+  }
   const video = await page.video()!.path();
   await ctx.close();                                     // flushes the .webm
   return { video, marks: { load, input, build, summary, end } };
