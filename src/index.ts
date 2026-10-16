@@ -653,7 +653,7 @@ app.post("/season/:tok", async (c) => {
     allow_promotion_codes: true,
     metadata: { purchase_id: pu.id, plan },
     subscription_data: { metadata: { purchase_id: pu.id, plan } },
-    success_url: `${c.env.SITE_URL}/season/manage/${pu.id}`,
+    success_url: `${c.env.SITE_URL}/season/manage/${pu.id}?ok=started`,
     cancel_url: `${c.env.SITE_URL}/r/${pu.id}`,
   });
   return c.redirect(session.url!, 303);
@@ -674,7 +674,7 @@ async function seasonManage(env: Env, tok: string, flash?: string) {
     nextNote: new Intl.DateTimeFormat("en-GB", { timeZone: p.tz, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(nn),
     tz: p.tz, windowEnd: fmtDay(comp.window.windowEnd), yearlyAllowed: yearlyAllowed(comp.window.windowEnd, today),
     monthlyPrice: Math.round(parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100), yearlyPrice: Math.round(parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10) / 100),
-    flash: flash === "switched" || flash === "canceled" || flash === "error" ? flash : null,
+    flash: flash === "switched" || flash === "canceled" || flash === "error" || flash === "started" ? flash : null,
   };
   return { d, sub };
 }
