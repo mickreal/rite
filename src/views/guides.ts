@@ -189,7 +189,7 @@ const ABOUT: Record<1 | 2 | 3, { about: string; questions: string[] }> = {
   },
   2: {
     about: "A review of what the first return set going. Less about proving, more about keeping: which structures still carry weight, what you are finished carrying, and what you want to outlast you. It tends to be quieter on the surface and more searching underneath.",
-    questions: ["What have I built that still fits?", "What am I done proving, and to whom?", "What do I want to hand on, and to whom?"],
+    questions: ["What have I built that still fits?", "What am I done proving, and to whom?", "What do I want to hand on?"],
   },
   3: {
     about: "For those who reach it, the third return tends to be about what is settled and what is passed on. Less about building anything new, more about meaning: what the long run added up to, and what you want people to keep from it.",
@@ -232,7 +232,7 @@ ${d.cohorts.map((c, i) => html`
   <h2 class="disp rv" style="margin:0;font-size:clamp(32px,3.4vw,48px);line-height:1.05;letter-spacing:-.03em;font-weight:700">Side by side</h2>
   <div class="cmp rv">${([1, 2, 3] as const).map((k) => html`<div class="card">
     <h3>${ORD[k - 1][0].toUpperCase()}${ORD[k - 1].slice(1)} return</h3>
-    <div style="display:flex;flex-wrap:wrap;gap:12px 28px"><div class="kv"><span>Exact passes, age</span><b>${ageSpan(a[k].pass)}</b></div><div class="kv"><span>Whole window, age</span><b>${ageSpan(a[k].window)}</b></div></div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px 28px"><div class="kv"><span>Exact passes, age</span><b>${ageSpan(a[k].pass, "to")}</b></div><div class="kv"><span>Whole window, age</span><b>${ageSpan(a[k].window, "to")}</b></div></div>
     <p>${ABOUT[k].about}</p>
     <span class="muted" style="font-size:14px">Questions it tends to bring</span>
     <ul>${ABOUT[k].questions.map((q) => html`<li>${q}</li>`)}</ul>

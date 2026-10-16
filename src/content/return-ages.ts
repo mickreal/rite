@@ -13,4 +13,4 @@ export const RETURN_AGES = {
 export const WINDOW_YEARS = [2.1, 3.7] as const;
 
 /** Whole years of age, the way people say them: "between 28 and 30". */
-export const ageSpan = (r: readonly [number, number]) => `${Math.floor(r[0])} and ${Math.floor(r[1])}`;
+export const ageSpan = (r: readonly [number, number], join = "and") => `${Math.floor(r[0])} ${join} ${Math.floor(r[1])}`;
