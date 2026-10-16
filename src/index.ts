@@ -21,7 +21,7 @@ import { legalPage } from "./views/legal";
 import { narrationText, splitForTts, CHAPTERS } from "./narration";
 import { resultPage } from "./views/result";
 import { seasonManagePage, type SeasonManageData } from "./views/season";
-import { nextNoteDate, yearlyAllowed, type SeasonPlan } from "./season";
+import { nextNoteDate, yearlyAllowed, unusedMonths, yearlyRefundCents, type SeasonPlan } from "./season";
 import { SIGN_NOTES } from "./content/notes";
 import { localHour } from "./geo";
 
@@ -795,15 +795,15 @@ app.get("/admin/stats", async (c) => {
 });
 
 // ---------- cron: Saturn Season ----------
-type SeasonRow = PreviewRow & { sub_id: string; purchase_id: string; last_sent_at: string | null; email: string; first_name: string | null };
+type SeasonRow = PreviewRow & { sub_id: string; purchase_id: string; last_sent_at: string | null; plan: string | null; email: string; first_name: string | null };
 
 /** The row sendSeasonNote needs for one purchase, joined with its active subscription if any. */
 async function seasonRow(env: Env, tok: string) {
-  return env.DB.prepare(`SELECT COALESCE(s.id, 'none') sub_id, p.id purchase_id, s.last_sent_at, p.email, p.first_name, pv.* FROM purchases p JOIN previews pv ON pv.id = p.preview_id LEFT JOIN subscriptions s ON s.purchase_id = p.id AND s.status='active' WHERE p.id = ?`).bind(tok).first<SeasonRow>();
+  return env.DB.prepare(`SELECT COALESCE(s.id, 'none') sub_id, p.id purchase_id, s.last_sent_at, s.plan, p.email, p.first_name, pv.* FROM purchases p JOIN previews pv ON pv.id = p.preview_id LEFT JOIN subscriptions s ON s.purchase_id = p.id AND s.status='active' WHERE p.id = ?`).bind(tok).first<SeasonRow>();
 }
 
 async function runSeason(env: Env) {
-  const subs = await env.DB.prepare(`SELECT s.id sub_id, s.purchase_id, s.last_sent_at, p.email, p.first_name, pv.* FROM subscriptions s JOIN purchases p ON p.id = s.purchase_id JOIN previews pv ON pv.id = p.preview_id WHERE s.status='active'`).all<SeasonRow>();
+  const subs = await env.DB.prepare(`SELECT s.id sub_id, s.purchase_id, s.last_sent_at, s.plan, p.email, p.first_name, pv.* FROM subscriptions s JOIN purchases p ON p.id = s.purchase_id JOIN previews pv ON pv.id = p.preview_id WHERE s.status='active'`).all<SeasonRow>();
   const today = new Date();
   for (const r of subs.results) {
     // Send Mondays at 07:00 local, once.
@@ -823,7 +823,7 @@ async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: s
     const m = seasonCompleteEmail({ firstName: r.first_name });
     await sendEmail(env, dest, m.subject, m.text);
     if (!to) {
-      try { await stripe(env).subscriptions.cancel(r.sub_id); } catch (e) { console.error(e); }
+      await closeSeasonSubscription(env, r, today);
       await env.DB.prepare("UPDATE subscriptions SET status='complete', last_sent_at=? WHERE id=?").bind(now(), r.sub_id).run();
       await log(env, "season_complete", r.purchase_id);
     }
@@ -850,6 +850,37 @@ async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: s
     await log(env, "season_sent", r.purchase_id);
   }
   return ok ? "sent" : "email-failed";
+}
+
+/**
+ * Saturn left the sign: cancel the Stripe subscription and, on a yearly plan, refund the full months that were paid for but
+ * won't be used (the refunds page promises this). Every Stripe call is caught and logged; the cron must never throw.
+ */
+async function closeSeasonSubscription(env: Env, r: SeasonRow, today: Date) {
+  if (r.sub_id === "none") return;
+  const s = stripe(env);
+  let periodEnd: number | null = null;
+  try {
+    const sub = await s.subscriptions.retrieve(r.sub_id);
+    periodEnd = sub.items.data[0]?.current_period_end ?? null; // API 2025-03+: the period lives on the item
+  } catch (e) { await log(env, "error", r.purchase_id, { where: "season-close-retrieve", e: String(e) }); }
+  try { await s.subscriptions.cancel(r.sub_id); }
+  catch (e) { await log(env, "error", r.purchase_id, { where: "season-close-cancel", e: String(e) }); }
+  if (r.plan !== "year") return;
+  try {
+    const unused = periodEnd ? unusedMonths(today, new Date(periodEnd * 1000)) : 0;
+    let cents = yearlyRefundCents(parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10), unused);
+    if (cents <= 0) { await log(env, "season_refund", r.purchase_id, { amount: 0, unused, reason: "no unused months" }); return; }
+    const inv = await s.invoices.list({ subscription: r.sub_id, status: "paid", limit: 1, expand: ["data.payments"] });
+    const invoice = inv.data[0];
+    const pay = invoice?.payments?.data.find((x) => x.payment?.payment_intent);
+    const pi = pay ? (typeof pay.payment.payment_intent === "string" ? pay.payment.payment_intent : pay.payment.payment_intent?.id) : undefined;
+    if (!invoice || !pi) { await log(env, "error", r.purchase_id, { where: "season-refund", e: "no paid invoice / payment intent", unused, cents }); return; }
+    cents = Math.min(cents, invoice.amount_paid); // a promo code may have made the year cheaper than list
+    if (cents <= 0) { await log(env, "season_refund", r.purchase_id, { amount: 0, unused, reason: "nothing paid" }); return; }
+    const rf = await s.refunds.create({ payment_intent: pi, amount: cents });
+    await log(env, "season_refund", r.purchase_id, { amount: cents, unused, refund: rf.id, invoice: invoice.id });
+  } catch (e) { await log(env, "error", r.purchase_id, { where: "season-refund", e: String(e) }); }
 }
 
 /** Daily digest of errors to the admin inbox (08:00 Brisbane), only when there is something to say. */

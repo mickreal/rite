@@ -5,6 +5,7 @@ import { fmtDay, fmtMonth } from "../compute";
 import { STAGES, fmtMonYr, fmtMonYrL, untilText } from "../astro/cycle";
 import { saturnLongitude } from "../astro/saturn";
 import { ORDINAL } from "../content/notes";
+import { yearlyAllowed } from "../season";
 
 export interface ReportJson {
   cover_line: string; saturn_p1: string; saturn_p2: string; house_h3: string; house_p: string;
@@ -297,7 +298,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
     <span class="kicker">Saturn Season</span>
     <h3>A weekly note through your window.</h3>
     <p style="margin:0;color:#CFC8BA;line-height:1.6;max-width:620px">Every Monday: where Saturn is this week relative to your chart, whether it's applying or separating, and one thing to do. It stops itself when your window closes.</p>
-    <form method="post" action="/season/${opts.token}" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><button type="submit" name="plan" value="month" class="solid">$7 a month</button><button type="submit" name="plan" value="year" class="ghost">$59 for the year</button><span class="muted" style="font-size:14px">Cancel any time. It stops itself when your window closes.</span></form>
+    <form method="post" action="/season/${opts.token}" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><button type="submit" name="plan" value="month" class="solid">$7 a month</button>${yearlyAllowed(w.windowEnd, today) ? html`<button type="submit" name="plan" value="year" class="ghost">$59 for the year</button>` : ""}<span class="muted" style="font-size:14px">Cancel any time. It stops itself when your window closes${yearlyAllowed(w.windowEnd, today) ? ", and a yearly plan refunds the unused months then" : ""}.</span></form>
   </div>`}
 </section>
 </main>
