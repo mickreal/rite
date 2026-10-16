@@ -34,13 +34,19 @@ P.S. Saturn Season is a weekly note through your window — where Saturn is this
   return { subject, text };
 }
 
-export function seasonEmail(p: { firstName: string | null; transitDeg: string; transitSign: string; orb: string; dir: string; motionSentence: string; body: string; manageUrl: string }) {
-  const subject = `Saturn this week — ${p.orb} ${p.dir}`;
+export function seasonEmail(p: { firstName: string | null; transitDeg: string; transitSign: string; orb: string; dir: string; motionSentence: string; body: string; comingUp: string; rereadName: string; rereadUrl: string; manageUrl: string; welcome?: boolean }) {
+  const subject = p.welcome ? `Saturn Season starts — ${p.orb} ${p.dir}` : `Saturn this week — ${p.orb} ${p.dir}`;
   const text = `${p.firstName ?? "Hi"},
-
+${p.welcome ? `
+Welcome to Saturn Season. This is the first note; the rest land on Monday mornings where you are, until your window closes.
+` : ""}
 Saturn is at ${p.transitDeg} ${p.transitSign}, ${p.orb} ${p.dir} your natal degree. ${p.motionSentence}
 
 ${p.body}
+
+${p.comingUp}
+
+Reread: ${p.rereadName}: ${p.rereadUrl}
 
 — Rite
 

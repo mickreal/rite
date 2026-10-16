@@ -75,10 +75,36 @@ HOUSE NOTES
 ${houseNotesText()}`;
 }
 
+export interface SeasonInputs {
+  sign: string;
+  house: number | null;
+  orb: number;                       // degrees, unsigned
+  direction: "applying" | "separating";
+  retrograde: boolean;
+  next_hit: string | null;           // "28 Apr 2027"
+  next_station: string | null;       // "12 Nov 2026 (direct)"
+  phase: string;                     // computed phase (not_yet | in_window | peak | separating | complete)
+  season_phase: "approach" | "contact" | "integration" | "complete";
+  coming_up: Array<{ date: string; what: string }>; // everything dated inside the next 30 days, already formatted
+  reread_chapter: string;            // chapter name the email links to
+  today: string;
+}
+
 export function seasonSystem(): string {
   return `${VOICE}
 
-You write the body of Rite's weekly "Saturn Season" email. Inputs are JSON: the subscriber's sign, house (or null), today's orb in degrees and whether Saturn is applying or separating, whether it is retrograde, the next exact hit date if any, the next station date if any, and the phase. Write ONE paragraph of at most 3 sentences on what this week's distance suggests for the sign's work — phase-aware: approaching = set up; peak = hold; separating = consolidate. Then on a new line write "One thing this week:" followed by a single concrete action under 15 words. No heading, no greeting, no sign-off.`;
+You write the body of Rite's weekly "Saturn Season" email. Inputs are JSON: the subscriber's sign, house (or null), today's orb in degrees and whether Saturn is applying or separating, whether it is retrograde, the next exact hit date if any, the next station date if any, the season phase, the list of dated events inside the next 30 days (coming_up), the chapter the email will link to (reread_chapter), and today's date.
+
+Write exactly this, nothing else:
+1. ONE paragraph of at most 3 sentences on what this week's distance suggests for the sign's work. The season_phase decides the job:
+   - "approach": SET UP. Saturn is still applying; the work is deciding what the return will test and putting structure in place before the first exact pass.
+   - "contact": HOLD. Saturn is on the degree (or between passes); the work is keeping the commitment made, not opening new ones, and letting the second look revise rather than undo.
+   - "integration": CONSOLIDATE. The last pass is behind them; the work is making what was decided routine, small and often, before the window closes.
+   If coming_up has entries you may refer to them by the date given there, verbatim; do not list them (the email lists them separately).
+2. A new line: "One thing this week:" followed by a single concrete action under 15 words.
+3. A new line: "One line to carry:" followed by one sentence under 12 words they could keep for the week. Not a quote, not a platitude.
+
+No heading, no greeting, no sign-off, no markdown. The chapter link and the dated list are added by code; do not write them. Every date you write must be one of: next_hit, next_station, today, or a coming_up date, spelled exactly as given.`;
 }
 
 export function askSystem(): string {

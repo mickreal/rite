@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import Stripe from "stripe";
 import { geocode } from "./geo";
 import { compute, cycle, reportInputs, fmtMonth, fmtDay, hitSentence, phaseSentence, houseLabel, type Computed } from "./compute";
-import { askSystem } from "./content/prompts";
+import { askSystem, type SeasonInputs } from "./content/prompts";
 import { stageAt } from "./astro/cycle";
 import SIGN_PERIODS from "./content/sign-periods.json";
 import { signPage, type SignPageData } from "./views/sign";
@@ -21,7 +21,7 @@ import { legalPage } from "./views/legal";
 import { narrationText, splitForTts, CHAPTERS } from "./narration";
 import { resultPage } from "./views/result";
 import { seasonManagePage, type SeasonManageData } from "./views/season";
-import { nextNoteDate, yearlyAllowed, unusedMonths, yearlyRefundCents, type SeasonPlan } from "./season";
+import { nextNoteDate, yearlyAllowed, unusedMonths, yearlyRefundCents, seasonPhase, rereadChapter, upcomingDates, comingUpText, type SeasonPlan } from "./season";
 import { SIGN_NOTES } from "./content/notes";
 import { localHour } from "./geo";
 
@@ -831,18 +831,37 @@ async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: s
   }
   const tl = saturnLongitude(today);
   const st = comp.nextStation;
-  const nextHit = comp.window.hits.find((h) => h >= today.toISOString().slice(0, 10));
+  const todayIso = today.toISOString().slice(0, 10);
+  const nextHit = comp.window.hits.find((h) => h >= todayIso);
   const motion = comp.retrograde
     ? `It's retrograde${st ? ` until ${fmtDay(st.date)}` : ""}${comp.window.hits.length === 3 ? ", so this is a second pass" : ""}.`
     : `It's direct${nextHit ? ` and closing in; your exact hit is ${fmtDay(nextHit)}` : ""}.`;
+  // Everything dated is decided here, not by the model: the 30-day list, the chapter link, and the list of dates the
+  // model is allowed to repeat. If the model invents a date twice, the note goes out with the code-only parts.
+  const cy = cycle(comp, today);
+  const sPhase = seasonPhase(comp, today);
+  const up = upcomingDates(comp, cy, today);
+  const reread = rereadChapter(sPhase);
+  const allowed = [todayIso, ...(nextHit ? [nextHit] : []), ...(st ? [st.date] : []), ...up.map((u) => u.date)].map(fmtDay);
+  const inputs: SeasonInputs = {
+    sign: comp.sign, house: comp.house, orb: Math.round(Math.abs(o) * 10) / 10, direction: o < 0 ? "applying" : "separating", retrograde: comp.retrograde,
+    next_hit: nextHit ? fmtDay(nextHit) : null, next_station: st ? `${fmtDay(st.date)} (${st.to})` : null, phase: comp.phase, season_phase: sPhase,
+    coming_up: up.map((u) => ({ date: fmtDay(u.date), what: u.label })), reread_chapter: reread.name, today: fmtDay(todayIso),
+  };
   let body = "";
-  try {
-    body = await writeSeason(env, { sign: comp.sign, house: comp.house, orb: Math.round(Math.abs(o) * 10) / 10, direction: o < 0 ? "applying" : "separating", retrograde: comp.retrograde, next_hit: nextHit ? fmtDay(nextHit) : null, next_station: st ? `${fmtDay(st.date)} (${st.to})` : null, phase: comp.phase });
-  } catch (e) { await log(env, "error", r.purchase_id, { where: "season-llm", e: String(e) }); return "llm-failed"; }
+  for (let attempt = 0; attempt < 2 && !body; attempt++) {
+    try {
+      const out = (await writeSeason(env, inputs)).trim();
+      if (datesAreGrounded(out, allowed)) body = out;
+      else await log(env, "error", r.purchase_id, { where: "season-dates-ungrounded", attempt });
+    } catch (e) { await log(env, "error", r.purchase_id, { where: "season-llm", e: String(e), attempt }); }
+  }
+  if (!body) body = seasonFallbackBody(sPhase, comp.sign); // never send nothing
   const m = seasonEmail({
     firstName: r.first_name, transitDeg: `${Math.floor(degreeInSign(tl))}°`, transitSign: signOf(tl),
     orb: `${Math.round(Math.abs(o) * 10) / 10}°`, dir: o < 0 ? "from" : "past", motionSentence: motion, body,
-    manageUrl: `${env.SITE_URL}/season/manage/${r.purchase_id}`,
+    comingUp: comingUpText(up), rereadName: reread.name, rereadUrl: `${env.SITE_URL}/r/${r.purchase_id}${reread.hash}`,
+    manageUrl: `${env.SITE_URL}/season/manage/${r.purchase_id}`, welcome: !r.last_sent_at && !to,
   });
   const ok = await sendEmail(env, dest, m.subject, m.text);
   if (ok && !to) {
@@ -850,6 +869,16 @@ async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: s
     await log(env, "season_sent", r.purchase_id);
   }
   return ok ? "sent" : "email-failed";
+}
+
+/** Code-only paragraph for the week when the model is down or keeps inventing dates. Phase-specific, no dates. */
+function seasonFallbackBody(phase: ReturnType<typeof seasonPhase>, sign: string): string {
+  const work = SIGN_NOTES[sign as keyof typeof SIGN_NOTES]?.work ?? "the work this sign asks for";
+  switch (phase) {
+    case "approach": return `Saturn is still applying, so this week is for setting up. Saturn in ${sign} asks for ${work}; decide what the return is going to test before the first exact pass makes the decision for you.\nOne thing this week: write down the one commitment you keep putting off deciding.\nOne line to carry: Build the thing before it is tested.`;
+    case "contact": return `Saturn is on your degree, so this week is for holding. Saturn in ${sign} asks for ${work}; keep the commitment you made and let the second look revise it, not undo it.\nOne thing this week: do the unglamorous next step on the thing you committed to.\nOne line to carry: Hold, and let it be revised, not dropped.`;
+    default: return `The last pass is behind you, so this week is for consolidating. Saturn in ${sign} asks for ${work}; the job now is making what you decided routine, small and often, before the window closes.\nOne thing this week: repeat one kept promise at the same time, three days running.\nOne line to carry: Routine is how a decision becomes a structure.`;
+  }
 }
 
 /**
