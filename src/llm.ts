@@ -13,6 +13,7 @@ async function complete(env: Env, model: string, system: string, user: string, m
     },
     body: JSON.stringify({
       model, max_tokens: maxTokens,
+      thinking: { type: "disabled" },
       system,
       messages: [{ role: "user", content: user }],
     }),
@@ -34,7 +35,7 @@ export function extractText(raw: string): string {
     if (Array.isArray(v)) { v.forEach((x) => walk(x, depth + 1)); return; }
     if (typeof v === "object") {
       const o = v as Record<string, unknown>;
-      if (o.type === "text" && typeof o.text === "string") { out.push(o.text); return; }
+      if (o.type !== "thinking" && typeof o.text === "string") { out.push(o.text); return; }
       for (const k of ["content", "output", "message", "blocks"]) if (k in o) walk(o[k], depth + 1);
     }
   };
@@ -43,15 +44,15 @@ export function extractText(raw: string): string {
 }
 
 export function writePreview(env: Env, inputs: unknown) {
-  return complete(env, env.MODEL_PREVIEW, previewSystem(), JSON.stringify(inputs), 400);
+  return complete(env, env.MODEL_PREVIEW, previewSystem(), JSON.stringify(inputs), 1200);
 }
 
 export function writeReport(env: Env, inputs: unknown) {
-  return complete(env, env.MODEL_REPORT, reportSystem(), JSON.stringify(inputs), 2200);
+  return complete(env, env.MODEL_REPORT, reportSystem(), JSON.stringify(inputs), 6000);
 }
 
 export function writeSeason(env: Env, inputs: unknown) {
-  return complete(env, env.MODEL_PREVIEW, seasonSystem(), JSON.stringify(inputs), 300);
+  return complete(env, env.MODEL_PREVIEW, seasonSystem(), JSON.stringify(inputs), 800);
 }
 
 /** Guard: every date-like token in the output must appear in the inputs' date list. */
