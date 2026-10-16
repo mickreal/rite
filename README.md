@@ -22,14 +22,17 @@ src/
   content/sign-periods.json  Every stretch Saturn spends in each sign 1930–2075 (scripts/gen-sign-periods.ts)
   content/prompts.ts Preview, reading (JSON), follow-up and weekly-email system prompts
   views/theme.ts    Shared shell, CSS, animations (design: Bricolage Grotesque + Hanken Grotesk, #0E1014 / #F2B544)
-  views/landing.ts  /            Landing: live calculator (fetches /api/calc as you type), chapters, price, FAQ
+  views/landing.ts  /            Landing: live calculator (fetches /api/calc as you type), chapters, price, Season row, FAQ
+                    /second      Same page, `variant: "second"`: hero, FAQ and ages emphasis for the current second-return cohort
   views/flow.ts     /start       Mobile one-step-at-a-time version of the same form
   views/result.ts   /p/:id       Free result: window chart, passes, remind-me, offer
   views/reading.ts  /r/:tok      Paid reading, ten chapters (see below)
   views/sign.ts     /saturn-return/saturn-in/:sign   Public SEO pages, all dates computed
   views/gift.ts     /gift        Buy a gift code; /gift/thanks/:code after payment
   views/season.ts   /season/manage/:tok   Saturn Season: plan, next note, switch monthly/yearly, stop
-  season.ts         Saturn Season date/plan logic (next note, unused months, yearly gating, upcoming dates) — pure, tested
+  views/season-landing.ts  /season       What Saturn Season is, with a sample note computed this week
+  season.ts         Saturn Season date/plan logic (next note, unused months, yearly gating, upcoming dates, note facts) — pure, tested
+  followups.ts      Day-3 / day-10 follow-up scheduling and skip rules — pure, tested
   narration.ts      Per-chapter narration script for the TTS endpoint
 public/og.png       Link-preview image served as a static asset
 test/
@@ -37,7 +40,7 @@ test/
   cycle.test.ts     Chart, month table, stage wheel and tension points
   geo.test.ts       local→UTC conversions incl. DST
   reference.json    Swiss Ephemeris reference values the tests compare against
-schema.sql          D1 schema (previews, purchases, subscriptions, reminders, stage_reminders, asks, gifts, events)
+schema.sql          D1 schema (previews, purchases, subscriptions, reminders, stage_reminders, asks, gifts, events, followups, stories)
 wrangler.toml       Worker config (vars, bindings, cron)
 docs/               Launch kit (content, prompts, cohort data) and this build's notes
 ```
@@ -55,6 +58,8 @@ npx wrangler d1 create rite                      # paste database_id into wrangl
 npx wrangler kv namespace create CACHE           # paste id into wrangler.toml
 npm run db:schema                                # applies schema.sql to the remote D1
 #    Existing database from before Oct 2026? Also run once: npm run db:migrate:plan   (adds subscriptions.plan)
+#    Already deployed? Re-run `npm run db:schema` after pulling: it adds the followups and stories tables
+#    (CREATE TABLE IF NOT EXISTS, safe to re-run). Until it runs, the cron's follow-up step and /r/:tok/story fail.
 
 # 2. Secrets (never commit these)
 npx wrangler secret put STRIPE_SECRET_KEY        # sk_live_… from the Rite Stripe account (use sk_test_ first)
@@ -111,13 +116,24 @@ Every number comes from code. The model only writes prose and is told it may not
 
 - `GET /health` — Saturn's current longitude and the time.
 - `GET /admin/stats` and `POST /admin/refund {"email"}` — bearer token is the Stripe webhook secret. Wire `/admin/refund` to an inbox rule later if you want refund-on-request automation.
-- Events table (`visit`, `preview`, `checkout`, `paid`, `generated`, `emailed`, `season_sent`, `season_welcome`, `season_plan`, `season_cancel`, `season_past_due`, `season_resumed`, `season_complete`, `season_refund`, `refund`, `error`) is the funnel. `wrangler d1 execute rite --remote --command "SELECT kind, COUNT(*) FROM events GROUP BY kind"`.
+- Events table (`visit`, `preview`, `checkout`, `paid`, `generated`, `emailed`, `season_sent`, `season_welcome`, `season_plan`, `season_cancel`, `season_past_due`, `season_resumed`, `season_complete`, `season_refund`, `followup_sent`, `followup_skipped`, `calendar`, `story`, `refund`, `error`) is the funnel. `wrangler d1 execute rite --remote --command "SELECT kind, COUNT(*) FROM events GROUP BY kind"`.
 
 ## Public pages
 
 - `/saturn-return/saturn-in/:sign` — twelve SEO pages. The transit dates, "first return, born" and "second return, born" ranges come from `content/sign-periods.json`; the birth-date check calls `/api/calc`. Listed in `/sitemap.xml`; `/p/`, `/r/` and `/admin/` are disallowed in `robots.txt`.
+- `/season` — what Saturn Season is, for people who land from a forwarded note or the landing's Season row. The sample note is computed per request for a chart born 1 Jun 1997, Melbourne, as of this Monday 07:00 Melbourne. CTA goes to `/#start` (Season needs a reading).
+- `/second` — the landing for people in their second return now: the cohort is whoever was born in the sign Saturn occupies today, 55–63 years before this stretch (`signData().secondBorn`), so the copy rolls over by itself when Saturn changes sign.
+- Both are in `/sitemap.xml`.
 - `/start` — the mobile stepper. Same `POST /preview` underneath; the "building" screen runs while the server geocodes and writes the preview.
 - Remind-me (`POST /remind` on the result page) stores a row in `reminders`; the hourly cron emails it seven days before the pass. When the window is more than a year away the card becomes "Tell me when my window opens" (`kind=window_open`): one row with `hit_date` = window open, sent 30 days before, with its own copy in `runReminders`.
+
+## Follow-ups and stories
+
+- **Follow-up emails** (`docs/emails.md` §2, §3): when a reading is written, `followups` gets two rows, `day3` and `day10`, dated on the reader's birthplace-local calendar. The hourly cron (`runFollowups`) sends each from 09:00 local on its day, claims the row before sending (no double-send), puts it back if the send fails, and drops it as `expired` if it's still unsent a week later. Skips are stored as `sent_at = 'skipped:<reason>'` and logged `followup_skipped`; sends are logged `followup_sent`.
+  - Day 3 "Did you put the dates in your calendar?": skipped if refunded, the window has closed, or the reader already downloaded a calendar file (the `.ics` route logs a `calendar` event).
+  - Day 10 "What a Monday note looks like": quotes the note they'd have got this Monday, built by code for their chart (position, orb, motion, the phase paragraph, the 30-day list; no model call). Skipped if there's an active or past_due subscription, the purchase is refunded, or the window closes within 60 days.
+- **Stage reminders** end with one Saturn Season line for non-subscribers when at least 30 days of window remain after the stage.
+- **Share your story**: an opt-in card at the end of the reading posts to `POST /r/:tok/story` (≤2,000 characters, one per purchase per day). Rows go to `stories` with `can_quote` set only when the reader ticked "Rite can quote this, first name only"; a copy is emailed to `ADMIN_EMAIL` (or `SUPPORT_EMAIL`). Read them with `wrangler d1 execute rite --remote --command "SELECT created_at, can_quote, text FROM stories ORDER BY id DESC"`.
 
 ## Gifts, reminders, narration
 
@@ -127,7 +143,7 @@ Every number comes from code. The model only writes prose and is told it may not
 
 ## Analytics, legal, ops
 
-- **PostHog**: set `POSTHOG_KEY` (and `POSTHOG_HOST` if not US) as vars in `wrangler.toml`. Every HTML page gets the snippet injected (autocapture and session recording off) and sends one `$pageview` with the path templated (`/r/:tok`, never the token). Client events: `preview_submit`, `checkout_click`, `remind_submit`, `gift_click`, `share_card`, `play`, `ask_submit`, `calendar`, `season_click`. Server events mirror the funnel from `log()`: `server_preview`, `server_checkout`, `server_paid`, `server_generated`, `server_gift_paid`, `server_gift_redeemed`, `server_season_start`, `server_ask`, `server_narrated`, `server_refund`, `server_error`. Without the key, nothing is sent.
+- **PostHog**: set `POSTHOG_KEY` (and `POSTHOG_HOST` if not US) as vars in `wrangler.toml`. Every HTML page gets the snippet injected (autocapture and session recording off) and sends one `$pageview` with the path templated (`/r/:tok`, never the token). Client events: `preview_submit`, `checkout_click`, `remind_submit`, `gift_click`, `share_card`, `play`, `ask_submit`, `calendar`, `season_click`, `story_submit`. Server events mirror the funnel from `log()`: `server_preview`, `server_checkout`, `server_paid`, `server_generated`, `server_gift_paid`, `server_gift_redeemed`, `server_season_start`, `server_ask`, `server_narrated`, `server_refund`, `server_story`, `server_error`. Without the key, nothing is sent.
 - **Legal**: `/privacy`, `/terms`, `/refunds` (`views/legal.ts`), linked from the footer and the sitemap. Point Stripe's checkout "Terms" and "Privacy" links at them (Stripe dashboard → Settings → Public details).
 - **Daily error digest**: the hourly cron emails `ADMIN_EMAIL` (falls back to `SUPPORT_EMAIL`) at 08:00 Brisbane with the last 24 h of event counts and error rows, only when there were errors.
 - **Cleanup**: previews older than 90 days that were never bought and have no reminder are deleted daily at 04:00 Brisbane (the privacy page says so).
@@ -137,4 +153,3 @@ Every number comes from code. The model only writes prose and is told it may not
 
 - PNG share card (Cloudflare Browser Rendering or resvg-wasm) — SVG is served now; the OG image is a pre-rendered PNG because social crawlers won't render SVG.
 - Real PDF attachment — print stylesheet instead.
-- Second-return landing variant.
