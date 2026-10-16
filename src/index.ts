@@ -136,11 +136,18 @@ function signData(sign: Sign): SignPageData {
   const groups: Array<Array<{ from: string; to: string }>> = [];
   for (const p of periods) { const g = groups[groups.length - 1]; if (g && Date.parse(p.from) - Date.parse(g[g.length - 1].to) < 548 * 86400000) g.push(p); else groups.push([p]); }
   const now = new Date().toISOString().slice(0, 10);
-  let cur = groups.find((g) => now >= g[0].from && now <= g[g.length - 1].to) ?? groups.find((g) => g[0].from > now) ?? groups[groups.length - 1];
+  // the stretch happening now; otherwise whichever of the previous and next stretches is nearer in time
+  // (a sign Saturn left last year should read "left", not "enters … in 26 years")
+  const inside = groups.find((g) => now >= g[0].from && now <= g[g.length - 1].to);
+  const nextG = groups.find((g) => g[0].from > now), prevG = [...groups].reverse().find((g) => g[g.length - 1].to < now);
+  const nearer = !nextG ? prevG! : !prevG ? nextG : Date.parse(now) - Date.parse(prevG[prevG.length - 1].to) <= Date.parse(nextG[0].from) - Date.parse(now) ? prevG : nextG;
+  const cur = inside ?? nearer;
+  const idx = groups.indexOf(cur);
+  const whole = (g: Array<{ from: string; to: string }>) => ({ from: g[0].from, to: g[g.length - 1].to });
   const y = (iso: string, dy: number) => `${parseInt(iso.slice(0, 4), 10) + dy}${iso.slice(4)}`;
   const start = cur[0].from;
   const pick = (lo: number, hi: number) => groups.filter((g) => g[0].from >= y(start, lo) && g[0].from <= y(start, hi)).flat();
-  return { sign, current: cur, firstBorn: pick(-33, -26), secondBorn: pick(-63, -55), now };
+  return { sign, current: cur, firstBorn: pick(-33, -26), secondBorn: pick(-63, -55), now, prev: groups[idx - 1] ? whole(groups[idx - 1]) : undefined, next: groups[idx + 1] ? whole(groups[idx + 1]) : undefined };
 }
 app.get("/saturn-return/saturn-in/:sign", async (c) => {
   const q = c.req.param("sign").toLowerCase();
