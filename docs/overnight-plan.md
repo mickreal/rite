@@ -30,9 +30,28 @@ KV, and never edits `wrangler.toml` or anything under `.dev.vars`.** Mick review
    `/privacy`, `/terms`, `/refunds`, four sign pages, at 390 px and 1280 px. Write findings to `docs/qa/<date>/report.md`:
    what's broken, what's off against the design artboards in `docs/design/` if present, nothing speculative. Fix only
    clear defects (typos, overflow, broken links); describe anything bigger rather than redesigning it.
-5. **Morning summary** as the PR description: what changed, what to look at first, open questions.
+5. **Saturn Season, made whole** (items S1–S4 and S6 in `docs/gtm-plan.md`): welcome note on subscribe; `/season/manage/:tok`
+   page (plan, next note date, monthly↔yearly switch with proration, cancel) replacing the bare stop link; yearly offered
+   only when ≥9 months of window remain and a prorated refund on auto-close; richer weekly note (dates inside 30 days,
+   deep link to the relevant chapter, phase-specific structure); `invoice.payment_failed` → `past_due` (skip notes) and
+   `invoice.paid` → active. Stripe calls can't be exercised locally: write them against the current Stripe API docs,
+   unit-test the date/plan logic, and leave a verification checklist in the PR. Keep `/admin/season/:tok` working.
+6. **"Notify me when my window opens"** capture on the result page when the phase is `not_yet` and the window is more
+   than 12 months out: one email field, stored in `reminders` with `hit_date` = window open and `send_on` = 30 days
+   before, plus the reminder email copy for that case. Track with `remind_submit` (`kind: "window_open"`).
+7. **Creator outreach list**: 20 astrology creators (1k–50k followers, TikTok/Instagram/YouTube), with handle, size,
+   style, why they fit, and a 3-line DM offering a gift code. Public information only; no contact details beyond the
+   handle. Save as `docs/creators.md`.
+8. **Morning summary** as the PR description: what changed, what to look at first, open questions.
 
 ## Night 2 (if night 1 merged cleanly)
+
+- Content generator: `scripts/render-clip.ts` drives the real site with Playwright (`/start`, enter a date, dial swings,
+  passes appear) and writes an MP4 per cohort with a narration-voice voiceover; plus a Remotion project under
+  `content/` with templates for cohort cards, sign cards and quote cards in the brand (see styles 1, 2, 6 in
+  `docs/gtm-plan.md`). Output twelve sign cards and six cohort clips into `content/out/` as proof.
+- "Share your story" opt-in prompt at the end of a reading; Season section on `/` and a `/season` landing page.
+- Day-10 Season nudge sending (copy from night 1), via the existing cron, idempotent.
 
 - PNG share card: render `card.ts` SVG to PNG via Cloudflare Browser Rendering or resvg-wasm; add `/card/:id.png`.
   Keep the SVG route. Needs a decision on Browser Rendering (paid add-on) vs resvg (bundle size), so propose both in the
