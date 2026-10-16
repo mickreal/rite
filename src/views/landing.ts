@@ -335,6 +335,11 @@ function fade(){raf=null;if(hasST||window.innerWidth<=900){art.style.opacity='';
 window.addEventListener('scroll',function(){if(!raf)raf=requestAnimationFrame(fade)},{passive:true});fade();
 $('#bd').addEventListener('change',calc);$('#bt').addEventListener('change',calc);var qd=new URLSearchParams(location.search).get('d');if(qd&&!$('#bd').value&&/^\\d{4}-\\d{2}-\\d{2}$/.test(qd))$('#bd').value=qd;if($('#bd').value)calc();
 $('#start').addEventListener('submit',function(){var b=$('#go');b.disabled=true;b.textContent='Calculating\\u2026'});
+// every "#start" link: if the form is already filled, submit it; otherwise scroll to the top (the form lives in the hero) and focus the first empty field
+document.querySelectorAll('a[href="#start"]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();var form=$('#start'),d=$('#bd'),pl=$('#bp');
+ if(d.value&&pl.value.trim()){form.requestSubmit?form.requestSubmit():$('#go').click();return}
+ var mobile=window.innerWidth<=900;var top=mobile?Math.max(0,form.getBoundingClientRect().top+window.pageYOffset-24):0;
+ window.scrollTo({top:top,behavior:'smooth'});var f=!d.value?d:pl;setTimeout(function(){f.focus({preventScroll:true})},mobile?500:700)})});
 })();`;
 
   return shell({
