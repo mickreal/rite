@@ -89,7 +89,7 @@ export function flowPage(opts: { siteUrl: string; ref?: string; form?: { date?: 
       <line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="3"/><circle cx="300" cy="300" r="8" fill="#EDE6D6"/>
       <g id="bsat" class="vb spin"><circle class="halo" cx="300" cy="70" r="40" fill="#F2B544"/><circle cx="300" cy="70" r="20" fill="#EDE6D6"/><ellipse cx="300" cy="70" rx="38" ry="10" fill="none" stroke="#F2B544" stroke-width="3.5" transform="rotate(-22 300 70)"/></g>
     </svg>
-    <div style="display:flex;flex-direction:column;gap:12px;text-align:center;font-size:17px;color:#BDB6A8">
+    <div role="status" style="display:flex;flex-direction:column;gap:12px;text-align:center;font-size:17px;color:#BDB6A8">
       <span class="ln" style="animation-delay:.2s">Placing Saturn on the day you were born</span>
       <span class="ln" id="bl1" style="animation-delay:1.2s;color:#EDE6D6"></span>
       <span class="ln" style="animation-delay:2.2s">Tracking it forward, retrogrades included</span>
@@ -103,7 +103,7 @@ export function flowPage(opts: { siteUrl: string; ref?: string; form?: { date?: 
       <button type="button" class="txt" data-go="1">Start again</button>
     </div>
     <div class="pop" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
-      <h2 class="disp" style="margin:0;font-size:46px;letter-spacing:-.045em;font-weight:700">
+      <h2 class="disp" tabindex="-1" style="margin:0;font-size:46px;letter-spacing:-.045em;font-weight:700;outline:none">
         <span style="display:block;font-size:.36em;font-weight:500;font-style:italic;color:#BDB6A8;line-height:1;padding:0 0 .12em .1em">Your</span>
         <span style="display:block;line-height:.86">Saturn in</span>
         <span id="r_sign" style="display:block;font-size:1.5em;font-weight:800;letter-spacing:-.06em;line-height:.82;color:#F2B544"></span>
@@ -136,7 +136,7 @@ export function flowPage(opts: { siteUrl: string; ref?: string; form?: { date?: 
 </div>`;
   const script = `
 (function(){var $=function(s){return document.querySelector(s)};var cur=0;function T(n,p){try{window.rite&&window.rite.track(n,p)}catch(e){}}
-function show(n){cur=n;document.querySelectorAll('.step').forEach(function(s){s.classList.toggle('on',s.id==='s'+n)});window.scrollTo(0,0);var f=n===1?$('#fd'):n===2?$('#fp'):n===3?$('#ft'):null;if(f)setTimeout(function(){f.focus()},350)}
+function show(n){cur=n;document.querySelectorAll('.step').forEach(function(s){s.classList.toggle('on',s.id==='s'+n)});window.scrollTo(0,0);var f=n===1?$('#fd'):n===2?$('#fp'):n===3?$('#ft'):n===5?$('#s5 h2'):null;if(f)setTimeout(function(){f.focus({preventScroll:true})},350)}
 function ok(n){if(n>=2&&!/^\\d{4}-\\d{2}-\\d{2}$/.test($('#fd').value)){$('#e1').style.display='';show(1);return false}if(n>=3&&!$('#fp').value.trim()){$('#e2').style.display='';show(2);return false}return true}
 document.querySelectorAll('[data-go]').forEach(function(b){b.addEventListener('click',function(){var n=+b.dataset.go;if(ok(n))show(n)})});
 document.querySelectorAll('.finp').forEach(function(i){i.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var n=i.id==='fd'?2:i.id==='fp'?3:4;if(n===4)build();else if(ok(n))show(n)}})});

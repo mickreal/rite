@@ -163,7 +163,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><label for="scrub" class="disp" style="font-size:20px;font-weight:600">See your reading on another date</label><span id="dateLabel" style="font-size:15px;color:#F2B544">Showing ${fmtMonYr(now)}, today</span></div>
     <input id="scrub" class="scrub" type="range" min="0" max="431" step="1" value="${(today.getUTCFullYear() - 2025) * 12 + today.getUTCMonth()}" aria-valuetext="${fmtMonYr(now)}">
     <div aria-hidden="true" style="position:relative;height:18px;font-size:13px;color:#8A857B">${[2025, 2035, 2045, 2060].map((y, i, a) => html`<span style="position:absolute;left:${(((y - 2025) * 12) / 431 * 100).toFixed(1)}%;${i === 0 ? "" : i === a.length - 1 ? "transform:translateX(-100%)" : "transform:translateX(-50%)"}">${y}</span>`)}</div>
-    <div id="jumps" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="qchip on" data-t="today">Today</button>${w.hits.map((h, i) => html`<button type="button" class="qchip" data-t="${h}">${w.hits.length === 1 ? "Exact pass" : `Pass ${i + 1}`}</button>`)}${cy.turn ? html`<button type="button" class="qchip" data-t="${cy.turn.date}">The turn</button>` : ""}${cy.ahead.map((p) => html`<button type="button" class="qchip" data-t="${p.from}">Age ${p.ageApprox}</button>`)}</div>
+    <div id="jumps" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="qchip on" data-t="today" aria-pressed="true">Today</button>${w.hits.map((h, i) => html`<button type="button" class="qchip" aria-pressed="false" data-t="${h}">${w.hits.length === 1 ? "Exact pass" : `Pass ${i + 1}`}</button>`)}${cy.turn ? html`<button type="button" class="qchip" aria-pressed="false" data-t="${cy.turn.date}">The turn</button>` : ""}${cy.ahead.map((p) => html`<button type="button" class="qchip" aria-pressed="false" data-t="${p.from}">Age ${p.ageApprox}</button>`)}</div>
   </div>
 </section>
 
@@ -233,7 +233,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
 <section id="c5" class="ch rv">
   <span class="kicker">Chapter five</span><h2>Month by month</h2>
   <p class="body">All ${cy.months.length} months of your window, with Saturn's real position and what each one is good for.</p>
-  <div class="noprint" style="display:flex;gap:8px;flex-wrap:wrap">${years.map((y) => html`<button type="button" class="tab ${y === curYear ? "on" : ""}" data-y="${y}">${y}</button>`)}</div>
+  <div class="noprint" style="display:flex;gap:8px;flex-wrap:wrap">${years.map((y) => html`<button type="button" class="tab ${y === curYear ? "on" : ""}" data-y="${y}" aria-pressed="${y === curYear}">${y}</button>`)}</div>
   <div style="border-bottom:1px solid rgba(237,230,214,.1)">
     ${cy.months.map((m) => html`<div class="mrow ${m.isNow ? "now" : ""}" data-y="${m.year}" style="${m.year === curYear ? "" : "display:none"}">
       <div style="display:flex;flex-direction:column;gap:4px"><span class="disp" style="font-size:20px;font-weight:600">${m.name}</span><span style="font-size:13px;color:#F2B544">${m.tag}</span></div>
@@ -327,7 +327,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
 var TOK=${JSON.stringify(opts.token)};var $=function(s){return document.querySelector(s)};function T(n,p){try{window.rite&&window.rite.track(n,p)}catch(e){}}var Cw=${Cw.toFixed(3)};
 document.querySelectorAll('a[href$="calendar.ics"]').forEach(function(a){a.addEventListener('click',function(){T('calendar')})});document.querySelectorAll('form[action^="/season/"]').forEach(function(f){f.addEventListener('submit',function(){T('season_click')})});
 // month tabs
-document.querySelectorAll('.tab').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x===b)});document.querySelectorAll('.mrow').forEach(function(r){r.style.display=r.dataset.y===b.dataset.y?'':'none'})})});
+document.querySelectorAll('.tab').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x===b);x.setAttribute('aria-pressed',x===b)});document.querySelectorAll('.mrow').forEach(function(r){r.style.display=r.dataset.y===b.dataset.y?'':'none'})})});
 // localStorage for textareas
 document.querySelectorAll('textarea[data-store]').forEach(function(t){var k='rite:'+TOK+':'+t.dataset.store;try{t.value=localStorage.getItem(k)||''}catch(e){}t.addEventListener('input',function(){try{localStorage.setItem(k,t.value)}catch(e){}count()})});
 function count(){['approach','contact','integration'].forEach(function(g){var n=0;document.querySelectorAll('textarea[data-group="'+g+'"]').forEach(function(t){if(t.value.trim())n++});var el=document.querySelector('[data-count="'+g+'"]');if(el)el.textContent=n})}count();
@@ -338,7 +338,7 @@ function setStage(t,label){clearTimeout(timer);timer=setTimeout(function(){fetch
  document.querySelectorAll('.wl').forEach(function(l){l.setAttribute('fill',+l.dataset.i===s.idx?'#F2B544':'#8A857B')});$('#ageNow').textContent=s.age;
  $('#stKicker').textContent=(s.isToday?'Right now':'On '+s.when)+', age '+s.age;$('#stName').textContent=s.name;$('#stTheme').textContent=s.theme;$('#stSky').textContent=s.sky;$('#stFocus').textContent=s.focus;$('#stRelease').textContent=s.release;$('#stQ').textContent=s.question;$('#stNext').textContent=s.next;$('#dateLabel').textContent='Showing '+s.when+(s.isToday?', today':'');$('#scrub').setAttribute('aria-valuetext',s.when);
  var c=$('#stageCard');c.classList.remove('swap');void c.offsetWidth;c.classList.add('swap');
- if(s.slider!=null)$('#scrub').value=s.slider;document.querySelectorAll('#jumps .qchip').forEach(function(q){q.classList.toggle('on',q.dataset.t===label)})}).catch(function(){})},120)}
+ if(s.slider!=null)$('#scrub').value=s.slider;document.querySelectorAll('#jumps .qchip').forEach(function(q){q.classList.toggle('on',q.dataset.t===label);q.setAttribute('aria-pressed',q.dataset.t===label)})}).catch(function(){})},120)}
 $('#scrub').addEventListener('input',function(e){var v=+e.target.value;setStage((2025+Math.floor(v/12))+'-'+String(v%12+1).padStart(2,'0')+'-15','')});
 document.querySelectorAll('#jumps .qchip,.tile').forEach(function(b){b.addEventListener('click',function(){setStage(b.dataset.t,b.dataset.t);if(b.classList.contains('tile'))document.getElementById('c0').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})})});
 setStage('today','today');

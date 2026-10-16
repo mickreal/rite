@@ -248,7 +248,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
     </article>
     <article data-rv class="a" style="background:#14171D;border-radius:32px;padding:clamp(28px,4vw,48px);display:flex;flex-direction:column;gap:28px">
       <div style="display:flex;flex-direction:column;gap:12px"><h3 class="disp a d2" style="margin:0;font-size:34px;letter-spacing:-.02em;font-weight:600">Your exact hits</h3><p class="a d3" style="margin:0;font-size:17px;line-height:1.6;color:#BDB6A8;max-width:540px">Saturn moves forward, stalls, backs up and moves on again. Depending on timing it crosses your natal degree once or three times. Every crossing gets a date.</p></div>
-      <div id="pills" class="a d4" style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="pill" data-p="1">One pass</button><button type="button" class="pill on" data-p="3">Three passes</button></div>
+      <div id="pills" class="a d4" style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="pill" data-p="1" aria-pressed="false">One pass</button><button type="button" class="pill on" data-p="3" aria-pressed="true">Three passes</button></div>
       <div id="real" class="swap" style="display:none;flex-direction:column;gap:14px"><p id="hitsSummary" class="disp" style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em"></p><div id="chips" style="display:flex;gap:10px;flex-wrap:wrap"></div></div>
       <div class="a d5" style="border-radius:20px;background:#0E1014;padding:20px">
         <svg id="hitsSvg" viewBox="0 0 520 220" style="width:100%;display:block" role="img" aria-label="Saturn crossing the natal degree">
@@ -326,7 +326,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
   <div class="wrap" style="display:flex;flex-direction:column;gap:48px">
     <h2 class="disp a" style="margin:0;font-size:clamp(40px,4.6vw,68px);line-height:1;letter-spacing:-.03em;font-weight:700;max-width:760px">${second ? "Saturn comes back about every 29 years. This is the second time." : "Saturn comes back about every 29 years."}</h2>
     <div style="display:flex;flex-wrap:wrap;gap:8px 48px;align-items:flex-end;min-height:1em">
-      <button type="button" class="age disp split on" data-age="29">0</button><button type="button" class="age disp split" data-age="58" style="display:none">0</button><button type="button" class="age disp split" data-age="87" style="display:none">0</button>
+      <button type="button" class="age disp split on" data-age="29" aria-pressed="true">0</button><button type="button" class="age disp split" data-age="58" aria-pressed="false" style="display:none">0</button><button type="button" class="age disp split" data-age="87" aria-pressed="false" style="display:none">0</button>
     </div>
     <div id="ageInfo" class="swap" style="display:none;flex-wrap:wrap;gap:16px 48px;align-items:baseline;border-top:1px solid rgba(237,230,214,.12);padding-top:28px">
       <p id="ageTitle" class="disp" style="margin:0;font-size:30px;font-weight:600;letter-spacing:-.02em"></p><p id="ageBody" style="margin:0;font-size:18px;line-height:1.6;color:#BDB6A8;max-width:560px"></p>
@@ -358,7 +358,7 @@ var io=('IntersectionObserver' in window)?new IntersectionObserver(function(es){
 document.querySelectorAll('[data-rv]').forEach(function(el){io?io.observe(el):el.classList.add('in')});
 if(!io)startCount();
 // pills
-document.querySelectorAll('#pills .pill').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#pills .pill').forEach(function(x){x.classList.remove('on')});b.classList.add('on');var three=b.dataset.p==='3';$('#demo3').style.display=three?'':'none';$('#demo1').style.display=three?'none':'';})});
+document.querySelectorAll('#pills .pill').forEach(function(b){b.addEventListener('click',function(){document.querySelectorAll('#pills .pill').forEach(function(x){x.classList.remove('on');x.setAttribute('aria-pressed','false')});b.classList.add('on');b.setAttribute('aria-pressed','true');var three=b.dataset.p==='3';$('#demo3').style.display=three?'':'none';$('#demo1').style.display=three?'none':'';})});
 // faq
 document.querySelectorAll('.faqb').forEach(function(b){b.addEventListener('click',function(){var open=b.classList.contains('open');document.querySelectorAll('.faqb').forEach(function(x){x.classList.remove('open');x.setAttribute('aria-expanded','false')});document.querySelectorAll('.faqa').forEach(function(x){x.classList.remove('open')});if(!open){b.classList.add('open');b.setAttribute('aria-expanded','true');b.nextElementSibling.classList.add('open')}})});
 // ages
@@ -370,7 +370,7 @@ if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches){bt
 var seq=[[0,29],[29,58],[58,87]],dur=[1200,950,950],stage=0,t0=null;
 function step(ts){if(t0===null)t0=ts;var p=Math.min(1,(ts-t0)/dur[stage]),e=1-Math.pow(1-p,3);btns[stage].style.display='';btns[stage].textContent=Math.round(seq[stage][0]+(seq[stage][1]-seq[stage][0])*e);btns.forEach(function(b,i){b.classList.toggle('on',i===stage)});if(p<1){requestAnimationFrame(step);return}if(stage<2){stage++;t0=null;setTimeout(function(){requestAnimationFrame(step)},260)}else{showAge(FOCUS)}}
 setTimeout(function(){requestAnimationFrame(step)},350)}
-function showAge(a){document.querySelectorAll('.age').forEach(function(b){b.classList.toggle('on',+b.dataset.age===a)});$('#ageTitle').textContent=AGES[a][0];$('#ageBody').textContent=AGES[a][1];var i=$('#ageInfo');i.style.display='flex';i.classList.remove('swap');void i.offsetWidth;i.classList.add('swap')}
+function showAge(a){document.querySelectorAll('.age').forEach(function(b){b.classList.toggle('on',+b.dataset.age===a);b.setAttribute('aria-pressed',+b.dataset.age===a)});$('#ageTitle').textContent=AGES[a][0];$('#ageBody').textContent=AGES[a][1];var i=$('#ageInfo');i.style.display='flex';i.classList.remove('swap');void i.offsetWidth;i.classList.add('swap')}
 document.querySelectorAll('.age').forEach(function(b){b.addEventListener('click',function(){showAge(+b.dataset.age)})});
 // live calc
 var C=2*Math.PI*230,timer=null;
