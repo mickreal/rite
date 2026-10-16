@@ -1,0 +1,34 @@
+name = "rite"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+SITE_URL = "https://rite.report"
+PRICE_FULL_CENTS = "2900"
+PRICE_NOTIME_CENTS = "1900"
+PRICE_SEASON_MONTHLY_CENTS = "700"
+PRICE_SEASON_YEARLY_CENTS = "5900"
+CURRENCY = "usd"
+MODEL_REPORT = "claude-sonnet-5-5"
+MODEL_PREVIEW = "claude-haiku-5-5"
+FROM_EMAIL = "Rite <hello@rite.report>"
+SUPPORT_EMAIL = "hello@rite.report"
+
+# Secrets (set with `wrangler secret put NAME`):
+#   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, ANTHROPIC_API_KEY, RESEND_API_KEY
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rite"
+database_id = "00000000-0000-0000-0000-000000000000"   # replace: wrangler d1 create rite
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "00000000000000000000000000000000"            # replace: wrangler kv namespace create CACHE
+
+[triggers]
+crons = ["0 * * * *"]  # hourly; the handler sends Saturn Season mail at 07:00 in each subscriber's own timezone
+
+[observability]
+enabled = true

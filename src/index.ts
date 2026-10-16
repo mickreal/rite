@@ -1,0 +1,346 @@
+import { Hono } from "hono";
+import Stripe from "stripe";
+import { geocode } from "./geo";
+import { compute, reportInputs, fmtMonth, fmtDay, hitSentence, phaseSentence, houseLabel, type Computed } from "./compute";
+import { writePreview, writeReport, writeSeason, datesAreGrounded } from "./llm";
+import { sendEmail, deliveryEmail, seasonEmail, seasonCompleteEmail } from "./email";
+import { homePage, type PreviewView } from "./views/home";
+import { reportPage } from "./views/report";
+import { shareCardSvg } from "./card";
+import { saturnLongitude, signOf, degreeInSign, orb, isRetrograde, nextStation, type Phase } from "./astro/saturn";
+import { SIGN_NOTES } from "./content/notes";
+import { localHour } from "./geo";
+
+export interface Env {
+  DB: D1Database;
+  CACHE: KVNamespace;
+  SITE_URL: string;
+  PRICE_FULL_CENTS: string; PRICE_NOTIME_CENTS: string; PRICE_SEASON_MONTHLY_CENTS: string; PRICE_SEASON_YEARLY_CENTS: string;
+  CURRENCY: string;
+  MODEL_REPORT: string; MODEL_PREVIEW: string;
+  FROM_EMAIL: string; SUPPORT_EMAIL: string;
+  STRIPE_SECRET_KEY: string; STRIPE_WEBHOOK_SECRET: string; ANTHROPIC_API_KEY: string; RESEND_API_KEY: string;
+}
+
+const app = new Hono<{ Bindings: Env }>();
+
+// ---------- helpers ----------
+const id = (n = 12) => { const b = new Uint8Array(n); crypto.getRandomValues(b); return [...b].map((x) => x.toString(36).padStart(2, "0")).join("").slice(0, n); };
+const token = () => id(32);
+const now = () => new Date().toISOString();
+const stripe = (env: Env) => new Stripe(env.STRIPE_SECRET_KEY, { httpClient: Stripe.createFetchHttpClient() });
+async function log(env: Env, kind: string, ref?: string | null, detail?: unknown) {
+  try { await env.DB.prepare("INSERT INTO events (at, kind, ref, detail) VALUES (?,?,?,?)").bind(now(), kind, ref ?? null, detail ? JSON.stringify(detail).slice(0, 2000) : null).run(); } catch (e) { console.error("log", e); }
+}
+
+interface PreviewRow {
+  id: string; birth_date: string; birth_time: string | null; place_label: string; lat: number; lon: number; tz: string;
+  natal_lon: number; natal_sign: string; natal_degree: number; natal_house: number | null; return_number: number;
+  window_start: string; window_end: string; peak_start: string; peak_end: string; hits: string; phase: string; preview_text: string | null; ref: string | null;
+}
+interface PurchaseRow { id: string; preview_id: string; email: string; first_name: string | null; tier: string; report_md: string | null; status: string; amount_cents: number; stripe_session_id: string | null }
+
+/** Recompute from the stored birth data (cheap, and keeps "today"-dependent fields fresh). */
+function recompute(p: PreviewRow, today = new Date()): Computed {
+  return compute({ date: p.birth_date, time: p.birth_time, place: { label: p.place_label, lat: p.lat, lon: p.lon, tz: p.tz } }, today);
+}
+
+async function getPreview(env: Env, pid: string) {
+  return env.DB.prepare("SELECT * FROM previews WHERE id = ?").bind(pid).first<PreviewRow>();
+}
+async function getPurchase(env: Env, tok: string) {
+  return env.DB.prepare("SELECT * FROM purchases WHERE id = ?").bind(tok).first<PurchaseRow>();
+}
+
+// ---------- pages ----------
+app.get("/", async (c) => {
+  await log(c.env, "visit", c.req.query("r") ?? null);
+  return c.html(homePage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? undefined }));
+});
+
+app.get("/favicon.svg", (c) => c.body(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" fill="none"><rect width="44" height="44" fill="#111418"/><g stroke="#d4b66a" stroke-width="2" fill="none"><circle cx="22" cy="22" r="7.5" fill="#d4b66a"/><ellipse cx="22" cy="22" rx="19" ry="7.8" transform="rotate(-28 22 22)"/></g></svg>`, 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=604800" }));
+
+app.post("/preview", async (c) => {
+  const form = await c.req.parseBody();
+  const date = String(form.date ?? "").trim();
+  const placeQ = String(form.place ?? "").trim();
+  const time = String(form.time ?? "").trim() || null;
+  const ref = String(form.ref ?? "").trim() || null;
+  const back = (error: string) => c.html(homePage({ siteUrl: c.env.SITE_URL, error, form: { date, place: placeQ, time: time ?? "" } }), 400);
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return back("Enter your birth date.");
+  if (!placeQ) return back("Enter the city you were born in.");
+  if (time && !/^\d{2}:\d{2}$/.test(time)) return back("Birth time should look like 14:30.");
+
+  const place = await geocode(placeQ, c.env.CACHE);
+  if (!place) return back(`Couldn't find "${placeQ}". Try "City, Country".`);
+
+  let comp: Computed;
+  try { comp = compute({ date, time, place }); } catch (e) {
+    await log(c.env, "error", null, { where: "compute", e: String(e) });
+    return back("Couldn't compute a return for that date. If you're under 26 or over 90, your next return isn't in range yet.");
+  }
+
+  const pid = id(12);
+  let text = "";
+  try {
+    text = await writePreview(c.env, reportInputs(comp, null));
+  } catch (e) {
+    await log(c.env, "error", pid, { where: "preview-llm", e: String(e) });
+    text = `Saturn in ${comp.sign}: ${SIGN_NOTES[comp.sign].hook} ${phaseSentence(comp)} The full report dates your exact hits and tells you what to build before each one.`;
+  }
+
+  await c.env.DB.prepare(`INSERT INTO previews (id, created_at, birth_date, birth_time, place_label, lat, lon, tz, birth_utc, natal_lon, natal_sign, natal_degree, natal_house, return_number, window_start, window_end, peak_start, peak_end, hits, phase, preview_text, ref)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .bind(pid, now(), date, time, place.label, place.lat, place.lon, place.tz, comp.birthUtc, comp.natalLon, comp.sign, comp.degree, comp.house, comp.returnNumber,
+      comp.window.windowStart, comp.window.windowEnd, comp.window.peakStart, comp.window.peakEnd, JSON.stringify(comp.window.hits), comp.phase, text, ref).run();
+  await log(c.env, "preview", pid, { sign: comp.sign, phase: comp.phase, ref });
+
+  return c.redirect(`/p/${pid}`);
+});
+
+app.get("/p/:id", async (c) => {
+  const p = await getPreview(c.env, c.req.param("id"));
+  if (!p) return c.redirect("/");
+  const comp = recompute(p);
+  const pv: PreviewView = { id: p.id, c: comp, text: p.preview_text ?? "", placeLabel: p.place_label, hasTime: !!p.birth_time };
+  return c.html(homePage({ siteUrl: c.env.SITE_URL, preview: pv, form: { date: p.birth_date, place: p.place_label, time: p.birth_time ?? "" } }));
+});
+
+// ---------- share cards ----------
+app.get("/card/:id{.+\\.svg}", async (c) => {
+  const pid = c.req.param("id").replace(/\.svg$/, "");
+  const p = await getPreview(c.env, pid);
+  if (!p) return c.notFound();
+  const svg = shareCardSvg(recompute(p), { site: c.env.SITE_URL.replace(/^https?:\/\//, "") });
+  return c.body(svg, 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=3600" });
+});
+app.get("/card/r/:tok{.+\\.svg}", async (c) => {
+  const tok = c.req.param("tok").replace(/\.svg$/, "");
+  const pu = await getPurchase(c.env, tok);
+  if (!pu) return c.notFound();
+  const p = await getPreview(c.env, pu.preview_id);
+  if (!p) return c.notFound();
+  const carry = pu.report_md?.match(/#+\s*One line to carry\s*\n+([^\n#]+)/i)?.[1]?.trim() ?? null;
+  const svg = shareCardSvg(recompute(p), { carry, site: c.env.SITE_URL.replace(/^https?:\/\//, "") });
+  return c.body(svg, 200, { "content-type": "image/svg+xml", "cache-control": "private, max-age=3600" });
+});
+
+// ---------- checkout ----------
+app.post("/checkout", async (c) => {
+  const form = await c.req.parseBody();
+  const p = await getPreview(c.env, String(form.preview ?? ""));
+  if (!p) return c.redirect("/");
+  const tier = p.birth_time ? "full" : "notime";
+  const amount = parseInt(tier === "full" ? c.env.PRICE_FULL_CENTS : c.env.PRICE_NOTIME_CENTS, 10);
+  const s = stripe(c.env);
+  const session = await s.checkout.sessions.create({
+    mode: "payment",
+    line_items: [{ quantity: 1, price_data: { currency: c.env.CURRENCY, unit_amount: amount, product_data: { name: `Rite — Your Saturn Return (${tier === "full" ? "with birth time" : "no birth time"})`, description: `Saturn in ${p.natal_sign} · ${fmtMonth(p.window_start)} – ${fmtMonth(p.window_end)}` } } }],
+    custom_fields: [{ key: "first_name", label: { type: "custom", custom: "First name (for the report)" }, type: "text", optional: true }],
+    metadata: { preview_id: p.id, tier },
+    success_url: `${c.env.SITE_URL}/thanks?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${c.env.SITE_URL}/p/${p.id}`,
+    allow_promotion_codes: true,
+  });
+  await log(c.env, "checkout", p.id, { tier, amount });
+  return c.redirect(session.url!, 303);
+});
+
+app.get("/thanks", async (c) => {
+  const sid = c.req.query("session_id");
+  if (!sid) return c.redirect("/");
+  // The webhook usually lands first; poll briefly for the purchase row.
+  for (let i = 0; i < 20; i++) {
+    const pu = await c.env.DB.prepare("SELECT id, status FROM purchases WHERE stripe_session_id = ?").bind(sid).first<{ id: string; status: string }>();
+    if (pu) return c.redirect(`/r/${pu.id}`);
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  // Fallback: fulfil directly from the session (idempotent on session id).
+  const s = stripe(c.env);
+  const session = await s.checkout.sessions.retrieve(sid);
+  if (session.payment_status === "paid") {
+    const tok = await fulfil(c.env, session);
+    if (tok) return c.redirect(`/r/${tok}`);
+  }
+  return c.html(`<p style="font-family:serif;padding:40px">Payment received — your report is being generated. Refresh in a moment, or check your email.</p>`);
+});
+
+// ---------- report ----------
+app.get("/r/:tok", async (c) => {
+  const pu = await getPurchase(c.env, c.req.param("tok"));
+  if (!pu) return c.notFound();
+  const p = await getPreview(c.env, pu.preview_id);
+  if (!p) return c.notFound();
+  if (!pu.report_md) {
+    if (pu.status === "paid") { await generateReport(c.env, pu.id); const again = await getPurchase(c.env, pu.id); if (again?.report_md) pu.report_md = again.report_md; }
+    if (!pu.report_md) return c.html(`<meta http-equiv="refresh" content="5"><p style="font-family:serif;padding:40px">Writing your report… this page refreshes itself.</p>`);
+  }
+  const sub = await c.env.DB.prepare("SELECT status FROM subscriptions WHERE purchase_id = ? AND status = 'active'").bind(pu.id).first<{ status: string }>();
+  return c.html(reportPage({ siteUrl: c.env.SITE_URL, token: pu.id, c: recompute(p), md: pu.report_md, firstName: pu.first_name, placeLabel: p.place_label, seasonUrl: `/season/${pu.id}`, subscribed: !!sub }));
+});
+
+async function fulfil(env: Env, session: Stripe.Checkout.Session): Promise<string | null> {
+  const existing = await env.DB.prepare("SELECT id FROM purchases WHERE stripe_session_id = ?").bind(session.id).first<{ id: string }>();
+  if (existing) return existing.id;
+  const pid = session.metadata?.preview_id; const tier = session.metadata?.tier ?? "notime";
+  if (!pid) return null;
+  const email = session.customer_details?.email ?? session.customer_email ?? "";
+  const firstName = session.custom_fields?.find((f) => f.key === "first_name")?.text?.value?.trim() || null;
+  const tok = token();
+  await env.DB.prepare(`INSERT INTO purchases (id, preview_id, created_at, email, first_name, stripe_session_id, stripe_payment_intent, amount_cents, tier, status) VALUES (?,?,?,?,?,?,?,?,?,'paid')`)
+    .bind(tok, pid, now(), email, firstName, session.id, typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null, session.amount_total ?? 0, tier).run();
+  await log(env, "paid", tok, { pid, tier, amount: session.amount_total });
+  await generateReport(env, tok);
+  return tok;
+}
+
+async function generateReport(env: Env, tok: string) {
+  const pu = await getPurchase(env, tok); if (!pu) return;
+  const p = await getPreview(env, pu.preview_id); if (!p) return;
+  const comp = recompute(p);
+  const inputs = reportInputs(comp, pu.first_name);
+  const allowed = [...inputs.exact_hits, inputs.today];
+  let md = "";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      md = await writeReport(env, inputs);
+      if (datesAreGrounded(md, allowed)) break;
+      await log(env, "error", tok, { where: "report-dates-ungrounded", attempt });
+    } catch (e) { await log(env, "error", tok, { where: "report-llm", e: String(e), attempt }); }
+  }
+  if (!md) { await env.DB.prepare("UPDATE purchases SET status='failed' WHERE id=?").bind(tok).run(); return; }
+  await env.DB.prepare("UPDATE purchases SET report_md=?, report_json=?, status='generated' WHERE id=?").bind(md, JSON.stringify(inputs), tok).run();
+  await log(env, "generated", tok);
+
+  if (pu.email) {
+    const m = deliveryEmail({
+      firstName: pu.first_name, sign: comp.sign, housePhrase: comp.house ? `, ${houseLabel(comp)}` : "",
+      windowStart: fmtMonth(comp.window.windowStart), windowEnd: fmtMonth(comp.window.windowEnd),
+      hitSentence: hitSentence(comp), reportUrl: `${env.SITE_URL}/r/${tok}`, upsellUrl: `${env.SITE_URL}/r/${tok}#season`,
+    });
+    const ok = await sendEmail(env, pu.email, m.subject, m.text);
+    if (ok) { await env.DB.prepare("UPDATE purchases SET delivered_at=? WHERE id=?").bind(now(), tok).run(); await log(env, "emailed", tok); }
+  }
+}
+
+// ---------- Saturn Season subscription ----------
+app.post("/season/:tok", async (c) => {
+  const pu = await getPurchase(c.env, c.req.param("tok")); if (!pu) return c.notFound();
+  const s = stripe(c.env);
+  const session = await s.checkout.sessions.create({
+    mode: "subscription",
+    customer_email: pu.email || undefined,
+    line_items: [{ quantity: 1, price_data: { currency: c.env.CURRENCY, unit_amount: parseInt(c.env.PRICE_SEASON_MONTHLY_CENTS, 10), recurring: { interval: "month" }, product_data: { name: "Rite — Saturn Season (weekly)" } } }],
+    metadata: { purchase_id: pu.id },
+    success_url: `${c.env.SITE_URL}/r/${pu.id}`,
+    cancel_url: `${c.env.SITE_URL}/r/${pu.id}`,
+  });
+  return c.redirect(session.url!, 303);
+});
+
+app.get("/season/stop/:tok", async (c) => {
+  const sub = await c.env.DB.prepare("SELECT id FROM subscriptions WHERE purchase_id = ? AND status='active'").bind(c.req.param("tok")).first<{ id: string }>();
+  if (sub) {
+    try { await stripe(c.env).subscriptions.cancel(sub.id); } catch (e) { console.error(e); }
+    await c.env.DB.prepare("UPDATE subscriptions SET status='canceled' WHERE id=?").bind(sub.id).run();
+  }
+  return c.redirect(`/r/${c.req.param("tok")}`);
+});
+
+// ---------- Stripe webhook ----------
+app.post("/webhook/stripe", async (c) => {
+  const sig = c.req.header("stripe-signature") ?? "";
+  const body = await c.req.text();
+  let event: Stripe.Event;
+  try {
+    event = await stripe(c.env).webhooks.constructEventAsync(body, sig, c.env.STRIPE_WEBHOOK_SECRET, undefined, Stripe.createSubtleCryptoProvider());
+  } catch (e) { return c.text(`bad signature: ${String(e)}`, 400); }
+
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    if (session.mode === "payment" && session.payment_status === "paid") {
+      c.executionCtx.waitUntil(fulfil(c.env, session));
+    } else if (session.mode === "subscription" && session.metadata?.purchase_id && session.subscription) {
+      const subId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
+      await c.env.DB.prepare("INSERT OR REPLACE INTO subscriptions (id, purchase_id, created_at, status) VALUES (?,?,?,'active')").bind(subId, session.metadata.purchase_id, now()).run();
+      await log(c.env, "season_start", session.metadata.purchase_id);
+    }
+  } else if (event.type === "customer.subscription.deleted") {
+    const sub = event.data.object as Stripe.Subscription;
+    await c.env.DB.prepare("UPDATE subscriptions SET status='canceled' WHERE id=?").bind(sub.id).run();
+  } else if (event.type === "charge.refunded") {
+    const ch = event.data.object as Stripe.Charge;
+    const pi = typeof ch.payment_intent === "string" ? ch.payment_intent : ch.payment_intent?.id;
+    if (pi) await c.env.DB.prepare("UPDATE purchases SET status='refunded' WHERE stripe_payment_intent=?").bind(pi).run();
+  }
+  return c.text("ok");
+});
+
+// ---------- refund (used by the support inbox automation; protect with the webhook secret as a bearer) ----------
+app.post("/admin/refund", async (c) => {
+  if (c.req.header("authorization") !== `Bearer ${c.env.STRIPE_WEBHOOK_SECRET}`) return c.text("no", 401);
+  const { email } = await c.req.json<{ email: string }>();
+  const pu = await c.env.DB.prepare("SELECT id, stripe_payment_intent FROM purchases WHERE email=? AND status IN ('paid','generated') ORDER BY created_at DESC LIMIT 1").bind(email).first<{ id: string; stripe_payment_intent: string }>();
+  if (!pu?.stripe_payment_intent) return c.json({ refunded: false });
+  await stripe(c.env).refunds.create({ payment_intent: pu.stripe_payment_intent });
+  await c.env.DB.prepare("UPDATE purchases SET status='refunded' WHERE id=?").bind(pu.id).run();
+  await log(c.env, "refund", pu.id);
+  return c.json({ refunded: true });
+});
+
+// ---------- health + stats ----------
+app.get("/health", (c) => c.json({ ok: true, saturn: saturnLongitude(new Date()), at: now() }));
+app.get("/admin/stats", async (c) => {
+  if (c.req.header("authorization") !== `Bearer ${c.env.STRIPE_WEBHOOK_SECRET}`) return c.text("no", 401);
+  const rows = await c.env.DB.prepare("SELECT kind, COUNT(*) n FROM events GROUP BY kind").all();
+  const rev = await c.env.DB.prepare("SELECT COALESCE(SUM(amount_cents),0) cents, COUNT(*) n FROM purchases WHERE status IN ('paid','generated')").first();
+  return c.json({ events: rows.results, revenue: rev });
+});
+
+// ---------- cron: Saturn Season ----------
+async function runSeason(env: Env) {
+  const subs = await env.DB.prepare(`SELECT s.id sub_id, s.purchase_id, s.last_sent_at, p.email, p.first_name, pv.* FROM subscriptions s JOIN purchases p ON p.id = s.purchase_id JOIN previews pv ON pv.id = p.preview_id WHERE s.status='active'`).all<PreviewRow & { sub_id: string; purchase_id: string; last_sent_at: string | null; email: string; first_name: string | null }>();
+  const today = new Date();
+  for (const r of subs.results) {
+    // Send Mondays at 07:00 local, once.
+    const localDow = new Intl.DateTimeFormat("en-US", { timeZone: r.tz, weekday: "short" }).format(today);
+    if (localDow !== "Mon" || localHour(r.tz, today) !== 7) continue;
+    if (r.last_sent_at && today.getTime() - Date.parse(r.last_sent_at) < 6 * 86400000) continue;
+
+    const comp = recompute(r, today);
+    const o = comp.todayOrb;
+    if (comp.phase === "complete" || (Math.abs(o) > 5 && o > 0)) {
+      const m = seasonCompleteEmail({ firstName: r.first_name });
+      await sendEmail(env, r.email, m.subject, m.text);
+      try { await stripe(env).subscriptions.cancel(r.sub_id); } catch (e) { console.error(e); }
+      await env.DB.prepare("UPDATE subscriptions SET status='complete', last_sent_at=? WHERE id=?").bind(now(), r.sub_id).run();
+      await log(env, "season_complete", r.purchase_id);
+      continue;
+    }
+    const tl = saturnLongitude(today);
+    const st = comp.nextStation;
+    const nextHit = comp.window.hits.find((h) => h >= today.toISOString().slice(0, 10));
+    const motion = comp.retrograde
+      ? `It's retrograde${st ? ` until ${fmtDay(st.date)}` : ""}${comp.window.hits.length === 3 ? ", so this is a second pass" : ""}.`
+      : `It's direct${nextHit ? ` and closing in; your exact hit is ${fmtDay(nextHit)}` : ""}.`;
+    let body = "";
+    try {
+      body = await writeSeason(env, { sign: comp.sign, house: comp.house, orb: Math.round(Math.abs(o) * 10) / 10, direction: o < 0 ? "applying" : "separating", retrograde: comp.retrograde, next_hit: nextHit ? fmtDay(nextHit) : null, next_station: st ? `${fmtDay(st.date)} (${st.to})` : null, phase: comp.phase });
+    } catch (e) { await log(env, "error", r.purchase_id, { where: "season-llm", e: String(e) }); continue; }
+    const m = seasonEmail({
+      firstName: r.first_name, transitDeg: `${Math.floor(degreeInSign(tl))}°`, transitSign: signOf(tl),
+      orb: `${Math.round(Math.abs(o) * 10) / 10}°`, dir: o < 0 ? "from" : "past", motionSentence: motion, body,
+      manageUrl: `${env.SITE_URL}/season/stop/${r.purchase_id}`,
+    });
+    if (await sendEmail(env, r.email, m.subject, m.text)) {
+      await env.DB.prepare("UPDATE subscriptions SET last_sent_at=? WHERE id=?").bind(now(), r.sub_id).run();
+      await log(env, "season_sent", r.purchase_id);
+    }
+  }
+}
+
+export default {
+  fetch: app.fetch,
+  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(runSeason(env)); },
+};
