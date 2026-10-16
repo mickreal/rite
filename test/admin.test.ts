@@ -16,7 +16,7 @@ function stubDb(seen: string[] = []) {
   });
   return { prepare: (sql: string) => stmt(sql) } as unknown as D1Database;
 }
-const env = (db = stubDb()) => ({ DB: db, STRIPE_WEBHOOK_SECRET: SECRET, CURRENCY: "usd", SITE_URL: "https://rite.test" });
+const env = (db = stubDb()) => ({ DB: db, STRIPE_WEBHOOK_SECRET: "whsec_not_the_admin_key_000", ADMIN_KEY: SECRET, CURRENCY: "usd", SITE_URL: "https://rite.test" });
 const get = (path: string, headers: Record<string, string> = {}, db?: D1Database) =>
   worker.fetch(new Request(`https://rite.test${path}`, { headers }), env(db) as never, {} as ExecutionContext);
 
@@ -112,5 +112,21 @@ describe("adminPage rendering", () => {
     expect(h).not.toContain("tok123456789"); // the reading token is never printed whole
     expect(h).toMatch(/Stage reminders<\/td><td class="n">2<\/td><td class="n">2</);
     expect(h).toContain('href="/admin?days=90"'); // no key when signed in by header
+  });
+});
+
+describe("ADMIN_KEY separation", () => {
+  const WH = "whsec_not_the_admin_key_000";
+  const run = (path: string, e: Record<string, unknown>, headers: Record<string, string> = {}) =>
+    worker.fetch(new Request(`https://rite.test${path}`, { headers }), { ...env(), ...e } as never, {} as ExecutionContext);
+  it("GET /admin never accepts the webhook secret", async () => {
+    expect((await run(`/admin?key=${WH}`, {})).status).toBe(404);
+    expect((await run("/admin", {}, { authorization: `Bearer ${WH}` })).status).toBe(404);
+    expect((await run(`/admin?key=${WH}`, { ADMIN_KEY: undefined })).status).toBe(404); // no ADMIN_KEY set: page is off
+  });
+  it("/admin/stats uses ADMIN_KEY when set, and falls back to the webhook secret only when it isn't", async () => {
+    expect((await run("/admin/stats", {}, { authorization: `Bearer ${WH}` })).status).toBe(401);
+    expect((await run("/admin/stats", {}, { authorization: `Bearer ${SECRET}` })).status).toBe(200);
+    expect((await run("/admin/stats", { ADMIN_KEY: undefined }, { authorization: `Bearer ${WH}` })).status).toBe(200);
   });
 });

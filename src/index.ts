@@ -38,7 +38,7 @@ export interface Env {
   CURRENCY: string;
   MODEL_REPORT: string; MODEL_PREVIEW: string;
   FROM_EMAIL: string; SUPPORT_EMAIL: string;
-  STRIPE_SECRET_KEY: string; STRIPE_WEBHOOK_SECRET: string; ANTHROPIC_API_KEY: string; RESEND_API_KEY: string;
+  STRIPE_SECRET_KEY: string; STRIPE_WEBHOOK_SECRET: string; ADMIN_KEY?: string; ANTHROPIC_API_KEY: string; RESEND_API_KEY: string;
   AI?: Ai; TTS_VOICE?: string; ADMIN_EMAIL?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string;
 }
 
@@ -49,7 +49,12 @@ app.use("*", async (c, next) => { await next(); if (c.res && c.req.method === "G
 const id = (n = 12) => { const b = new Uint8Array(n); crypto.getRandomValues(b); return [...b].map((x) => x.toString(36).padStart(2, "0")).join("").slice(0, n); };
 const token = () => id(32);
 const now = () => new Date().toISOString();
-const adminOk = (env: Env, auth: string | undefined, key?: string) => adminAuthorized(env.STRIPE_WEBHOOK_SECRET, auth, key); // constant-time; key = ?key= (GET /admin only)
+// Human admin routes use ADMIN_KEY (bearer, or ?key= on GET /admin only). Until ADMIN_KEY is set, the bearer routes fall back to the
+// webhook secret so existing curl commands keep working; the browser page never accepts the webhook secret, so it can't land in history.
+const adminOk = (env: Env, auth: string | undefined, key?: string) =>
+  env.ADMIN_KEY ? adminAuthorized(env.ADMIN_KEY, auth, key) : key === undefined && adminAuthorized(env.STRIPE_WEBHOOK_SECRET, auth);
+// Worker-to-itself calls (/internal/generate) stay on the webhook secret.
+const internalOk = (env: Env, auth: string | undefined) => adminAuthorized(env.STRIPE_WEBHOOK_SECRET, auth);
 const stripe = (env: Env) => new Stripe(env.STRIPE_SECRET_KEY, { httpClient: Stripe.createFetchHttpClient() });
 const FUNNEL = new Set(["preview", "checkout", "paid", "generated", "gift_paid", "gift_redeemed", "season_start", "season_sent", "ask", "narrated", "refund", "story", "error"]);
 async function log(env: Env, kind: string, ref?: string | null, detail?: unknown) {
@@ -392,7 +397,7 @@ app.post("/redeem", async (c) => {
 });
 
 app.post("/internal/generate/:tok", async (c) => {
-  if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
+  if (!internalOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
   const tok = c.req.param("tok");
   // lock so refreshes don't start parallel LLM calls
   const lock = await c.env.DB.prepare("UPDATE purchases SET status='writing', delivered_at=? WHERE id=? AND (status='paid' OR status='failed' OR (status='writing' AND delivered_at < ?))").bind(now(), tok, new Date(Date.now() - 3 * 60000).toISOString()).run();
@@ -899,7 +904,7 @@ app.get("/admin/stats", async (c) => {
 });
 // HTML view of /admin/stats + recent errors, stories and email queues. Bearer header or ?key= (same secret); 404 otherwise.
 app.get("/admin", async (c) => {
-  if (!adminOk(c.env, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
+  if (!c.env.ADMIN_KEY || !adminAuthorized(c.env.ADMIN_KEY, c.req.header("authorization"), c.req.query("key"))) return c.notFound(); // ADMIN_KEY only
   const [stats, extras] = await Promise.all([adminStats(c.env.DB, adminDays(c.req.query("days"))), adminExtras(c.env.DB)]);
   return c.html(adminPage({ stats, extras, currency: c.env.CURRENCY, key: c.req.query("key"), generatedAt: now() }), 200,
     { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });

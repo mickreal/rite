@@ -115,8 +115,8 @@ Every number comes from code. The model only writes prose and is told it may not
 - Fulfilment and report-writing are split into separate invocations so no single request carries Stripe + Claude + D1 + email (the free plan caps CPU at 10 ms per invocation): the webhook (or `/thanks`) inserts the purchase row and POSTs `/internal/generate/:tok` to itself; that invocation takes a `writing` lock (status + timestamp) and writes the reading; `/r/:tok` only ever shows the "writing" page and re-kicks if the lock is older than 4 minutes. `POST /admin/fulfil {"session_id"}` fulfils a paid Checkout session by hand if the webhook was lost.
 
 - `GET /health` — Saturn's current longitude and the time.
-- `GET /admin?key=<secret>[&days=7|30|90]` — the same numbers as `/admin/stats` as a page, plus the last 20 errors, the last 20 stories (with `can_quote`) and pending/due counts for follow-ups, pass reminders and stage reminders. The secret is the Stripe webhook secret (`?key=` or the bearer header); a wrong or missing key gets a plain 404. Sent `no-store`, `noindex`, `no-referrer`; never tagged by PostHog.
-- `GET /admin/stats` and `POST /admin/refund {"email"}` — bearer token is the Stripe webhook secret. Wire `/admin/refund` to an inbox rule later if you want refund-on-request automation.
+- `GET /admin?key=<secret>[&days=7|30|90]` — the same numbers as `/admin/stats` as a page, plus the last 20 errors, the last 20 stories (with `can_quote`) and pending/due counts for follow-ups, pass reminders and stage reminders. The key is the `ADMIN_KEY` secret (`?key=` or the bearer header), never the webhook secret; without `ADMIN_KEY` set the page is off. A wrong or missing key gets a plain 404. Sent `no-store`, `noindex`, `no-referrer`; never tagged by PostHog.
+- `GET /admin/stats` and `POST /admin/refund {"email"}` — bearer token is `ADMIN_KEY` (falls back to the Stripe webhook secret only while `ADMIN_KEY` is unset). Wire `/admin/refund` to an inbox rule later if you want refund-on-request automation.
 - Events table (`visit`, `preview`, `checkout`, `paid`, `generated`, `emailed`, `season_sent`, `season_welcome`, `season_plan`, `season_cancel`, `season_past_due`, `season_resumed`, `season_complete`, `season_refund`, `followup_sent`, `followup_skipped`, `calendar`, `story`, `refund`, `error`) is the funnel. `wrangler d1 execute rite --remote --command "SELECT kind, COUNT(*) FROM events GROUP BY kind"`.
 
 ## Public pages
@@ -148,7 +148,7 @@ Every number comes from code. The model only writes prose and is told it may not
 - **Legal**: `/privacy`, `/terms`, `/refunds` (`views/legal.ts`), linked from the footer and the sitemap. Point Stripe's checkout "Terms" and "Privacy" links at them (Stripe dashboard → Settings → Public details).
 - **Daily error digest**: the hourly cron emails `ADMIN_EMAIL` (falls back to `SUPPORT_EMAIL`) at 08:00 Brisbane with the last 24 h of event counts and error rows, only when there were errors.
 - **Cleanup**: previews older than 90 days that were never bought and have no reminder are deleted daily at 04:00 Brisbane (the privacy page says so).
-- **Admin**: `POST /admin/season/:tok?to=you@x` forces one Saturn Season note for that purchase to any address (doesn't touch the subscription's schedule); `POST /admin/fulfil`, `/admin/refund`, `/admin/stats` as before. Bearer token is the Stripe webhook secret.
+- **Admin**: `POST /admin/season/:tok?to=you@x` forces one Saturn Season note for that purchase to any address (doesn't touch the subscription's schedule); `POST /admin/fulfil`, `/admin/refund`, `/admin/stats` as before. Bearer token is `ADMIN_KEY` (webhook secret only while it's unset; `/internal/generate` always uses the webhook secret).
 
 ## Not built yet
 
