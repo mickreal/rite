@@ -333,7 +333,7 @@ app.post("/admin/season/:tok", async (c) => {
   // Force one Saturn Season note for a purchase, to the purchaser (or ?to=you@x) — doesn't touch last_sent_at when `to` is given.
   if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
   const tok = c.req.param("tok");
-  const r = await c.env.DB.prepare(`SELECT COALESCE(s.id, 'none') sub_id, p.id purchase_id, s.last_sent_at, p.email, p.first_name, pv.* FROM purchases p JOIN previews pv ON pv.id = p.preview_id LEFT JOIN subscriptions s ON s.purchase_id = p.id AND s.status='active' WHERE p.id = ?`).bind(tok).first<SeasonRow>();
+  const r = await seasonRow(c.env, tok);
   if (!r) return c.json({ ok: false, error: "no such purchase" }, 404);
   const to = c.req.query("to") || undefined;
   const result = await sendSeasonNote(c.env, r, new Date(), to ?? r.email);
@@ -640,8 +640,17 @@ app.post("/webhook/stripe", async (c) => {
       if (tok && session.metadata?.gift !== "1") kickGenerate(c.env, c.executionCtx, tok);
     } else if (session.mode === "subscription" && session.metadata?.purchase_id && session.subscription) {
       const subId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
-      await c.env.DB.prepare("INSERT OR REPLACE INTO subscriptions (id, purchase_id, created_at, status) VALUES (?,?,?,'active')").bind(subId, session.metadata.purchase_id, now()).run();
-      await log(c.env, "season_start", session.metadata.purchase_id);
+      const purchaseId = session.metadata.purchase_id;
+      await c.env.DB.prepare("INSERT OR REPLACE INTO subscriptions (id, purchase_id, created_at, status) VALUES (?,?,?,'active')").bind(subId, purchaseId, now()).run();
+      await log(c.env, "season_start", purchaseId);
+      // Welcome note: the first Saturn Season note goes out now, not next Monday. sendSeasonNote sets last_sent_at, so the
+      // Monday cron skips this subscriber for the next six days.
+      c.executionCtx.waitUntil((async () => {
+        try {
+          const r = await seasonRow(c.env, purchaseId);
+          if (r) { const res = await sendSeasonNote(c.env, r, new Date()); await log(c.env, "season_welcome", purchaseId, { result: res }); }
+        } catch (e) { await log(c.env, "error", purchaseId, { where: "season-welcome", e: String(e) }); }
+      })());
     }
   } else if (event.type === "customer.subscription.deleted") {
     const sub = event.data.object as Stripe.Subscription;
@@ -696,6 +705,11 @@ app.get("/admin/stats", async (c) => {
 
 // ---------- cron: Saturn Season ----------
 type SeasonRow = PreviewRow & { sub_id: string; purchase_id: string; last_sent_at: string | null; email: string; first_name: string | null };
+
+/** The row sendSeasonNote needs for one purchase, joined with its active subscription if any. */
+async function seasonRow(env: Env, tok: string) {
+  return env.DB.prepare(`SELECT COALESCE(s.id, 'none') sub_id, p.id purchase_id, s.last_sent_at, p.email, p.first_name, pv.* FROM purchases p JOIN previews pv ON pv.id = p.preview_id LEFT JOIN subscriptions s ON s.purchase_id = p.id AND s.status='active' WHERE p.id = ?`).bind(tok).first<SeasonRow>();
+}
 
 async function runSeason(env: Env) {
   const subs = await env.DB.prepare(`SELECT s.id sub_id, s.purchase_id, s.last_sent_at, p.email, p.first_name, pv.* FROM subscriptions s JOIN purchases p ON p.id = s.purchase_id JOIN previews pv ON pv.id = p.preview_id WHERE s.status='active'`).all<SeasonRow>();
