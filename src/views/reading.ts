@@ -5,6 +5,7 @@ import { fmtDay, fmtMonth } from "../compute";
 import { STAGES, fmtMonYr, fmtMonYrL, untilText } from "../astro/cycle";
 import { saturnLongitude } from "../astro/saturn";
 import { ORDINAL } from "../content/notes";
+import { yearlyAllowed } from "../season";
 
 export interface ReportJson {
   cover_line: string; saturn_p1: string; saturn_p2: string; house_h3: string; house_p: string;
@@ -292,12 +293,12 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
 <p class="muted" style="margin:-60px 0 60px;font-size:14px">Tropical zodiac${c.house ? `, ${c.houseSystem === "whole" ? "whole-sign" : "Placidus"} houses` : ""}. Dates are UTC and exact to the day. Your reading stays at this link.</p>
 
 <section id="season" class="ch rv noprint" style="padding-bottom:80px">
-  ${opts.subscribed ? html`<div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="kicker">Saturn Season</span><h3>Your weekly note is on.</h3><p style="margin:0;color:#CFC8BA;line-height:1.6">Every Monday morning until your window closes, then it stops itself. <a href="/season/stop/${opts.token}">Stop it</a> any time.</p></div>`
+  ${opts.subscribed ? html`<div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="kicker">Saturn Season</span><h3>Your weekly note is on.</h3><p style="margin:0;color:#CFC8BA;line-height:1.6">Every Monday morning until your window closes, then it stops itself. <a href="/season/manage/${opts.token}">Manage it</a>: change plan or stop it any time.</p></div>`
   : html`<div class="card" style="display:flex;flex-direction:column;gap:14px;border:1px solid rgba(242,181,68,.35)">
     <span class="kicker">Saturn Season</span>
     <h3>A weekly note through your window.</h3>
     <p style="margin:0;color:#CFC8BA;line-height:1.6;max-width:620px">Every Monday: where Saturn is this week relative to your chart, whether it's applying or separating, and one thing to do. It stops itself when your window closes.</p>
-    <form method="post" action="/season/${opts.token}" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><button type="submit" name="plan" value="month" class="solid">$7 a month</button><button type="submit" name="plan" value="year" class="ghost">$59 for the year</button><span class="muted" style="font-size:14px">Cancel any time. It stops itself when your window closes.</span></form>
+    <form method="post" action="/season/${opts.token}" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><button type="submit" name="plan" value="month" class="solid">$7 a month</button>${yearlyAllowed(w.windowEnd, today) ? html`<button type="submit" name="plan" value="year" class="ghost">$59 for the year</button>` : ""}<span class="muted" style="font-size:14px">Cancel any time. It stops itself when your window closes${yearlyAllowed(w.windowEnd, today) ? ", and a yearly plan refunds the unused months then" : ""}.</span></form>
   </div>`}
 </section>
 </main>

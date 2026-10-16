@@ -28,6 +28,8 @@ src/
   views/reading.ts  /r/:tok      Paid reading, ten chapters (see below)
   views/sign.ts     /saturn-return/saturn-in/:sign   Public SEO pages, all dates computed
   views/gift.ts     /gift        Buy a gift code; /gift/thanks/:code after payment
+  views/season.ts   /season/manage/:tok   Saturn Season: plan, next note, switch monthly/yearly, stop
+  season.ts         Saturn Season date/plan logic (next note, unused months, yearly gating, upcoming dates) — pure, tested
   narration.ts      Per-chapter narration script for the TTS endpoint
 public/og.png       Link-preview image served as a static asset
 test/
@@ -52,6 +54,7 @@ npm test                      # must be green before anything else
 npx wrangler d1 create rite                      # paste database_id into wrangler.toml
 npx wrangler kv namespace create CACHE           # paste id into wrangler.toml
 npm run db:schema                                # applies schema.sql to the remote D1
+#    Existing database from before Oct 2026? Also run once: npm run db:migrate:plan   (adds subscriptions.plan)
 
 # 2. Secrets (never commit these)
 npx wrangler secret put STRIPE_SECRET_KEY        # sk_live_… from the Rite Stripe account (use sk_test_ first)
@@ -65,7 +68,8 @@ npm run deploy                                   # → https://rite.<account>.wo
 # 4. Stripe webhook
 #    Stripe dashboard → Developers → Webhooks → Add endpoint:
 #    URL: https://<your-worker-url>/webhook/stripe
-#    Events: checkout.session.completed, customer.subscription.deleted, charge.refunded
+#    Events: checkout.session.completed, customer.subscription.deleted, charge.refunded,
+#            invoice.payment_failed, invoice.paid        (the last two pause/resume Saturn Season on failed renewals)
 #    Copy the signing secret → wrangler secret put STRIPE_WEBHOOK_SECRET → npm run deploy again
 
 # 5. Domain
@@ -83,6 +87,15 @@ Local dev: copy `.dev.vars.example` to `.dev.vars`, fill in test keys, `npm run 
 4. `/r/:token` — the reading. Everything dated or numeric is computed on each view, so the page updates as the person moves through the cycle; the model's prose fills the slots. Chapters: 0 where you are now (stage wheel + date scrubber via `/r/:tok/stage?t=`), 1 your Saturn, 2 the window (path chart, three phases), 3 the pass and the turn (per-date cards, `.ics` per date or all at `/r/:tok/calendar.ics`), 4 where it shows up (house/cusp weights), 5 month by month, 6 Saturn history (ages ~7/14/21, answers kept in localStorage), 7 workbook (localStorage), 8 the long arc, 9 ask (`POST /r/:tok/ask`, five per purchase, stored in `asks`). Print stylesheet for "Save as PDF". Share card at `/card/r/:token.svg`. Saturn Season card at the end.
 5. Cron (hourly) — for each active subscription, if it's Monday 07:00 in the subscriber's own timezone, computes today's orb/motion, writes the weekly note, sends it. When the orb passes 5° separating it sends the season-complete email and cancels the Stripe subscription.
 
+## Saturn Season
+
+- **Prices**: two recurring Stripe Prices (month / year, amounts from `PRICE_SEASON_*_CENTS`) under one Product "Rite — Saturn Season", created on first use by `ensureSeasonPrices` and cached in KV at `stripe:season:prices` (found again by `lookup_key` if the cache is lost). Checkout and plan switches use these ids; inline `price_data` can't be swapped on an existing subscription.
+- **Subscribe** (`POST /season/:tok`, plan=month|year): Stripe Checkout; the webhook stores the row with `plan` and sends the first note immediately (welcome), which also sets `last_sent_at` so the Monday cron waits six days.
+- **Manage** (`/season/manage/:tok`, linked from every note and the reading): status, plan, next note (Monday 07:00 in the subscriber's zone), the date it stops itself. `POST /season/plan/:tok` switches with `proration_behavior: create_prorations`; `POST /season/cancel/:tok` cancels now. `/season/stop/:tok` redirects here.
+- **Yearly guardrails**: the reading only offers yearly when the window end is at least nine months away. When a yearly subscription auto-closes (Saturn leaves the sign) the cron refunds the unused full months (`5900 × unused / 12`) on the latest invoice's payment and logs `season_refund`.
+- **Failed payment**: `invoice.payment_failed` → `past_due` (no notes); `invoice.paid` → `active` again.
+- **Plan column**: `subscriptions.plan` was added after launch. New databases get it from `schema.sql`; an existing one needs `npm run db:migrate:plan` once.
+
 Every number comes from code. The model only writes prose and is told it may not invent dates.
 
 ## Accuracy
@@ -98,13 +111,13 @@ Every number comes from code. The model only writes prose and is told it may not
 
 - `GET /health` — Saturn's current longitude and the time.
 - `GET /admin/stats` and `POST /admin/refund {"email"}` — bearer token is the Stripe webhook secret. Wire `/admin/refund` to an inbox rule later if you want refund-on-request automation.
-- Events table (`visit`, `preview`, `checkout`, `paid`, `generated`, `emailed`, `season_sent`, `refund`, `error`) is the funnel. `wrangler d1 execute rite --remote --command "SELECT kind, COUNT(*) FROM events GROUP BY kind"`.
+- Events table (`visit`, `preview`, `checkout`, `paid`, `generated`, `emailed`, `season_sent`, `season_welcome`, `season_plan`, `season_cancel`, `season_past_due`, `season_resumed`, `season_complete`, `season_refund`, `refund`, `error`) is the funnel. `wrangler d1 execute rite --remote --command "SELECT kind, COUNT(*) FROM events GROUP BY kind"`.
 
 ## Public pages
 
 - `/saturn-return/saturn-in/:sign` — twelve SEO pages. The transit dates, "first return, born" and "second return, born" ranges come from `content/sign-periods.json`; the birth-date check calls `/api/calc`. Listed in `/sitemap.xml`; `/p/`, `/r/` and `/admin/` are disallowed in `robots.txt`.
 - `/start` — the mobile stepper. Same `POST /preview` underneath; the "building" screen runs while the server geocodes and writes the preview.
-- Remind-me (`POST /remind` on the result page) stores a row in `reminders`; the hourly cron emails it seven days before the pass.
+- Remind-me (`POST /remind` on the result page) stores a row in `reminders`; the hourly cron emails it seven days before the pass. When the window is more than a year away the card becomes "Tell me when my window opens" (`kind=window_open`): one row with `hit_date` = window open, sent 30 days before, with its own copy in `runReminders`.
 
 ## Gifts, reminders, narration
 
@@ -124,5 +137,4 @@ Every number comes from code. The model only writes prose and is told it may not
 
 - PNG share card (Cloudflare Browser Rendering or resvg-wasm) — SVG is served now; the OG image is a pre-rendered PNG because social crawlers won't render SVG.
 - Real PDF attachment — print stylesheet instead.
-- Annual Saturn Season price ($59) — only monthly is wired; the card mentions it.
 - Second-return landing variant.
