@@ -167,6 +167,14 @@ app.get("/saturn-return/saturn-in/:sign", async (c) => {
   return c.html(signPage({ siteUrl: c.env.SITE_URL, d }), 200, { "cache-control": "public, max-age=3600" });
 });
 app.get("/saturn-return", (c) => c.redirect("/", 301));
+// Second-return landing: whoever is having their second return in the sign Saturn is in now (dates from sign-periods.json).
+app.get("/second", async (c) => {
+  await log(c.env, "visit", c.req.query("r") ?? "second");
+  const sign = signOf(saturnLongitude(new Date()));
+  const d = signData(sign);
+  return c.html(landingPage({ siteUrl: c.env.SITE_URL, season: seasonTeaser(c.env), ref: c.req.query("r") ?? c.req.query("utm_source") ?? "second", variant: "second",
+    second: { sign, born: d.secondBorn, until: d.current[d.current.length - 1].to } }), 200, { "cache-control": "public, max-age=3600" });
+});
 app.get("/privacy", (c) => c.html(legalPage({ siteUrl: c.env.SITE_URL, page: "privacy", supportEmail: c.env.SUPPORT_EMAIL })));
 app.get("/terms", (c) => c.html(legalPage({ siteUrl: c.env.SITE_URL, page: "terms", supportEmail: c.env.SUPPORT_EMAIL })));
 app.get("/refunds", (c) => c.html(legalPage({ siteUrl: c.env.SITE_URL, page: "refunds", supportEmail: c.env.SUPPORT_EMAIL })));
@@ -186,7 +194,7 @@ app.get("/season", (c) => {
   }), 200, { "cache-control": "public, max-age=3600" });
 });
 app.get("/sitemap.xml", (c) => {
-  const urls = ["/", "/season", "/gift", "/privacy", "/terms", "/refunds", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
+  const urls = ["/", "/second", "/season", "/gift", "/privacy", "/terms", "/refunds", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
   return c.body(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join("")}</urlset>`, 200, { "content-type": "application/xml" });
 });
 app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\nDisallow: /p/\nDisallow: /r/\nDisallow: /admin/\nSitemap: ${c.env.SITE_URL}/sitemap.xml\n`));

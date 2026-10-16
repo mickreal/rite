@@ -1,5 +1,33 @@
 import { html, raw } from "hono/html";
 import { shell, ARROW, MARK } from "./theme";
+import { fmtMonYrL } from "../astro/cycle";
+
+/** Data for the second-return variant (/second): the sign Saturn is in now and who is having their second return in it. */
+export interface SecondReturn {
+  sign: string;
+  born: Array<{ from: string; to: string }>; // birth ranges whose second return is this stretch (content/sign-periods.json)
+  until: string;                             // YYYY-MM-DD Saturn leaves the sign (end of the current stretch)
+}
+const monthLong = (iso: string) => fmtMonYrL(Date.parse(iso + "T12:00:00Z"));
+/** "March 1967 and April 1969", several ranges joined with "or". */
+export function bornRanges(born: SecondReturn["born"]): string {
+  return born.map((b) => `${monthLong(b.from)} and ${monthLong(b.to)}`).join(", or ");
+}
+
+/** A birth year squarely inside the longest range, for the FAQ question. */
+const midYear = (born: SecondReturn["born"]) => { const b = [...born].sort((x, y) => (Date.parse(y.to) - Date.parse(y.from)) - (Date.parse(x.to) - Date.parse(x.from)))[0]; return new Date((Date.parse(b.from) + Date.parse(b.to)) / 2).getUTCFullYear(); };
+function secondFaq(s: SecondReturn): Array<[string, string]> {
+  const r = bornRanges(s.born);
+  return [
+    ["What is a second Saturn return?", "Saturn takes about 29 and a half years to come back to where it was when you were born. The second time, you're somewhere between 56 and 60. The first return asked what you would build. This one asks what is worth keeping, and what you are done proving."],
+    [`I was born in ${midYear(s.born)}. Am I in it now?`, `If you were born between ${r}, yes. Saturn is in ${s.sign} until ${monthLong(s.until)}. Put your birth date in above and you'll see your own window and every exact pass.`],
+    ["I don't know my birth time. Does that matter?", "Your dates stay accurate, because Saturn moves slowly. Without a time we use noon and leave houses out of the reading."],
+    ["Is the reading different from a first-return reading?", "Yes. It is written for someone around 58, not 29: no first-adulthood framing. The history chapter looks back over the checkpoints since your first return, at about 37, 44 and 51."],
+    ["How accurate are the dates?", "They are calculated from actual planetary positions, checked against Swiss Ephemeris, and given to the day."],
+    ["Is this a subscription?", "No. You pay once and the reading is yours, including a printable copy."],
+    ["What if it isn't useful?", "Email us within 14 days for a full refund."],
+  ];
+}
 
 const CSS = `
 .artLayer{position:sticky;top:0;height:100vh;margin-bottom:-100vh;pointer-events:none;z-index:0}
@@ -100,6 +128,7 @@ const CSS = `
 .mininote:hover{color:#14110A;transform:rotate(0) translateY(-4px)}
 .mininote .mtag{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:999px;background:#14110A;color:#EDE6D6;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
 @media (max-width:520px){.mininote{transform:none;flex-basis:100%}}
+#reading{overflow-x:clip}
 .nw{white-space:nowrap}@media (max-width:520px){.nw{white-space:normal}}
 @media (max-width:900px){.echo{right:-360px!important;opacity:.7}}
 `;
@@ -136,8 +165,10 @@ const FAQ: Array<[string, string]> = [
   ["What if it isn't useful?", "Email us within 14 days for a full refund."],
 ];
 
-export function landingPage(opts: { siteUrl: string; ref?: string; error?: string; form?: { date?: string; place?: string; time?: string }; gift?: { code: string; from: string | null; message: string | null } | null; season?: { monthly: number; yearly: number; saturnNow: string } }) {
+export function landingPage(opts: { siteUrl: string; ref?: string; error?: string; form?: { date?: string; place?: string; time?: string }; gift?: { code: string; from: string | null; message: string | null } | null; season?: { monthly: number; yearly: number; saturnNow: string }; variant?: "second"; second?: SecondReturn }) {
   const f = opts.form ?? {};
+  const second = opts.variant === "second" && opts.second ? opts.second : null;
+  const faq = second ? secondFaq(second) : FAQ;
   const sea = opts.season ?? { monthly: 7, yearly: 59, saturnNow: "" };
   const body = html`
 <div class="heroWrap" style="position:relative">
@@ -156,12 +187,12 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
 
 <section id="top" class="hero">
   <div class="heroText">
-    <h1 class="disp" aria-label="Your Saturn return, dated." style="margin:0 0 -.15em;font-size:clamp(44px,min(5.6vw,9.6vh),90px);letter-spacing:-.045em;font-weight:700">
-      <span aria-hidden="true" style="display:block;overflow:hidden;font-size:.34em;font-weight:500;font-style:italic;letter-spacing:-.01em;line-height:1;color:#BDB6A8;padding:.1em 0 .12em .12em"><span class="w" style="animation-delay:.05s">Your</span></span>
+    <h1 class="disp" aria-label="${second ? "Your second Saturn return, dated." : "Your Saturn return, dated."}" style="margin:0 0 -.15em;font-size:clamp(44px,min(5.6vw,9.6vh),90px);letter-spacing:-.045em;font-weight:700">
+      <span aria-hidden="true" style="display:block;overflow:hidden;font-size:.34em;font-weight:500;font-style:italic;letter-spacing:-.01em;line-height:1;color:#BDB6A8;padding:.1em 0 .12em .12em"><span class="w" style="animation-delay:.05s">${second ? "Your second" : "Your"}</span></span>
       <span aria-hidden="true" style="display:block;overflow:hidden;line-height:.86;padding-bottom:.04em;white-space:nowrap"><span class="w" style="animation-delay:.16s">Saturn</span> <span class="w" style="animation-delay:.26s">return,</span></span>
       <span aria-hidden="true" style="display:block;overflow:hidden;font-size:1.62em;font-weight:800;letter-spacing:-.06em;line-height:.8;margin-top:-.04em;padding:.02em 0;color:#F2B544;white-space:nowrap"><span class="w" style="animation-delay:.38s">dated.</span></span>
     </h1>
-    <p class="fade" style="margin:0;font-size:19px;line-height:1.6;color:#BDB6A8;animation-delay:.6s;text-wrap:pretty">Born between April 1996 and June 1998? You're in it now. Get your Saturn sign, your window and every pass, free, in about ten seconds.</p>
+    <p class="fade" style="margin:0;font-size:19px;line-height:1.6;color:#BDB6A8;animation-delay:.6s;text-wrap:pretty">${second ? `Born between ${bornRanges(second.born)}? Your second Saturn return is open now: Saturn is back in ${second.sign} until ${monthLong(second.until)}. Get your window and every pass, free, in about ten seconds.` : "Born between April 1996 and June 1998? You're in it now. Get your Saturn sign, your window and every pass, free, in about ten seconds."}</p>
     ${opts.gift ? html`<div class="card" style="border:1px solid rgba(242,181,68,.5);display:flex;flex-direction:column;gap:6px;padding:18px 22px"><span class="kicker" style="color:#F2B544;font-size:14px">A gift${opts.gift.from ? ` from ${opts.gift.from}` : ""}</span><span style="font-size:16px;line-height:1.5">Someone bought you the full reading. Put in your own birth details below and it\'s yours; nothing to pay.</span>${opts.gift.message ? html`<span class="muted" style="font-size:15px;font-style:italic">“${opts.gift.message}”</span>` : ""}</div>` : ""}
     <form id="start" class="fade" method="post" action="/preview" style="animation-delay:.8s;background:#14171D;border:1px solid rgba(237,230,214,.1);border-radius:28px;padding:clamp(20px,2.8vh,28px);display:flex;flex-direction:column;gap:clamp(12px,2vh,18px)">
       <input type="hidden" name="ref" value="${opts.ref ?? ""}">${opts.gift ? html`<input type="hidden" name="gift" value="${opts.gift.code}">` : ""}
@@ -243,7 +274,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
     <h2 class="disp a" style="margin:0;font-size:clamp(40px,4.6vw,68px);line-height:1;letter-spacing:-.03em;font-weight:700;animation-delay:.7s">What's in the reading</h2>
     <p class="a" style="margin:0;font-size:19px;line-height:1.6;color:#BDB6A8;max-width:480px;animation-delay:.85s">Nine chapters built from your chart, with real dates throughout. It opens the moment you pay, and you can print it.</p>
     <div style="display:flex;flex-direction:column">
-      ${[["Your Saturn", "Sign, house and the exact degree your return is measured against."], ["Your window, charted", "Saturn's real path against your degree, phase by phase."], ["The pass and the turn", "Each crossing dated, with what to do the week before, on the day and after."], ["Month by month", "Every month of your window, with what each one is good for."], ["Your Saturn history", "The checkpoints at about 7, 14 and 21, with prompts to make sense of them."], ["A workbook", "Prompts for the phase you are in, and the ones ahead."], ["Ask about it", "Five follow-up questions, answered from your chart."]].map(([t, d], i) => html`<div class="chap a" style="animation-delay:${(1 + i * 0.12).toFixed(2)}s;${i === 6 ? "border-bottom:1px solid rgba(237,230,214,.12)" : ""}"><span class="disp" style="font-size:22px;font-weight:600;flex:0 0 220px">${t}</span><span style="color:#BDB6A8;flex:1 1 240px;line-height:1.5">${d}</span></div>`)}
+      ${[["Your Saturn", "Sign, house and the exact degree your return is measured against."], ["Your window, charted", "Saturn's real path against your degree, phase by phase."], ["The pass and the turn", "Each crossing dated, with what to do the week before, on the day and after."], ["Month by month", "Every month of your window, with what each one is good for."], ["Your Saturn history", second ? "The checkpoints since your first return, at about 37, 44 and 51, with prompts to make sense of them." : "The checkpoints at about 7, 14 and 21, with prompts to make sense of them."], ["A workbook", "Prompts for the phase you are in, and the ones ahead."], ["Ask about it", "Five follow-up questions, answered from your chart."]].map(([t, d], i) => html`<div class="chap a" style="animation-delay:${(1 + i * 0.12).toFixed(2)}s;${i === 6 ? "border-bottom:1px solid rgba(237,230,214,.12)" : ""}"><span class="disp" style="font-size:22px;font-weight:600;flex:0 0 220px">${t}</span><span style="color:#BDB6A8;flex:1 1 240px;line-height:1.5">${d}</span></div>`)}
     </div>
   </div>
 </section>
@@ -292,7 +323,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
 
 <section data-rv id="ages" style="padding:80px 0 140px;overflow:hidden">
   <div class="wrap" style="display:flex;flex-direction:column;gap:48px">
-    <h2 class="disp a" style="margin:0;font-size:clamp(40px,4.6vw,68px);line-height:1;letter-spacing:-.03em;font-weight:700;max-width:760px">Saturn comes back about every 29 years.</h2>
+    <h2 class="disp a" style="margin:0;font-size:clamp(40px,4.6vw,68px);line-height:1;letter-spacing:-.03em;font-weight:700;max-width:760px">${second ? "Saturn comes back about every 29 years. This is the second time." : "Saturn comes back about every 29 years."}</h2>
     <div style="display:flex;flex-wrap:wrap;gap:8px 48px;align-items:flex-end;min-height:1em">
       <button type="button" class="age disp split on" data-age="29">0</button><button type="button" class="age disp split" data-age="58" style="display:none">0</button><button type="button" class="age disp split" data-age="87" style="display:none">0</button>
     </div>
@@ -304,7 +335,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
 
 <section id="faq" data-rv style="max-width:920px;margin:0 auto;padding:0 clamp(16px,4vw,48px) 160px;display:flex;flex-direction:column;gap:24px">
   <h2 class="disp f" style="margin:0 0 12px;font-size:clamp(40px,4.6vw,68px);line-height:1;letter-spacing:-.03em;font-weight:700">Questions</h2>
-  <div>${FAQ.map(([q, a], i) => html`<div class="row" style="border-bottom:1px solid rgba(237,230,214,.14);${i === 0 ? "border-top:1px solid rgba(237,230,214,.14);" : ""}animation-delay:${(0.25 + i * 0.12).toFixed(2)}s"><button type="button" class="faqb ${i === 0 ? "open" : ""}" aria-expanded="${i === 0}">${q}<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4v14M4 11h14"/></svg></button><p class="faqa ${i === 0 ? "open" : ""}">${a}</p></div>`)}</div>
+  <div>${faq.map(([q, a], i) => html`<div class="row" style="border-bottom:1px solid rgba(237,230,214,.14);${i === 0 ? "border-top:1px solid rgba(237,230,214,.14);" : ""}animation-delay:${(0.25 + i * 0.12).toFixed(2)}s"><button type="button" class="faqb ${i === 0 ? "open" : ""}" aria-expanded="${i === 0}">${q}<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4v14M4 11h14"/></svg></button><p class="faqa ${i === 0 ? "open" : ""}">${a}</p></div>`)}</div>
 </section>
 
 <section data-rv style="padding:0 0 120px;overflow:hidden">
@@ -330,10 +361,11 @@ document.querySelectorAll('#pills .pill').forEach(function(b){b.addEventListener
 // faq
 document.querySelectorAll('.faqb').forEach(function(b){b.addEventListener('click',function(){var open=b.classList.contains('open');document.querySelectorAll('.faqb').forEach(function(x){x.classList.remove('open');x.setAttribute('aria-expanded','false')});document.querySelectorAll('.faqa').forEach(function(x){x.classList.remove('open')});if(!open){b.classList.add('open');b.setAttribute('aria-expanded','true');b.nextElementSibling.classList.add('open')}})});
 // ages
-var AGES={29:['The first return','Usually somewhere between 27 and 30. The one most people mean when they say Saturn return.'],58:['The second return','Usually between 56 and 60. Saturn checks back in on what you built after the first.'],87:['The third return','Around 87 or 88, for those who reach it.']};
+var AGES={29:['The first return','Usually somewhere between 27 and 30. The one most people mean when they say Saturn return.'],58:['The second return',${JSON.stringify(second ? `Usually between 56 and 60. Saturn checks back in on what you built after the first. Born between ${bornRanges(second.born)}: yours is open now.` : "Usually between 56 and 60. Saturn checks back in on what you built after the first.")}],87:['The third return','Around 87 or 88, for those who reach it.']};
+var FOCUS=${second ? 58 : 29};
 var counting=false;
 function startCount(){if(counting)return;counting=true;var btns=document.querySelectorAll('.age');var seq=[[0,29],[29,58],[58,87]],dur=[1200,950,950],stage=0,t0=null;
-function step(ts){if(t0===null)t0=ts;var p=Math.min(1,(ts-t0)/dur[stage]),e=1-Math.pow(1-p,3);btns[stage].style.display='';btns[stage].textContent=Math.round(seq[stage][0]+(seq[stage][1]-seq[stage][0])*e);btns.forEach(function(b,i){b.classList.toggle('on',i===stage)});if(p<1){requestAnimationFrame(step);return}if(stage<2){stage++;t0=null;setTimeout(function(){requestAnimationFrame(step)},260)}else{showAge(29)}}
+function step(ts){if(t0===null)t0=ts;var p=Math.min(1,(ts-t0)/dur[stage]),e=1-Math.pow(1-p,3);btns[stage].style.display='';btns[stage].textContent=Math.round(seq[stage][0]+(seq[stage][1]-seq[stage][0])*e);btns.forEach(function(b,i){b.classList.toggle('on',i===stage)});if(p<1){requestAnimationFrame(step);return}if(stage<2){stage++;t0=null;setTimeout(function(){requestAnimationFrame(step)},260)}else{showAge(FOCUS)}}
 setTimeout(function(){requestAnimationFrame(step)},350)}
 function showAge(a){document.querySelectorAll('.age').forEach(function(b){b.classList.toggle('on',+b.dataset.age===a)});$('#ageTitle').textContent=AGES[a][0];$('#ageBody').textContent=AGES[a][1];var i=$('#ageInfo');i.style.display='flex';i.classList.remove('swap');void i.offsetWidth;i.classList.add('swap')}
 document.querySelectorAll('.age').forEach(function(b){b.addEventListener('click',function(){showAge(+b.dataset.age)})});
@@ -370,8 +402,9 @@ document.querySelectorAll('a[href="#start"]').forEach(function(a){a.addEventList
 })();`;
 
   return shell({
-    title: "Your Saturn return, dated. · Rite", body, extraCss: CSS, script,
-    canonical: opts.siteUrl + "/", og: opts.siteUrl + "/og.png",
+    title: second ? "Your second Saturn return, dated. · Rite" : "Your Saturn return, dated. · Rite", body, extraCss: CSS, script,
+    description: second ? `Born ${bornRanges(second.born)}? Your second Saturn return is open now. Your window and every exact pass, free in ten seconds.` : undefined,
+    canonical: opts.siteUrl + (second ? "/second" : "/"), og: opts.siteUrl + "/og.png",
     nav: html`<nav class="main"><a href="#reading">The reading</a><a href="#price">Price</a><a href="#faq">Questions</a><a href="#start" class="ghost">Get my dates</a></nav>`,
   });
 }
