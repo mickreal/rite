@@ -1,0 +1,84 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Flow.dc.html": {
+      "h": 844,
+      "is_interactive": true,
+      "title": "Mobile input flow",
+      "w": 390,
+      "x": 1520,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 6400,
+      "is_interactive": true,
+      "title": "Landing page",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "OgImage.dc.html": {
+      "h": 630,
+      "title": "Link preview 1200x630",
+      "w": 1200,
+      "x": 7710,
+      "y": 0
+    },
+    "Reading.dc.html": {
+      "expand": "fill",
+      "h": 8000,
+      "is_interactive": true,
+      "title": "Paid reading (web)",
+      "w": 1440,
+      "x": 4670,
+      "y": 0
+    },
+    "Result.dc.html": {
+      "expand": "fill",
+      "h": 3000,
+      "is_interactive": true,
+      "title": "Free result and offer",
+      "w": 1440,
+      "x": 1990,
+      "y": 0
+    },
+    "ShareCard.dc.html": {
+      "h": 1920,
+      "title": "Share card 1080x1920",
+      "w": 1080,
+      "x": 3510,
+      "y": 0
+    },
+    "SignAries.dc.html": {
+      "expand": "fill",
+      "h": 3800,
+      "is_interactive": true,
+      "title": "SEO page: Saturn return in Aries",
+      "w": 1440,
+      "x": 6190,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-16T09:00:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {},
+  "order": [
+    "Main.dc.html",
+    "Flow.dc.html",
+    "Result.dc.html",
+    "ShareCard.dc.html",
+    "Reading.dc.html",
+    "SignAries.dc.html",
+    "OgImage.dc.html"
+  ],
+  "pages": [],
+  "title": "Rite Saturn Return"
+}

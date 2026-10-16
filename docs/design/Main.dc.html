@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rite: Saturn Return</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0E1014}
+html{scroll-behavior:smooth}
+a{color:#F2B544}a:hover{color:#FFD27A}
+.rt{font-family:'Hanken Grotesk',system-ui,sans-serif;color:#EDE6D6;background:#0E1014;overflow-x:clip}
+.disp{font-family:'Bricolage Grotesque',serif;font-optical-sizing:auto}
+.field{display:flex;flex-direction:column;gap:8px}
+.field label{font-size:14px;color:#A7A196}
+.field input{height:52px;border-radius:14px;border:1px solid rgba(237,230,214,.18);background:#14171D;color:#EDE6D6;font:500 17px 'Hanken Grotesk',sans-serif;padding:0 16px;color-scheme:dark;transition:border-color .2s,box-shadow .2s}
+.field input:focus{outline:none;border-color:#F2B544;box-shadow:0 0 0 4px rgba(242,181,68,.18)}
+.cta{height:56px;border:0;border-radius:999px;background:#F2B544;color:#14110A;font:600 17px 'Hanken Grotesk',sans-serif;padding:0 28px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;transition:transform .25s cubic-bezier(.2,.8,.2,1),background .2s}
+.cta:hover{background:#FFC85C;color:#14110A;transform:translateY(-2px)}
+.cta svg{transition:transform .25s}
+.cta:hover svg{transform:translateX(4px)}
+.ghost{height:44px;border-radius:999px;border:1px solid rgba(237,230,214,.25);color:#EDE6D6;padding:0 20px;display:inline-flex;align-items:center;text-decoration:none;font-weight:500;transition:border-color .2s,background .2s}
+.ghost:hover{color:#EDE6D6;border-color:#F2B544;background:rgba(242,181,68,.08)}
+.pill{height:44px;padding:0 20px;border-radius:999px;border:1px solid rgba(237,230,214,.22);background:transparent;color:#EDE6D6;font:500 15px 'Hanken Grotesk',sans-serif;cursor:pointer;transition:all .2s}
+.pill:hover{border-color:#F2B544}
+.pill.on{background:#EDE6D6;color:#0E1014;border-color:#EDE6D6}
+.age{background:none;border:0;cursor:pointer;padding:0;text-align:left;color:#3A3D44;transition:color .4s;font-variant-numeric:tabular-nums}
+.age:hover{color:#6B6E75}
+.age.on{color:#F2B544}
+
+/* hero load-in */
+.w{display:inline-block;opacity:0;transform:translateY(60%) rotate(4deg);animation:wIn 1s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes wIn{to{opacity:1;transform:none}}
+.fade{opacity:0;animation:fIn 1.2s ease forwards}
+@keyframes fIn{to{opacity:1}}
+
+/* pinned hero art */
+.artLayer{position:sticky;top:0;height:100vh;margin-bottom:-100vh;pointer-events:none;z-index:0}
+.topbar{position:absolute;top:0;left:0;right:0;z-index:3}
+.artInner{max-width:1240px;height:100%;margin:0 auto;padding:104px clamp(16px,4vw,48px);display:flex;align-items:center;justify-content:flex-end;box-sizing:border-box}
+.art{width:max(240px,min(540px,42vw,calc(100svh - 330px)));display:flex;flex-direction:column;align-items:center;gap:clamp(14px,2.6vh,26px)}
+.hero{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:104px clamp(16px,4vw,48px);box-sizing:border-box;min-height:100vh;min-height:100svh;display:flex;align-items:center}
+.heroText{width:fit-content;max-width:min(620px,52%);display:flex;flex-direction:column;align-items:stretch;gap:clamp(18px,3.4vh,32px)}
+.heroText>p,.heroText>form{contain:inline-size}
+.linger{height:28vh}
+.hint{color:#6B675F;transition:color .3s ease;cursor:default}
+.hint:hover{color:#9A948A}
+.ctaRow{display:flex;flex-wrap:nowrap;align-items:center;gap:16px}
+@media (max-width: 480px){.ctaRow{flex-wrap:wrap}}
+.echo .pdial,.echo .pring,.echo .parc,.echo .pmark,.echo .psat{opacity:0}
+.in .echo .pdial{animation:eDial 2.2s cubic-bezier(.3,.6,.3,1) .2s both}
+.in .echo .pring{animation:eRing 1.6s cubic-bezier(.3,.6,.3,1) .4s both}
+.in .echo .pmark{animation:eDrop .9s cubic-bezier(.2,1.5,.4,1) 1.1s both}
+.in .echo .parc{animation:fIn 1.2s ease 2.2s both}
+.in .echo .psat{animation:satEnter 3s cubic-bezier(.15,.6,.2,1) .9s both}
+@supports (animation-timeline: view()){
+.pcard{view-timeline-name:--price}
+.echo{animation:echoPin linear both;animation-timeline:--price;animation-range:cover 0% cover 50%}
+@keyframes echoPin{from{top:calc(-50vh - 340px)}to{top:calc(50% - 340px)}}
+.pspin{animation:pspin linear both;animation-timeline:--price;animation-range:cover 0% cover 50%}
+@keyframes pspin{from{transform:rotate(-140deg)}to{transform:rotate(0)}}
+}
+.echoLine{opacity:0}
+.in .echoLine{animation:fIn 1.2s ease 2.6s both}
+@media (max-width: 900px){.echo{right:-360px!important;opacity:.7}}
+.nw{white-space:nowrap}
+@media (max-width: 520px){.nw{white-space:normal;text-wrap:balance}}
+.hring{transform-box:fill-box;transform-origin:center;animation:hring 1.2s cubic-bezier(.2,1.4,.4,1) .8s both}
+@keyframes hring{from{transform:rotate(-200deg) scale(.2);opacity:0}to{transform:rotate(-22deg);opacity:1}}
+.lrule{flex:1 1 auto;height:2px;min-width:1em;background:rgba(237,230,214,.22);transform-origin:left center;transform:scaleX(0);animation:lrule 1.1s cubic-bezier(.4,.1,.2,1) .35s forwards}
+@keyframes lrule{to{transform:scaleX(1)}}
+.season{position:relative;z-index:2}
+@supports (animation-timeline: view()){
+.heroWrap{timeline-scope:--season}
+.season{view-timeline-name:--season}
+.artFade{-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 40%,transparent 60%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0%,#000 40%,transparent 60%,transparent 100%);-webkit-mask-size:100% 250%;mask-size:100% 250%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:0 0;mask-position:0 0;animation:artOut linear both;animation-timeline:--season;animation-range:entry 20% entry 95%}
+@keyframes artOut{0%{-webkit-mask-position:0 0;mask-position:0 0;transform:none;opacity:1}100%{-webkit-mask-position:0 100%;mask-position:0 100%;transform:translateY(-24px) scale(.97);opacity:.6}}
+.dial{animation:spin linear both;animation-timeline:scroll()}
+@keyframes spin{to{transform:rotate(140deg)}}
+}
+@media (max-width: 900px){
+.artLayer{position:relative;height:auto;margin-bottom:0;pointer-events:auto}
+.artInner{justify-content:center;padding-top:8px}
+.art{width:min(440px,100%)}
+.artFade{animation:none!important}
+.topbar{position:relative}
+.artInner{padding:8px clamp(16px,4vw,48px) 0}
+.hero{min-height:0;display:block;padding:24px clamp(16px,4vw,48px) 96px}
+.heroText{max-width:none;width:auto}
+.linger{display:none}
+}
+
+/* orbit entry */
+.vb{transform-box:view-box;transform-origin:50% 50%}
+.eDial{animation:eDial 1.5s cubic-bezier(.3,.6,.3,1) both}
+@keyframes eDial{0%{opacity:0;transform:scale(.35) rotate(-140deg)}55%{opacity:1;transform:scale(1.07) rotate(10deg)}75%{transform:scale(.97) rotate(-3deg)}100%{opacity:1;transform:none}}
+.eRing{animation:eRing 1.2s cubic-bezier(.3,.6,.3,1) both}
+@keyframes eRing{0%{opacity:0;transform:scale(.4)}60%{opacity:1;transform:scale(1.05)}100%{opacity:1;transform:none}}
+.eF{animation:fIn 1s ease both}
+.eDrop{animation:eDrop .8s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes eDrop{from{opacity:0;transform:translateY(-36px)}to{opacity:1;transform:none}}
+.satEnter{animation:satEnter 2.6s cubic-bezier(.15,.6,.2,1) .7s both}
+@keyframes satEnter{0%{opacity:0;transform:rotate(-200deg)}12%{opacity:1}100%{opacity:1;transform:rotate(0)}}
+.pIn{transform-box:fill-box;transform-origin:center;animation:pIn 1.3s cubic-bezier(.2,1.4,.4,1) .9s both}
+@keyframes pIn{from{transform:scale(0)}to{transform:scale(1)}}
+.tail{animation:tail 2.9s ease .7s both}
+@keyframes tail{0%{opacity:0}18%{opacity:.9}100%{opacity:0}}
+.sat.free{animation:orbit 38s linear 3.3s infinite}
+.sat.set{transition:transform 1.6s cubic-bezier(.3,.7,.2,1)}
+@keyframes orbit{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.arc{transition:stroke-dasharray 1.6s cubic-bezier(.3,.7,.2,1)}
+.halo{animation:halo 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes halo{0%,100%{opacity:.10;transform:scale(1)}50%{opacity:.28;transform:scale(1.25)}}
+.ping{animation:ping 4s ease-out infinite;transform-box:fill-box;transform-origin:center}
+.ping.b{animation-delay:2s}
+@keyframes ping{0%{opacity:.5;transform:scale(.2)}100%{opacity:0;transform:scale(1)}}
+.tw{animation:tw 3s ease-in-out infinite}
+@keyframes tw{0%,100%{opacity:.2}50%{opacity:.9}}
+.ringtilt{animation:tilt 9s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes tilt{0%,100%{transform:rotate(-22deg)}50%{transform:rotate(-14deg)}}
+
+/* readout */
+.rd0{display:flex;align-items:center;gap:12px;font-size:17px;color:#BDB6A8;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:#F2B544;flex:0 0 auto;animation:dotp 2s ease-in-out infinite}
+@keyframes dotp{0%,100%{box-shadow:0 0 0 0 rgba(242,181,68,.5)}50%{box-shadow:0 0 0 8px rgba(242,181,68,0)}}
+.rd1{display:flex;align-items:center;gap:18px}
+.swap{animation:swap .7s cubic-bezier(.2,.8,.2,1)}
+@keyframes swap{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+/* triggered reveals: parent gets .in when it enters view */
+.a{opacity:0}
+.in .a,.in.a{animation:aIn .9s cubic-bezier(.2,.8,.2,1) both}
+@keyframes aIn{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+.f{opacity:0}
+.in .f,.in.f{animation:fIn 1.1s ease both}
+.d1{animation-delay:.1s!important}.d2{animation-delay:.2s!important}.d3{animation-delay:.32s!important}.d4{animation-delay:.44s!important}.d5{animation-delay:.56s!important}.d6{animation-delay:.68s!important}.d7{animation-delay:.8s!important}.d8{animation-delay:.92s!important}.d9{animation-delay:1.04s!important}
+
+/* season cards */
+.glyph{opacity:0}
+.in .glyph{animation:glyph 1.1s cubic-bezier(.2,1.3,.4,1) .25s both}
+@keyframes glyph{from{opacity:0;transform:scale(.4) rotate(-120deg)}to{opacity:1;transform:none}}
+.ringd{stroke-dasharray:440;stroke-dashoffset:440}
+.in .ringd{animation:ringd 1.4s cubic-bezier(.4,.1,.2,1) .35s forwards}
+@keyframes ringd{to{stroke-dashoffset:0}}
+.fillt{transform:scaleX(0);transform-origin:left center}
+.in .fillt{animation:fillt 1.4s cubic-bezier(.4,.1,.2,1) .45s forwards}
+@keyframes fillt{to{transform:scaleX(1)}}
+.popd{opacity:0}
+.in .popd{animation:popd .7s cubic-bezier(.2,1.6,.4,1) 1.7s both}
+@keyframes popd{from{opacity:0;transform:scale(0)}to{opacity:1;transform:none}}
+.drawp{stroke-dasharray:900;stroke-dashoffset:900}
+.in .drawp{animation:draw 2.2s cubic-bezier(.4,.1,.2,1) .5s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+/* reading pages */
+.pg{position:absolute;width:300px;height:400px;border-radius:14px;background:#EDE6D6;color:#14110A;box-shadow:0 30px 60px rgba(0,0,0,.45);padding:28px;box-sizing:border-box;display:flex;flex-direction:column;gap:14px;opacity:0}
+.bar{height:8px;border-radius:4px;background:rgba(20,17,10,.14)}
+.in .p1{animation:pg1 1.6s cubic-bezier(.3,.7,.2,1) both}
+.in .p3{animation:pg3 1.6s cubic-bezier(.3,.7,.2,1) .1s both}
+.in .p2{animation:pg2 1.1s cubic-bezier(.2,1.2,.4,1) .2s both}
+@keyframes pg1{0%{opacity:0;transform:translateY(180px) rotate(-18deg)}50%{opacity:1;transform:none}100%{opacity:1;transform:translate(-120px,24px) rotate(-9deg)}}
+@keyframes pg3{0%{opacity:0;transform:translateY(180px) rotate(18deg)}50%{opacity:1;transform:none}100%{opacity:1;transform:translate(120px,24px) rotate(9deg)}}
+@keyframes pg2{from{opacity:0;transform:translateY(200px) rotate(6deg)}to{opacity:1;transform:none}}
+.chap{display:flex;flex-wrap:wrap;gap:6px 24px;padding:22px 0;border-top:1px solid rgba(237,230,214,.12)}
+.tick{display:flex;gap:12px;align-items:flex-start;font-size:17px;line-height:1.5}
+
+/* ages */
+.split{animation:split .7s cubic-bezier(.2,1.2,.4,1) both}
+@keyframes split{from{opacity:0;transform:translateX(-70%) scale(.9)}to{opacity:1;transform:none}}
+
+/* faq */
+.faq{width:100%;background:none;border:0;color:#EDE6D6;text-align:left;cursor:pointer;padding:26px 0;display:flex;justify-content:space-between;align-items:center;gap:24px;font:600 22px 'Bricolage Grotesque',serif;letter-spacing:-.01em}
+.faq:hover{color:#F2B544}
+.faq svg{flex:0 0 auto;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.faq.open svg{transform:rotate(45deg)}
+.row{opacity:0}
+.in .row{animation:aIn .8s cubic-bezier(.2,.8,.2,1) both}
+
+/* closing */
+.mq{display:flex;width:max-content;animation:mq 70s linear infinite}
+@keyframes mq{to{transform:translateX(-50%)}}
+
+@media (prefers-reduced-motion: reduce){
+*{animation:none!important;transition:none!important}
+.w,.fade,.a,.f,.glyph,.popd,.row,.pg,.echoLine,.echo .pdial,.echo .pring,.echo .parc,.echo .pmark,.echo .psat{opacity:1;transform:none}
+.drawp,.ringd{stroke-dashoffset:0}.fillt,.lrule{transform:none}
+.p1{transform:translate(-120px,24px) rotate(-9deg)}.p3{transform:translate(120px,24px) rotate(9deg)}
+}
+</style>
+</helmet>
+
+<div class="rt" style="width: 100%; min-height: 100vh">
+
+<!-- nav -->
+<header class="topbar" style="max-width: 1240px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 48px); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<a href="#top" class="disp" style="color: #EDE6D6; text-decoration: none; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px">
+<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="6.5" fill="#EDE6D6"></circle><ellipse cx="15" cy="15" rx="13.5" ry="4" fill="none" stroke="#F2B544" stroke-width="1.8" transform="rotate(-22 15 15)"></ellipse></svg>
+Rite
+</a>
+<nav style="display: flex; align-items: center; gap: 8px 28px; flex-wrap: wrap">
+<a href="#reading" style="color: #BDB6A8; text-decoration: none; font-weight: 500">The reading</a>
+<a href="#price" style="color: #BDB6A8; text-decoration: none; font-weight: 500">Price</a>
+<a href="#faq" style="color: #BDB6A8; text-decoration: none; font-weight: 500">Questions</a>
+<a href="#start" class="ghost">Get my dates</a>
+</nav>
+</header>
+
+<div class="heroWrap" style="position: relative">
+
+<!-- pinned orbit art -->
+<div class="artLayer">
+<div class="artInner">
+<div class="artFade">
+<div class="art">
+<div style="width: 100%; aspect-ratio: 1; position: relative">
+<svg viewBox="0 0 600 600" style="width: 100%; height: 100%; display: block; overflow: visible" role="img" aria-label="Saturn orbiting back toward the point it held when you were born">
+<g class="eF" style="animation-delay: 1.2s">
+<circle class="tw" cx="62" cy="120" r="1.6" fill="#EDE6D6"></circle>
+<circle class="tw" cx="540" cy="80" r="1.2" fill="#EDE6D6" style="animation-delay: 1s"></circle>
+<circle class="tw" cx="560" cy="470" r="1.8" fill="#EDE6D6" style="animation-delay: 2s"></circle>
+<circle class="tw" cx="40" cy="520" r="1.2" fill="#EDE6D6" style="animation-delay: 0.5s"></circle>
+<circle class="tw" cx="470" cy="580" r="1.4" fill="#EDE6D6" style="animation-delay: 1.6s"></circle>
+<circle class="tw" cx="120" cy="20" r="1" fill="#EDE6D6" style="animation-delay: 2.4s"></circle>
+</g>
+<circle class="vb eRing" cx="300" cy="300" r="288" fill="none" stroke="rgba(237,230,214,.08)" style="animation-delay: .35s"></circle>
+<g class="vb eDial">
+<g class="dial vb">
+<circle cx="300" cy="300" r="266" fill="none" stroke="rgba(237,230,214,.32)" stroke-width="10" stroke-dasharray="1.2 22.0126" stroke-dashoffset="0.6"></circle>
+<circle cx="300" cy="300" r="266" fill="none" stroke="rgba(237,230,214,.6)" stroke-width="18" stroke-dasharray="1.6 137.6739" stroke-dashoffset="0.8"></circle>
+</g>
+</g>
+<circle class="vb eRing" cx="300" cy="300" r="230" fill="none" stroke="rgba(237,230,214,.2)" stroke-dasharray="2 7" style="animation-delay: .5s"></circle>
+<circle class="vb eRing" cx="300" cy="300" r="168" fill="none" stroke="rgba(237,230,214,.07)" style="animation-delay: .62s"></circle>
+<circle class="vb eRing" cx="300" cy="300" r="108" fill="none" stroke="rgba(237,230,214,.05)" style="animation-delay: .74s"></circle>
+
+<circle class="arc eF" cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90 300 300)" style="stroke-dasharray: {{arc}}; animation-delay: 2.6s"></circle>
+
+<g class="eF" style="animation-delay: 2.2s">
+<circle class="ping" cx="300" cy="300" r="80" fill="none" stroke="#F2B544" stroke-width="1"></circle>
+<circle class="ping b" cx="300" cy="300" r="80" fill="none" stroke="#F2B544" stroke-width="1"></circle>
+</g>
+<circle class="vb eRing" cx="300" cy="300" r="7" fill="#EDE6D6" style="animation-delay: .2s"></circle>
+
+<g class="eDrop" style="animation-delay: 1.3s">
+<line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="2"></line>
+<circle cx="300" cy="70" r="5" fill="#0E1014" stroke="#F2B544" stroke-width="2"></circle>
+</g>
+
+<g class="vb satEnter">
+<g class="sat vb {{satClass}}" style="transform: rotate({{angle}}deg)">
+<circle class="tail" cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" stroke-dasharray="200 2000" transform="rotate(-140 300 300)"></circle>
+<g class="pIn">
+<circle class="halo" cx="300" cy="70" r="34" fill="#F2B544"></circle>
+<circle cx="300" cy="70" r="17" fill="#EDE6D6"></circle>
+<path d="M285 64 Q300 60 315 64" stroke="rgba(14,16,20,.18)" stroke-width="2.5" fill="none"></path>
+<path d="M284 74 Q300 78 316 74" stroke="rgba(14,16,20,.12)" stroke-width="2" fill="none"></path>
+<g class="ringtilt"><ellipse cx="300" cy="70" rx="32" ry="8" fill="none" stroke="#F2B544" stroke-width="2.5"></ellipse></g>
+</g>
+</g>
+</g>
+</svg>
+<div class="disp eF" style="position: absolute; top: -6px; left: 50%; transform: translate(-50%, -100%); font-size: 13px; color: #F2B544; white-space: nowrap; font-weight: 500; animation-delay: 1.6s">where Saturn was when you were born</div>
+</div>
+
+<div class="eF" style="animation-delay: 2.6s; min-height: 72px; display: flex; align-items: center; justify-content: center">
+<sc-if value="{{noDate}}" hint-placeholder-val="{{ true }}">
+<div class="rd0"><span class="dot"></span><span>Add your birth date to place Saturn.</span></div>
+</sc-if>
+<sc-if value="{{hasDate}}" hint-placeholder-val="{{ false }}">
+<div class="rd1 swap">
+<span class="disp" style="font-size: 64px; font-weight: 800; letter-spacing: -0.04em; line-height: 0.9; color: #F2B544; font-variant-numeric: tabular-nums">{{pct}}<span style="font-size: 30px">%</span></span>
+<span style="display: flex; flex-direction: column; gap: 4px; font-size: 17px; line-height: 1.3">
+<span style="color: #EDE6D6">of the way round</span>
+<span style="color: #A7A196; white-space: nowrap">{{nextLine}}</span>
+</span>
+</div>
+</sc-if>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- hero -->
+<section id="top" class="hero">
+<div class="heroText">
+<h1 class="disp" aria-label="Your Saturn return, dated." style="margin: 0 0 -0.15em; font-size: clamp(44px, min(5.6vw, 9.6vh), 90px); letter-spacing: -0.045em; font-weight: 700">
+<span aria-hidden="true" style="display: block; overflow: hidden; font-size: 0.34em; font-weight: 500; font-style: italic; letter-spacing: -0.01em; line-height: 1; color: #BDB6A8; padding: 0.1em 0 0.12em 0.12em"><span class="w" style="animation-delay: 0.05s">Your</span></span>
+<span aria-hidden="true" style="display: block; overflow: hidden; line-height: 0.86; padding-bottom: 0.04em; white-space: nowrap"><span class="w" style="animation-delay: 0.16s">Saturn</span> <span class="w" style="animation-delay: 0.26s">return,</span></span>
+<span aria-hidden="true" style="display: block; overflow: hidden; font-size: 1.62em; font-weight: 800; letter-spacing: -0.06em; line-height: 0.8; margin-top: -0.04em; padding: 0.02em 0 0.02em; color: #F2B544; white-space: nowrap"><span class="w" style="animation-delay: 0.38s">dated.</span></span>
+</h1>
+<p class="fade" style="margin: 0; font-size: 19px; line-height: 1.6; color: #BDB6A8; animation-delay: 0.6s; text-wrap: pretty">Born between April 1996 and June 1998? You're in it now. Get your Saturn sign, your window and every pass, free, in about ten seconds.</p>
+
+<form id="start" class="fade" onSubmit="{{submit}}" style="animation-delay: 0.8s; background: #14171D; border: 1px solid rgba(237,230,214,.1); border-radius: 28px; padding: clamp(20px, 2.8vh, 28px); display: flex; flex-direction: column; gap: clamp(12px, 2vh, 18px)">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+<div class="field"><label for="bd">Birth date</label><input id="bd" type="date" onChange="{{onDate}}"></div>
+<div class="field"><label for="bt">Birth time, if you know it</label><input id="bt" type="time" onChange="{{onTime}}"></div>
+</div>
+<div class="field"><label for="bp">Birth place</label><input id="bp" type="text" placeholder="Town or city" autocomplete="off"></div>
+<div class="ctaRow">
+<a href="Result.dc.html" class="cta" style="flex: 0 0 auto; padding: 0 24px">Show my Saturn return <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h12M10 4l5 5-5 5"></path></svg></a>
+<span style="font-size: 14px; color: #A7A196; white-space: nowrap">Free. No account, no email.</span>
+</div>
+</form>
+<p class="fade hint" style="margin: calc(clamp(18px, 3.4vh, 32px) * -0.45) 0 0; padding: 0 4px; font-size: 14px; line-height: 1.6; text-align: center; animation-delay: 0.95s">Use the local date where you were born. No birth time?<br>We use noon and leave houses out.</p>
+</div>
+</section>
+<div class="linger" aria-hidden="true"></div>
+
+<!-- season section -->
+<section class="season">
+<div style="max-width: 1240px; margin: 0 auto; padding: 140px clamp(16px, 4vw, 48px) 120px; display: flex; flex-wrap: wrap; gap: 64px; align-items: flex-start">
+<div ref="{{r.season}}" class="{{inSeason}}" style="flex: 1 1 360px; min-width: 0; position: sticky; top: 40px; display: flex; flex-direction: column; gap: 24px">
+<h2 class="disp a" style="margin: 0; font-size: clamp(44px, 5vw, 76px); line-height: 0.98; letter-spacing: -0.03em; font-weight: 700">A long season, made legible.</h2>
+<p class="a d2" style="margin: 0; font-size: 19px; line-height: 1.6; color: #BDB6A8; max-width: 400px">A Saturn return is not a single day. It plays out over months. Your reading lays the whole thing out so you can see where you are in it.</p>
+</div>
+
+<div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 28px">
+
+<!-- sign -->
+<article ref="{{r.sign}}" class="a {{inSign}}" style="background: #14171D; border-radius: 32px; padding: clamp(28px, 4vw, 48px); display: flex; flex-wrap: wrap; gap: 32px; align-items: center">
+<div style="flex: 0 0 auto; width: 140px; height: 140px; position: relative; display: flex; align-items: center; justify-content: center" aria-hidden="true">
+<svg viewBox="0 0 140 140" style="position: absolute; inset: 0; width: 100%; height: 100%"><circle class="ringd" cx="70" cy="70" r="69" fill="none" stroke="rgba(242,181,68,.45)" stroke-width="1.2" transform="rotate(-90 70 70)"></circle></svg>
+<span class="glyph disp" style="font-size: 76px; color: #F2B544; line-height: 1">{{glyph}}</span>
+</div>
+<div style="flex: 1 1 280px; display: flex; flex-direction: column; gap: 12px">
+<sc-if value="{{hasMeta}}" hint-placeholder-val="{{ false }}">
+<span class="swap" style="font-size: 14px; color: #F2B544">{{signMeta}}</span>
+</sc-if>
+<h3 class="disp a d3" style="margin: 0; font-size: 34px; letter-spacing: -0.02em; font-weight: 600">{{signTitle}}</h3>
+<p class="a d4" style="margin: 0; font-size: 17px; line-height: 1.6; color: #BDB6A8">{{signText}}</p>
+</div>
+</article>
+
+<!-- window -->
+<article ref="{{r.win}}" class="a {{inWin}}" style="background: #14171D; border-radius: 32px; padding: clamp(28px, 4vw, 48px); display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h3 class="disp a d2" style="margin: 0; font-size: 34px; letter-spacing: -0.02em; font-weight: 600">Your return window</h3>
+<p class="a d3" style="margin: 0; font-size: 17px; line-height: 1.6; color: #BDB6A8; max-width: 520px">When it opens, when it closes, and where today sits inside it.</p>
+</div>
+<div aria-hidden="true" style="display: flex; flex-direction: column; gap: 14px">
+<div style="position: relative; height: 14px; border-radius: 999px; background: rgba(237,230,214,.08)">
+<div class="fillt" style="position: absolute; left: 0; top: 0; bottom: 0; width: {{fillW}}; border-radius: 999px; background: #F2B544; transition: width .9s cubic-bezier(.3,.7,.2,1)"></div>
+<sc-for list="{{passTicks}}" as="pt" hint-placeholder-count="0">
+<div class="swap" style="position: absolute; left: {{pt.left}}; top: -5px; bottom: -5px; width: 2px; margin-left: -1px; border-radius: 1px; background: #EDE6D6; opacity: .6"></div>
+</sc-for>
+<sc-if value="{{dotShow}}" hint-placeholder-val="{{ true }}">
+<div class="popd" style="position: absolute; left: {{dotLeft}}; top: 50%; box-sizing: border-box; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: #0E1014; border: 3px solid #EDE6D6; transition: left .9s cubic-bezier(.3,.7,.2,1)"></div>
+</sc-if>
+</div>
+<div style="position: relative; height: 20px; font-size: 14px; color: #A7A196">
+<span class="f d4" style="position: absolute; left: 0; white-space: nowrap">{{winOpen}}</span>
+<span class="f d9" style="position: absolute; left: {{dotLeft}}; transform: translateX(-50%); color: #EDE6D6; white-space: nowrap; transition: left .9s cubic-bezier(.3,.7,.2,1)">{{hereText}}</span>
+<span class="f d6" style="position: absolute; right: 0; white-space: nowrap">{{winClose}}</span>
+</div>
+</div>
+</article>
+
+<!-- hits -->
+<article ref="{{r.hits}}" class="a {{inHits}}" style="background: #14171D; border-radius: 32px; padding: clamp(28px, 4vw, 48px); display: flex; flex-direction: column; gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<h3 class="disp a d2" style="margin: 0; font-size: 34px; letter-spacing: -0.02em; font-weight: 600">Your exact hits</h3>
+<p class="a d3" style="margin: 0; font-size: 17px; line-height: 1.6; color: #BDB6A8; max-width: 540px">Saturn moves forward, stalls, backs up and moves on again. Depending on timing it crosses your natal degree once or three times. Every crossing gets a date.</p>
+</div>
+<sc-if value="{{noDate}}" hint-placeholder-val="{{ true }}">
+<div class="a d4" style="display: flex; gap: 10px; flex-wrap: wrap">
+<button type="button" class="pill {{oneClass}}" aria-pressed="{{pressOne}}" onClick="{{pickOne}}">One pass</button>
+<button type="button" class="pill {{threeClass}}" aria-pressed="{{pressThree}}" onClick="{{pickThree}}">Three passes</button>
+</div>
+</sc-if>
+<sc-if value="{{showReal}}" hint-placeholder-val="{{ false }}">
+<div class="swap" style="display: flex; flex-direction: column; gap: 14px">
+<p class="disp" style="margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em">{{hitsSummary}}</p>
+<div style="display: flex; gap: 10px; flex-wrap: wrap">
+<sc-for list="{{passChips}}" as="pc" hint-placeholder-count="3">
+<span style="display: inline-flex; align-items: baseline; gap: 8px; min-height: 44px; box-sizing: border-box; padding: 11px 18px; border-radius: 999px; border: 1px solid rgba(237,230,214,.22); font-size: 15px"><span style="color: #A7A196">{{pc.label}}</span><span style="color: #F2B544; font-weight: 600">{{pc.date}}</span></span>
+</sc-for>
+</div>
+</div>
+</sc-if>
+<div class="a d5" style="border-radius: 20px; background: #0E1014; padding: 20px">
+<svg viewBox="0 0 520 220" style="width: 100%; display: block" role="img" aria-label="{{hitsLabel}}">
+<line x1="10" y1="{{natalY}}" x2="510" y2="{{natalY}}" stroke="rgba(237,230,214,.35)" stroke-dasharray="4 6"></line>
+<text x="12" y="{{natalTextY}}" fill="#A7A196" font-size="12" font-family="Hanken Grotesk, sans-serif">{{natalLabel}}</text>
+<sc-if value="{{showReal}}" hint-placeholder-val="{{ false }}">
+<line x1="{{todayX}}" y1="10" x2="{{todayX}}" y2="212" stroke="#EDE6D6" stroke-width="1.2" stroke-dasharray="2 4" opacity=".7"></line>
+<text x="{{todayX}}" y="8" text-anchor="middle" fill="#EDE6D6" font-size="11" font-family="Hanken Grotesk, sans-serif">today</text>
+<path class="drawp" pathLength="900" d="{{chartPath}}" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+<path class="swap" d="{{markPath}}" fill="#0E1014" stroke="#F2B544" stroke-width="2.5"></path>
+</sc-if>
+<sc-if value="{{isThree}}" hint-placeholder-val="{{ true }}">
+<path class="drawp" d="M20 196 C 90 160, 120 92, 190 74 S 250 150, 300 142 S 390 70, 505 26" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round"></path>
+</sc-if>
+<sc-if value="{{isOne}}" hint-placeholder-val="{{ false }}">
+<path class="drawp" d="M20 196 C 180 170, 330 70, 505 26" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round"></path>
+</sc-if>
+</svg>
+</div>
+</article>
+</div>
+</div>
+</section>
+</div>
+
+<!-- the reading -->
+<section id="reading" ref="{{r.reading}}" class="{{inReading}}" style="max-width: 1240px; margin: 0 auto; padding: 60px clamp(16px, 4vw, 48px) 140px; display: flex; flex-wrap: wrap; gap: 72px; align-items: center">
+<div aria-hidden="true" style="flex: 1 1 460px; min-width: 0; height: 520px; position: relative; display: flex; justify-content: center; align-items: center">
+<div class="pg p1">
+<div class="disp" style="font-size: 13px; color: #8A6A1E; font-weight: 600">The window</div>
+<svg viewBox="0 0 244 90" style="width: 100%"><line x1="4" y1="45" x2="240" y2="45" stroke="rgba(20,17,10,.25)" stroke-dasharray="3 4"></line><path d="M6 80 C 60 60, 80 30, 110 26 S 140 64, 160 60 S 200 24, 238 10" fill="none" stroke="#B9861F" stroke-width="2.5"></path></svg>
+<div class="bar" style="width: 90%"></div><div class="bar" style="width: 76%"></div><div class="bar" style="width: 84%"></div><div class="bar" style="width: 60%"></div>
+</div>
+<div class="pg p3">
+<div class="disp" style="font-size: 13px; color: #8A6A1E; font-weight: 600">Pass two</div>
+<div class="disp" style="font-size: 30px; font-weight: 700; letter-spacing: -0.02em; line-height: 1">The backtrack</div>
+<div class="bar" style="width: 92%"></div><div class="bar" style="width: 70%"></div><div class="bar" style="width: 86%"></div>
+<div style="margin-top: auto; border-top: 1px solid rgba(20,17,10,.15); padding-top: 12px; display: flex; flex-direction: column; gap: 8px"><div class="bar" style="width: 50%"></div><div class="bar" style="width: 64%"></div></div>
+</div>
+<div class="pg p2" style="z-index: 2">
+<svg width="40" height="40" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="6.5" fill="#14110A"></circle><ellipse cx="15" cy="15" rx="13.5" ry="4" fill="none" stroke="#B9861F" stroke-width="1.8" transform="rotate(-22 15 15)"></ellipse></svg>
+<div class="disp" style="font-size: 40px; font-weight: 700; letter-spacing: -0.03em; line-height: 0.95">Your Saturn</div>
+<div style="font-size: 14px; color: rgba(20,17,10,.6)">Sign, house and the degree it all turns on</div>
+<div class="bar" style="width: 94%; margin-top: 10px"></div><div class="bar" style="width: 82%"></div><div class="bar" style="width: 88%"></div><div class="bar" style="width: 56%"></div>
+<div style="margin-top: auto; font-size: 12px; color: rgba(20,17,10,.5)">Page 1</div>
+</div>
+</div>
+<div style="flex: 1 1 460px; min-width: 0; display: flex; flex-direction: column; gap: 28px">
+<h2 class="disp a" style="margin: 0; font-size: clamp(40px, 4.6vw, 68px); line-height: 1; letter-spacing: -0.03em; font-weight: 700; animation-delay: .7s">What's in the reading</h2>
+<p class="a" style="margin: 0; font-size: 19px; line-height: 1.6; color: #BDB6A8; max-width: 480px; animation-delay: .85s">Nine chapters built from your chart, with real dates throughout. It opens the moment you pay, and you can print it or listen to it.</p>
+<div style="display: flex; flex-direction: column">
+<div class="chap a" style="animation-delay: 1.00s;"><span class="disp" style="font-size: 22px; font-weight: 600; flex: 0 0 220px">Your Saturn</span><span style="color: #BDB6A8; flex: 1 1 240px; line-height: 1.5">Sign, house and the exact degree your return is measured against.</span></div>
+<div class="chap a" style="animation-delay: 1.12s;"><span class="disp" style="font-size: 22px; font-weight: 600; flex: 0 0 220px">Your window, charted</span><span style="color: #BDB6A8; flex: 1 1 240px; line-height: 1.5">Saturn's real path against your degree, phase by phase.</span></div>
+<div class="chap a" style="animation-delay: 1.24s;"><span class="disp" style="font-size: 22px; font-weight: 600; flex: 0 0 220px">The pass and the turn</span><span style="color: #BDB6A8; flex: 1 1 240px; line-height: 1.5">Each crossing dated, with what to do the week before, on the day and after.</span></div>
+<div class="chap a" style="animation-delay: 1.36s;"><span class="disp" style="font-size: 22px; font-weight: 600; flex: 0 0 220px">Month by month</span><span style="color: #BDB6A8; flex: 1 1 240px; line-height: 1.5">Every month of your window, with what each one is good for.</span></div>
+<div class="chap a" style="animation-delay: 1.48s;"><span class="disp" style="font-size: 22px; font-weight: 600; flex: 0 0 220px">Your Saturn history</span><span style="color: #BDB6A8; flex: 1 1 240px; line-height: 1.5">The checkpoints at about 7, 14 and 21, with prompts to make sense of them.</span></div>
+<div class="chap a" style="animation-delay: 1.60s;"><span class="disp" style="font-size: 22px; font-weight: 600; flex: 0 0 220px">A workbook</span><span style="color: #BDB6A8; flex: 1 1 240px; line-height: 1.5">Prompts that unlock as each phase opens.</span></div>
+<div class="chap a" style="animation-delay: 1.72s; border-bottom: 1px solid rgba(237,230,214,.12);"><span class="disp" style="font-size: 22px; font-weight: 600; flex: 0 0 220px">Listen, or ask</span><span style="color: #BDB6A8; flex: 1 1 240px; line-height: 1.5">A narrated version, plus five follow-up questions answered from your chart.</span></div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- price -->
+<section id="price" ref="{{r.price}}" class="{{inPrice}}" style="max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px) 140px">
+<div class="f pcard" style="position: relative; overflow: hidden; background: #EDE6D6; color: #14110A; border-radius: 40px; padding: clamp(40px, 5.5vw, 80px) clamp(28px, 5vw, 72px); display: flex; flex-wrap: wrap; gap: 56px 72px; align-items: center">
+<svg aria-hidden="true" viewBox="0 0 600 600" class="echo" style="position: absolute; right: -180px; top: calc(50% - 340px); width: 680px; height: 680px; pointer-events: none; overflow: visible">
+<g class="vb pdial"><g class="vb pspin">
+<circle cx="300" cy="300" r="266" fill="none" stroke="rgba(20,17,10,.16)" stroke-width="10" stroke-dasharray="1.2 22.0126" stroke-dashoffset="0.6"></circle>
+<circle cx="300" cy="300" r="266" fill="none" stroke="rgba(20,17,10,.22)" stroke-width="18" stroke-dasharray="1.6 137.6739" stroke-dashoffset="0.8"></circle>
+</g></g>
+<circle class="vb pring" cx="300" cy="300" r="230" fill="none" stroke="rgba(20,17,10,.14)" stroke-dasharray="2 7"></circle>
+<circle class="vb pring" cx="300" cy="300" r="168" fill="none" stroke="rgba(20,17,10,.06)" style="animation-delay: .15s"></circle>
+<circle class="arc parc" cx="300" cy="300" r="230" fill="none" stroke="#B9861F" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90 300 300)" style="stroke-dasharray: {{arc}}"></circle>
+<circle cx="300" cy="300" r="6" fill="rgba(20,17,10,.3)"></circle>
+<g class="pmark"><line x1="300" y1="46" x2="300" y2="94" stroke="#B9861F" stroke-width="2"></line><circle cx="300" cy="70" r="5" fill="#EDE6D6" stroke="#B9861F" stroke-width="2"></circle></g>
+<g class="vb psat">
+<g class="sat vb {{satClass}}" style="transform: rotate({{angle}}deg)">
+<circle cx="300" cy="70" r="30" fill="#B9861F" opacity=".14"></circle>
+<circle cx="300" cy="70" r="15" fill="#14110A"></circle>
+<ellipse cx="300" cy="70" rx="29" ry="7.5" fill="none" stroke="#B9861F" stroke-width="2.5" transform="rotate(-22 300 70)"></ellipse>
+</g>
+</g>
+</svg>
+<div style="flex: 1 1 380px; display: flex; flex-direction: column; gap: 22px; position: relative">
+<div class="disp" style="display: flex; align-items: flex-start; font-size: clamp(104px, 12vw, 176px); font-weight: 800; letter-spacing: -0.05em; line-height: 0.82"><span style="font-size: 0.4em; font-weight: 600; margin: 0.1em 0.06em 0 0">$</span><span>29</span></div>
+<p style="margin: -6px 0 0; font-size: 15px; font-style: italic; color: rgba(20,17,10,.6)">A dollar for every year Saturn takes to come back.</p>
+<p class="disp" style="margin: 8px 0 0; font-size: clamp(24px, 2.2vw, 30px); font-weight: 600; letter-spacing: -0.02em; line-height: 1.15">One payment. The reading is yours.</p>
+<p style="margin: 0; font-size: 17px; line-height: 1.6; color: rgba(20,17,10,.7)"><span class="nw">No subscription. No trial that becomes a charge.</span><br><span class="nw">Not useful? Full refund within 14 days.</span></p>
+<p class="echoLine" style="margin: 10px 0 0; display: flex; align-items: center; gap: 12px; font-size: 15px; line-height: 1.45; color: rgba(20,17,10,.62)"><span class="dot" style="background: #B9861F"></span><span>{{echoLine}}</span></p>
+</div>
+<div style="flex: 1 1 360px; display: flex; flex-direction: column; gap: 18px; position: relative">
+<div class="tick"><svg width="26" height="22" viewBox="0 0 26 22" aria-hidden="true" style="flex: 0 0 auto; margin-top: 1px"><circle cx="13" cy="11" r="4.5" fill="#8A6A1E"></circle><ellipse cx="13" cy="11" rx="11" ry="3" fill="none" stroke="#8A6A1E" stroke-width="1.6" transform="rotate(-22 13 11)"></ellipse></svg><span>Nine chapters built from your chart, narrated too</span></div>
+<div class="tick"><svg width="26" height="22" viewBox="0 0 26 22" aria-hidden="true" style="flex: 0 0 auto; margin-top: 1px"><circle cx="13" cy="11" r="4.5" fill="#8A6A1E"></circle><ellipse cx="13" cy="11" rx="11" ry="3" fill="none" stroke="#8A6A1E" stroke-width="1.6" transform="rotate(-22 13 11)"></ellipse></svg><span>Every pass and turn dated to the day</span></div>
+<div class="tick"><svg width="26" height="22" viewBox="0 0 26 22" aria-hidden="true" style="flex: 0 0 auto; margin-top: 1px"><circle cx="13" cy="11" r="4.5" fill="#8A6A1E"></circle><ellipse cx="13" cy="11" rx="11" ry="3" fill="none" stroke="#8A6A1E" stroke-width="1.6" transform="rotate(-22 13 11)"></ellipse></svg><span>A month-by-month forecast and a workbook</span></div>
+<div class="tick"><svg width="26" height="22" viewBox="0 0 26 22" aria-hidden="true" style="flex: 0 0 auto; margin-top: 1px"><circle cx="13" cy="11" r="4.5" fill="#8A6A1E"></circle><ellipse cx="13" cy="11" rx="11" ry="3" fill="none" stroke="#8A6A1E" stroke-width="1.6" transform="rotate(-22 13 11)"></ellipse></svg><span>Five follow-up questions, plus a reminder before each pass</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: center; margin-top: 12px">
+<a href="#start" class="cta" style="background: #14110A; color: #EDE6D6">Start with the free preview</a>
+<a href="#start" style="color: #14110A; font-weight: 500">Buy it as a gift</a>
+</div>
+</div>
+</div>
+</section>
+
+<!-- three returns -->
+<section ref="{{r.ages}}" class="{{inAges}}" style="padding: 80px 0 140px; overflow: hidden">
+<div style="max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px); display: flex; flex-direction: column; gap: 48px">
+<h2 class="disp a" style="margin: 0; font-size: clamp(40px, 4.6vw, 68px); line-height: 1; letter-spacing: -0.03em; font-weight: 700; max-width: 760px">Saturn comes back about every 29 years.</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 8px 48px; align-items: flex-end; min-height: 1em; font-size: clamp(110px, 16vw, 240px)">
+<sc-for list="{{ages}}" as="a" hint-placeholder-count="1">
+<button type="button" class="age disp split {{a.cls}}" aria-pressed="{{a.on}}" onClick="{{a.pick}}" style="font-size: clamp(110px, 16vw, 240px); font-weight: 800; letter-spacing: -0.05em; line-height: 0.85; min-width: 1.15em">{{a.n}}</button>
+</sc-for>
+</div>
+<sc-if value="{{countDone}}" hint-placeholder-val="{{ true }}">
+<div class="swap" style="display: flex; flex-wrap: wrap; gap: 16px 48px; align-items: baseline; border-top: 1px solid rgba(237,230,214,.12); padding-top: 28px">
+<p class="disp" style="margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; color: #EDE6D6">{{ageTitle}}</p>
+<p style="margin: 0; font-size: 18px; line-height: 1.6; color: #BDB6A8; max-width: 560px">{{ageBody}}</p>
+</div>
+</sc-if>
+</div>
+</section>
+
+<!-- faq -->
+<section id="faq" ref="{{r.faq}}" class="{{inFaq}}" style="max-width: 920px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px) 160px; display: flex; flex-direction: column; gap: 24px">
+<h2 class="disp f" style="margin: 0 0 12px; font-size: clamp(40px, 4.6vw, 68px); line-height: 1; letter-spacing: -0.03em; font-weight: 700">Questions</h2>
+<div>
+<sc-for list="{{faqs}}" as="q" hint-placeholder-count="5">
+<div class="row" style="border-bottom: 1px solid rgba(237,230,214,.14); border-top: {{q.top}}; animation-delay: {{q.delay}}">
+<button type="button" class="faq {{q.cls}}" aria-expanded="{{q.open}}" onClick="{{q.toggle}}">{{q.q}}<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4v14M4 11h14"></path></svg></button>
+<sc-if value="{{q.open}}" hint-placeholder-val="{{ false }}">
+<p class="swap" style="margin: 0; padding: 0 48px 28px 0; font-size: 18px; line-height: 1.6; color: #BDB6A8">{{q.a}}</p>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</section>
+
+<!-- closing -->
+<section ref="{{r.closing}}" class="{{inClosing}}" style="padding: 0 0 120px; overflow: hidden">
+<div class="f" aria-hidden="true" style="animation-duration: 2s">
+<div class="mq disp" style="font-size: clamp(120px, 20vw, 300px); font-weight: 800; letter-spacing: -0.05em; line-height: 0.9; color: #1A1D23; white-space: nowrap">
+<span style="padding-right: 0.5em">Ten seconds. Free.</span><span style="padding-right: 0.5em">Ten seconds. Free.</span><span style="padding-right: 0.5em">Ten seconds. Free.</span><span style="padding-right: 0.5em">Ten seconds. Free.</span>
+</div>
+</div>
+<div style="max-width: 1240px; margin: -40px auto 0; padding: 0 clamp(16px, 4vw, 48px); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 32px; position: relative">
+<h2 class="disp a d3" style="margin: 0; font-size: clamp(36px, 4vw, 56px); line-height: 1.02; letter-spacing: -0.03em; font-weight: 700; max-width: 640px">See your return window before you decide anything else.</h2>
+<a href="Result.dc.html" class="cta a d6">Show my Saturn return <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h12M10 4l5 5-5 5"></path></svg></a>
+</div>
+</section>
+
+<footer ref="{{r.footer}}" class="{{inFooter}}" style="border-top: 1px solid rgba(237,230,214,.1)">
+<div style="max-width: 1240px; margin: 0 auto; padding: 36px clamp(16px, 4vw, 48px); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; font-size: 15px; color: #A7A196">
+<a href="#top" class="disp a d1" style="color: #EDE6D6; text-decoration: none; font-weight: 600; font-size: 18px">Rite: Saturn Return</a>
+<span class="a d3">Personal guidance for the transits that have names.</span>
+</div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":6400}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { date: '', passes: 3, age: 29, faq: 0, seen: {}, vals: [0, null, null], countDone: false };
+    var self = this;
+    this.keys = ['season', 'sign', 'win', 'hits', 'reading', 'price', 'ages', 'faq', 'closing', 'footer'];
+    this.refFns = {};
+    this.keys.forEach(function (k) { self.refFns[k] = function (el) { self.watch(k, el); }; });
+    this.obsCount = 0;
+  }
+  componentDidMount() {
+    var self = this;
+    var reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    if (reduce) { this.markAll(true); return; }
+    this.fb = setTimeout(function () { if (!self.obsCount) self.markAll(false); }, 1500);
+  }
+  componentWillUnmount() {
+    if (this.io) this.io.disconnect();
+    clearTimeout(this.fb); clearTimeout(this.ct);
+    if (this.raf) cancelAnimationFrame(this.raf);
+  }
+  watch(k, el) {
+    if (!el || this.state.seen[k]) return;
+    var self = this;
+    if (!this.io) {
+      if (typeof IntersectionObserver === 'undefined') { this.markAll(false); return; }
+      this.io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (!en.isIntersecting) return;
+          var key = en.target.__rk;
+          self.io.unobserve(en.target);
+          self.setState(function (prev) { var s = Object.assign({}, prev.seen); s[key] = true; return { seen: s }; });
+          if (key === 'ages') self.startCount();
+        });
+      }, { threshold: 0.15, rootMargin: '0px 0px -6% 0px' });
+    }
+    if (el.__rk) return;
+    el.__rk = k;
+    this.io.observe(el);
+    this.obsCount++;
+  }
+  markAll(instant) {
+    var s = {};
+    this.keys.forEach(function (k) { s[k] = true; });
+    if (instant) { this.setState({ seen: s, vals: [29, 58, 87], countDone: true }); }
+    else { this.setState({ seen: s }); this.startCount(); }
+  }
+  startCount() {
+    if (this.counting) return;
+    this.counting = true;
+    var self = this;
+    var seq = [[0, 29], [29, 58], [58, 87]];
+    var dur = [1200, 950, 950];
+    var stage = 0, t0 = null;
+    var vals = [0, null, null];
+    function step(ts) {
+      if (t0 === null) t0 = ts;
+      var p = Math.min(1, (ts - t0) / dur[stage]);
+      var e = 1 - Math.pow(1 - p, 3);
+      vals[stage] = Math.round(seq[stage][0] + (seq[stage][1] - seq[stage][0]) * e);
+      self.setState({ vals: vals.slice() });
+      if (p < 1) { self.raf = requestAnimationFrame(step); return; }
+      if (stage < 2) {
+        stage++; t0 = null;
+        vals[stage] = seq[stage][0];
+        self.setState({ vals: vals.slice() });
+        self.ct = setTimeout(function () { self.raf = requestAnimationFrame(step); }, 260);
+      } else {
+        self.setState({ countDone: true });
+      }
+    }
+    this.ct = setTimeout(function () { self.raf = requestAnimationFrame(step); }, 350);
+  }
+  satLon(t) {
+    var RAD = Math.PI / 180;
+    function rev(x) { return x - Math.floor(x / 360) * 360; }
+    function kep(M, e) { var E = M + e * Math.sin(M) * (1 + e * Math.cos(M)); for (var k = 0; k < 8; k++) { E = E - (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E)); } return E; }
+    var d = t / 864e5 + 2440587.5 - 2451543.5;
+    var ws = 282.9404 + 4.70935e-5 * d, es = 0.016709 - 1.151e-9 * d, Ms = rev(356.0470 + 0.9856002585 * d);
+    var Es = kep(Ms * RAD, es), xv = Math.cos(Es) - es, yv = Math.sqrt(1 - es * es) * Math.sin(Es);
+    var ls = rev(Math.atan2(yv, xv) / RAD + ws), rs = Math.sqrt(xv * xv + yv * yv);
+    var xs = rs * Math.cos(ls * RAD), ys = rs * Math.sin(ls * RAD);
+    var N = 113.6634 + 2.3898e-5 * d, i = 2.4886 - 1.081e-7 * d, w = 339.3939 + 2.97661e-5 * d, a = 9.55475, e = 0.055546 - 9.499e-9 * d, M = rev(316.967 + 0.0334442282 * d), Mj = rev(19.895 + 0.0830853001 * d);
+    var E = kep(M * RAD, e); xv = a * (Math.cos(E) - e); yv = a * Math.sqrt(1 - e * e) * Math.sin(E);
+    var v = Math.atan2(yv, xv) / RAD, r = Math.sqrt(xv * xv + yv * yv), vw = (v + w) * RAD, Nr = N * RAD, ir = i * RAD;
+    var xh = r * (Math.cos(Nr) * Math.cos(vw) - Math.sin(Nr) * Math.sin(vw) * Math.cos(ir));
+    var yh = r * (Math.sin(Nr) * Math.cos(vw) + Math.cos(Nr) * Math.sin(vw) * Math.cos(ir));
+    var zh = r * Math.sin(vw) * Math.sin(ir);
+    var lon = Math.atan2(yh, xh) / RAD, lat = Math.atan2(zh, Math.sqrt(xh * xh + yh * yh)) / RAD;
+    lon += 0.812 * Math.sin((2 * Mj - 5 * M - 67.6) * RAD) - 0.229 * Math.cos((2 * Mj - 4 * M - 2) * RAD) + 0.119 * Math.sin((Mj - 2 * M - 3) * RAD) + 0.046 * Math.sin((2 * Mj - 6 * M - 69) * RAD) + 0.014 * Math.sin((Mj - 3 * M + 32) * RAD);
+    var cl = Math.cos(lat * RAD); xh = r * Math.cos(lon * RAD) * cl; yh = r * Math.sin(lon * RAD) * cl;
+    return rev(Math.atan2(yh + ys, xh + xs) / RAD);
+  }
+  compute(ds, ts) {
+    if (!ds) return null;
+    var p = ds.split('-');
+    if (p.length < 3 || p[0].length !== 4) return null;
+    var hh = 12, mm = 0;
+    if (ts) { var q = ts.split(':'); hh = +q[0] || 0; mm = +q[1] || 0; }
+    var b = Date.UTC(+p[0], +p[1] - 1, +p[2], hh, mm);
+    var now = Date.now();
+    if (isNaN(b) || b > now || +p[0] < 1900) return null;
+    var self = this, D = 864e5, Y = 365.2422 * D, P = 29.4571 * Y;
+    var nat = this.satLon(b), sg = Math.floor(nat / 30);
+    function wrap(x) { x = x - Math.floor(x / 360) * 360; return x > 180 ? x - 360 : x; }
+    var R = null;
+    for (var k = 1; k <= 4; k++) {
+      var c = b + k * P, passes = [], prev = null;
+      for (var t = c - 2.6 * Y; t < c + 2.6 * Y; t += D) { var df = wrap(self.satLon(t) - nat); if (prev !== null && Math.abs(df) < 5 && ((prev < 0) !== (df < 0))) passes.push(t); prev = df; }
+      if (!passes.length) continue;
+      var open = passes[0], close = passes[passes.length - 1];
+      for (var t2 = passes[0] - 3.2 * Y; t2 < passes[0]; t2 += D) { if (Math.floor(self.satLon(t2) / 30) === sg) { open = t2; break; } }
+      for (var t3 = passes[passes.length - 1] + 3.2 * Y; t3 > passes[passes.length - 1]; t3 -= D) { if (Math.floor(self.satLon(t3) / 30) === sg) { close = t3; break; } }
+      R = { k: k, open: open, close: close, passes: passes };
+      if (close > now) break;
+    }
+    if (!R) return null;
+    var t0 = R.open - 60 * D, t1 = R.close + 60 * D, pts = [], mn = 1e9, mx = -1e9;
+    for (var t4 = t0; t4 <= t1; t4 += 4 * D) { var d4 = wrap(self.satLon(t4) - nat); pts.push([t4, d4]); if (d4 < mn) mn = d4; if (d4 > mx) mx = d4; }
+    function X(tt) { return 20 + (tt - t0) / (t1 - t0) * 485; }
+    function Yv(dd) { return 204 - (dd - mn) / ((mx - mn) || 1) * 180; }
+    var path = pts.map(function (q2, idx) { return (idx ? 'L' : 'M') + X(q2[0]).toFixed(1) + ' ' + Yv(q2[1]).toFixed(1); }).join(' ');
+    var y0 = Yv(0);
+    var mk = R.passes.map(function (tt) { var x = X(tt); return 'M' + (x - 6).toFixed(1) + ' ' + y0.toFixed(1) + ' a6 6 0 1 0 12 0 a6 6 0 1 0 -12 0'; }).join(' ');
+    var todayX = (now >= t0 && now <= t1) ? X(now).toFixed(1) : -999;
+    var ang = (this.satLon(now) - nat + 360) % 360;
+    return { nat: nat, sg: sg, deg: nat % 30, R: R, ang: ang, chart: { path: path, mk: mk, y0: y0, todayX: todayX } };
+  }
+  renderVals() {
+    var s = this.state || {};
+    var self = this;
+    var M = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var ORD = ['First','Second','Third','Fourth'];
+    var YR = 365.2422 * 864e5;
+    var P = 29.4571 * YR;
+    var C = 2 * Math.PI * 230;
+    var MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function mon(t) { var d = new Date(t); return M[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); }
+    function monS(t) { var d = new Date(t); return MS[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); }
+    var SIGNS = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
+    var ZG = [];
+    for (var zi = 0; zi < 12; zi++) ZG.push(String.fromCharCode(0x2648 + zi) + '︎');
+    var SL = [
+      'Learning to lead yourself with patience rather than force.',
+      'Building security that rests on your own values, not only on what you own.',
+      'Turning scattered curiosity into a voice people can rely on.',
+      'Making a home and an inner life that can hold real weight.',
+      'Earning confidence through what you make rather than the applause.',
+      'Finding work and routines that are useful without being punishing.',
+      'Committing properly, and keeping things fair in your partnerships.',
+      'Facing what you would rather control, and sharing power honestly.',
+      'Turning big beliefs into a direction you will actually follow.',
+      'Taking full ownership of your ambitions and what they cost.',
+      'Finding your place in a group without losing your own line.',
+      'Giving your sensitivity a shape, and some boundaries.'
+    ];
+    var ORDL = ['first','second','third','fourth'];
+    var c = s.calc, has = !!c;
+    var angle = 0, arc = '0 2000', satClass = 'free', pct = 0, nextLine = '';
+    var ext = { glyph: '♄︎', signTitle: 'Your Saturn sign', signText: 'The kind of responsibility and structure this return is asking you to take seriously.', signMeta: '', hasMeta: false,
+      winOpen: 'Opens', winClose: 'Closes', fillW: '62%', dotLeft: '62%', dotShow: true, hereText: 'You are here', passTicks: [],
+      natalLabel: 'your natal Saturn', natalY: 110, natalTextY: 100, chartPath: 'M0 0', markPath: 'M0 0', todayX: -999, passChips: [], hitsSummary: '', showReal: false };
+    if (has) {
+      var R = c.R, now = Date.now(), YRL = 365.2422 * 864e5;
+      angle = c.ang.toFixed(2); arc = (c.ang / 360 * C).toFixed(1) + ' 2000'; satClass = 'set'; pct = Math.round(c.ang / 360 * 100);
+      var frac = (now - R.open) / (R.close - R.open), inside = frac >= 0 && frac <= 1;
+      nextLine = inside ? 'Inside your ' + ORDL[R.k - 1] + ' return now' : ORD[R.k - 1] + ' return opens ' + mon(R.open);
+      var sg = c.sg, dg = Math.floor(c.deg);
+      ext.glyph = ZG[sg]; ext.signTitle = 'Saturn in ' + SIGNS[sg]; ext.signText = SL[sg]; ext.signMeta = dg + '° ' + SIGNS[sg] + ' when you were born'; ext.hasMeta = true;
+      ext.winOpen = 'Opens ' + monS(R.open); ext.winClose = 'Closes ' + monS(R.close);
+      ext.fillW = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + '%'; ext.dotLeft = ext.fillW; ext.dotShow = inside;
+      if (!inside) { var yrs = (R.open - now) / YRL; ext.hereText = yrs >= 1.5 ? 'Opens in about ' + Math.round(yrs) + ' years' : 'Opens in ' + Math.max(1, Math.round(yrs * 12)) + ' months'; ext.dotLeft = '50%'; }
+      ext.passTicks = R.passes.map(function (t) { return { left: ((t - R.open) / (R.close - R.open) * 100).toFixed(1) + '%' }; });
+      ext.natalLabel = 'your natal Saturn, ' + dg + '° ' + SIGNS[sg];
+      ext.natalY = c.chart.y0.toFixed(1); ext.natalTextY = (c.chart.y0 - 10).toFixed(1);
+      ext.chartPath = c.chart.path; ext.markPath = c.chart.mk; ext.todayX = c.chart.todayX;
+      var PN = ['Pass one','Pass two','Pass three','Pass four'];
+      ext.passChips = R.passes.map(function (t, i) { return { label: PN[i] || 'Pass', date: mon(t) }; });
+      var n = R.passes.length, NW = ['','one','two','three','four'];
+      ext.hitsSummary = 'Your ' + ORDL[R.k - 1] + ' return has ' + (n === 1 ? 'one exact pass.' : (NW[n] || n) + ' exact passes.');
+      ext.showReal = true;
+    }
+    var AGES = {
+      29: ['The first return', 'Usually somewhere between 27 and 30. The one most people mean when they say Saturn return.'],
+      58: ['The second return', 'Usually between 56 and 60. Saturn checks back in on what you built after the first.'],
+      87: ['The third return', 'Around 87 or 88, for those who reach it.']
+    };
+    var TARGET = [29, 58, 87];
+    var last = 0;
+    s.vals.forEach(function (x, j) { if (x !== null) last = j; });
+    var ages = [];
+    s.vals.forEach(function (v, i) {
+      if (v === null) return;
+      var on = s.countDone ? s.age === TARGET[i] : i === last;
+      ages.push({ n: v, on: on, cls: on ? 'on' : '', pick: function () { if (self.state.countDone) self.setState({ age: TARGET[i] }); } });
+    });
+    var isThree = !has && s.passes === 3;
+    var isOne = !has && s.passes !== 3;
+    var FAQ = [
+      ['I don’t know my birth time. Does that matter?', 'Your dates stay accurate, because Saturn moves slowly. Without a time we use noon and leave houses out of the reading.'],
+      ['How accurate are the dates?', 'They are calculated from actual planetary positions, not averages, and given to the day.'],
+      ['Tropical or sidereal?', 'Tropical, the Western default. It is the system behind the April 1996 to June 1998 window.'],
+      ['Is this a subscription?', 'No. You pay once and the reading is yours, including the PDF.'],
+      ['What if it isn’t useful?', 'Email us within 14 days for a full refund.']
+    ];
+    var faqs = FAQ.map(function (q, i) {
+      var open = s.faq === i;
+      return { q: q[0], a: q[1], open: open, cls: open ? 'open' : '', delay: (0.25 + i * 0.12).toFixed(2) + 's', top: i === 0 ? '1px solid rgba(237,230,214,.14)' : '0', toggle: function () { self.setState({ faq: open ? -1 : i }); } };
+    });
+    var seen = s.seen || {};
+    function inn(k) { return seen[k] ? 'in' : ''; }
+    return Object.assign(ext, {
+      r: this.refFns,
+      inSeason: inn('season'), inSign: inn('sign'), inWin: inn('win'), inHits: inn('hits'),
+      inReading: inn('reading'), inPrice: inn('price'), inAges: inn('ages'), inFaq: inn('faq'),
+      inClosing: inn('closing'), inFooter: inn('footer'),
+      faqs: faqs,
+      onDate: function (e) { var v = e.target.value; self.setState({ date: v, calc: self.compute(v, self.state.time) }); },
+      onTime: function (e) { var v = e.target.value; self.setState({ time: v, calc: self.compute(self.state.date, v) }); },
+      submit: function (e) { e.preventDefault(); },
+      angle: angle, arc: arc, satClass: satClass,
+      noDate: !has, hasDate: has, pct: pct, nextLine: nextLine, pressOne: s.passes !== 3, pressThree: s.passes === 3,
+      echoLine: has ? 'Saturn is ' + pct + '% of the way back to where it was when you were born.' : 'Saturn is already on its way back to where it was when you were born.',
+      isOne: isOne, isThree: isThree,
+      oneClass: s.passes === 3 ? '' : 'on', threeClass: s.passes === 3 ? 'on' : '',
+      pickOne: function () { self.setState({ passes: 1 }); },
+      pickThree: function () { self.setState({ passes: 3 }); },
+      hitsLabel: isThree ? 'Saturn crossing the natal degree three times: forward, back in retrograde, forward again' : 'Saturn crossing the natal degree once',
+      ages: ages, countDone: s.countDone, ageTitle: AGES[s.age][0], ageBody: AGES[s.age][1]
+    });
+  }
+}
+</script>
+</body>
+</html>

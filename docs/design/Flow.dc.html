@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rite mobile flow</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0E1014}
+a{color:#F2B544}a:hover{color:#FFD27A}
+.disp{font-family:'Bricolage Grotesque',serif}
+.inp{height:60px;border-radius:16px;border:1px solid rgba(237,230,214,.2);background:#14171D;color:#EDE6D6;font:500 20px 'Hanken Grotesk',sans-serif;padding:0 18px;color-scheme:dark;width:100%;box-sizing:border-box}
+.inp:focus{outline:none;border-color:#F2B544;box-shadow:0 0 0 4px rgba(242,181,68,.18)}
+.cta{height:58px;border:0;border-radius:999px;background:#F2B544;color:#14110A;font:600 18px 'Hanken Grotesk',sans-serif;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none}
+.cta:hover{background:#FFC85C;color:#14110A}
+.ghost{height:52px;border-radius:999px;border:1px solid rgba(237,230,214,.25);background:none;color:#EDE6D6;font:500 16px 'Hanken Grotesk',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;flex:1}
+.ghost.done{border-color:#F2B544;color:#F2B544}
+.txt{background:none;border:0;color:#A7A196;font:500 15px 'Hanken Grotesk',sans-serif;cursor:pointer;min-height:44px;padding:0 4px;text-decoration:underline;text-underline-offset:4px}
+.back{width:44px;height:44px;border-radius:50%;border:1px solid rgba(237,230,214,.2);background:none;color:#EDE6D6;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
+.in{animation:in .55s cubic-bezier(.2,.8,.2,1)}
+@keyframes in{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+.w{display:inline-block;opacity:0;transform:translateY(60%);animation:wIn .9s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes wIn{to{opacity:1;transform:none}}
+.fade{opacity:0;animation:fIn 1s ease forwards}
+@keyframes fIn{to{opacity:1}}
+.vb{transform-box:view-box;transform-origin:50% 50%}
+.eDial{animation:eDial 1.5s cubic-bezier(.3,.6,.3,1) both}
+@keyframes eDial{0%{opacity:0;transform:scale(.35) rotate(-140deg)}55%{opacity:1;transform:scale(1.07) rotate(10deg)}75%{transform:scale(.97) rotate(-3deg)}100%{opacity:1;transform:none}}
+.eRing{animation:eRing 1.2s cubic-bezier(.3,.6,.3,1) both}
+@keyframes eRing{0%{opacity:0;transform:scale(.4)}60%{opacity:1;transform:scale(1.05)}100%{opacity:1;transform:none}}
+.satEnter{animation:satEnter 2.6s cubic-bezier(.15,.6,.2,1) .7s both}
+@keyframes satEnter{0%{opacity:0;transform:rotate(-200deg)}12%{opacity:1}100%{opacity:1;transform:rotate(0)}}
+.orbit{animation:orbit 38s linear 3.3s infinite}
+@keyframes orbit{to{transform:rotate(360deg)}}
+.spinIn{animation:spinIn 3.8s cubic-bezier(.5,0,.2,1) both}
+@keyframes spinIn{from{transform:rotate(-320deg)}to{transform:rotate(0)}}
+.arcd{animation:arcd 3.8s cubic-bezier(.5,0,.2,1) both}
+@keyframes arcd{from{stroke-dasharray:0 2000}}
+.halo{animation:halo 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes halo{0%,100%{opacity:.1;transform:scale(1)}50%{opacity:.28;transform:scale(1.25)}}
+.ln{opacity:0;animation:ln .6s ease forwards}
+@keyframes ln{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.pop{animation:pop .8s cubic-bezier(.2,1.3,.3,1) both}
+@keyframes pop{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
+.fill{transform-origin:left center;animation:fill 1.3s cubic-bezier(.4,.1,.2,1) .5s both}
+@keyframes fill{from{transform:scaleX(0)}}
+.scroll{overflow-y:auto;scrollbar-width:none}
+.scroll::-webkit-scrollbar{display:none}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}.w,.fade,.ln{opacity:1;transform:none}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0E1014; color: #EDE6D6; font-family: 'Hanken Grotesk', sans-serif; display: flex; flex-direction: column; overflow: hidden; position: relative">
+
+<!-- intro -->
+<sc-if value="{{s0}}" hint-placeholder-val="{{ true }}">
+<div style="flex: 1; display: flex; flex-direction: column; padding: 52px 24px 30px; gap: 18px">
+<div class="disp" style="display: flex; align-items: center; gap: 9px; font-size: 24px; font-weight: 700; letter-spacing: -0.02em">
+<svg width="26" height="26" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="6.5" fill="#EDE6D6"></circle><ellipse cx="15" cy="15" rx="13.5" ry="4" fill="none" stroke="#F2B544" stroke-width="1.8" transform="rotate(-22 15 15)"></ellipse></svg>Rite
+</div>
+<svg viewBox="0 0 600 600" style="width: 250px; height: 250px; align-self: center; overflow: visible; margin: 4px 0" aria-hidden="true">
+<g class="vb eDial"><circle cx="300" cy="300" r="266" fill="none" stroke="rgba(237,230,214,.32)" stroke-width="10" stroke-dasharray="1.2 22.0126" stroke-dashoffset="0.6"></circle><circle cx="300" cy="300" r="266" fill="none" stroke="rgba(237,230,214,.6)" stroke-width="18" stroke-dasharray="1.6 137.6739" stroke-dashoffset="0.8"></circle></g>
+<circle class="vb eRing" cx="300" cy="300" r="230" fill="none" stroke="rgba(237,230,214,.2)" stroke-dasharray="2 7" style="animation-delay: .4s"></circle>
+<circle class="vb eRing" cx="300" cy="300" r="150" fill="none" stroke="rgba(237,230,214,.07)" style="animation-delay: .55s"></circle>
+<circle class="vb eRing" cx="300" cy="300" r="8" fill="#EDE6D6" style="animation-delay: .2s"></circle>
+<g class="fade" style="animation-delay: 1.2s"><line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="3"></line><circle cx="300" cy="70" r="6" fill="#0E1014" stroke="#F2B544" stroke-width="3"></circle></g>
+<g class="vb satEnter"><g class="vb orbit"><circle class="halo" cx="300" cy="70" r="40" fill="#F2B544"></circle><circle cx="300" cy="70" r="20" fill="#EDE6D6"></circle><ellipse cx="300" cy="70" rx="38" ry="10" fill="none" stroke="#F2B544" stroke-width="3.5" transform="rotate(-22 300 70)"></ellipse></g></g>
+</svg>
+<h1 class="disp" style="margin: 0; font-size: 46px; letter-spacing: -0.045em; font-weight: 700">
+<span style="display: block; overflow: hidden; font-size: 0.36em; font-weight: 500; font-style: italic; letter-spacing: -0.01em; line-height: 1; color: #BDB6A8; padding: 0.1em 0 0.12em 0.1em"><span class="w" style="animation-delay: .1s">Your</span></span>
+<span style="display: block; overflow: hidden; line-height: 0.86; padding-bottom: 0.04em; white-space: nowrap"><span class="w" style="animation-delay: .2s">Saturn</span> <span class="w" style="animation-delay: .3s">return,</span></span>
+<span style="display: block; overflow: hidden; font-size: 1.62em; font-weight: 800; letter-spacing: -0.06em; line-height: 0.8; padding: 0.02em 0; color: #F2B544"><span class="w" style="animation-delay: .42s">dated.</span></span>
+</h1>
+<p class="fade" style="margin: 0; font-size: 16px; line-height: 1.55; color: #BDB6A8; animation-delay: .7s">Your Saturn sign, your window and every exact pass. Free, in about ten seconds.</p>
+<div class="fade" style="margin-top: auto; display: flex; flex-direction: column; gap: 12px; align-items: center; animation-delay: .9s">
+<button type="button" class="cta" onClick="{{start}}">Find my dates <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h12M10 4l5 5-5 5"></path></svg></button>
+<span style="font-size: 14px; color: #8F897E">No account, no email.</span>
+</div>
+</div>
+</sc-if>
+
+<!-- steps -->
+<sc-if value="{{inSteps}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; display: flex; flex-direction: column; padding: 56px 24px 30px">
+<div style="display: flex; align-items: center; gap: 16px">
+<button type="button" class="back" aria-label="Back" onClick="{{back}}"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 9H3M8 4L3 9l5 5"></path></svg></button>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 14px; color: #A7A196">Step {{stepNo}} of 3</span>
+<div style="height: 4px; border-radius: 2px; background: rgba(237,230,214,.1); overflow: hidden"><div style="height: 100%; background: #F2B544; width: {{progress}}; transition: width .5s cubic-bezier(.2,.8,.2,1)"></div></div>
+</div>
+</div>
+
+<sc-if value="{{s1}}" hint-placeholder-val="{{ false }}">
+<div class="in" style="flex: 1; display: flex; flex-direction: column; gap: 18px; padding-top: 44px">
+<h2 class="disp" style="margin: 0; font-size: 40px; line-height: 1; letter-spacing: -0.035em; font-weight: 700">When were you born?</h2>
+<p style="margin: 0; font-size: 16px; line-height: 1.5; color: #A7A196">Use the local date where you were born.</p>
+<label for="fd" style="position: absolute; left: -9999px">Birth date</label>
+<input id="fd" class="inp" type="date" value="{{date}}" onChange="{{setDate}}">
+<div style="margin-top: auto"><button type="button" class="cta" onClick="{{next}}">Continue</button></div>
+</div>
+</sc-if>
+
+<sc-if value="{{s2}}" hint-placeholder-val="{{ false }}">
+<div class="in" style="flex: 1; display: flex; flex-direction: column; gap: 18px; padding-top: 44px">
+<h2 class="disp" style="margin: 0; font-size: 40px; line-height: 1; letter-spacing: -0.035em; font-weight: 700">Where were you born?</h2>
+<p style="margin: 0; font-size: 16px; line-height: 1.5; color: #A7A196">We look up the coordinates and time zone for you.</p>
+<label for="fp" style="position: absolute; left: -9999px">Birth place</label>
+<input id="fp" class="inp" type="text" placeholder="Town or city" autocomplete="off" value="{{place}}" onChange="{{setPlace}}">
+<div style="margin-top: auto"><button type="button" class="cta" onClick="{{next}}">Continue</button></div>
+</div>
+</sc-if>
+
+<sc-if value="{{s3}}" hint-placeholder-val="{{ false }}">
+<div class="in" style="flex: 1; display: flex; flex-direction: column; gap: 18px; padding-top: 44px">
+<h2 class="disp" style="margin: 0; font-size: 40px; line-height: 1; letter-spacing: -0.035em; font-weight: 700">What time?</h2>
+<p style="margin: 0; font-size: 16px; line-height: 1.5; color: #A7A196">Optional. Your dates stay accurate without it; a time adds your Saturn house.</p>
+<label for="ft" style="position: absolute; left: -9999px">Birth time</label>
+<input id="ft" class="inp" type="time" value="{{time}}" onChange="{{setTime}}">
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px; align-items: center">
+<button type="button" class="cta" onClick="{{build}}">Show my Saturn return</button>
+<button type="button" class="txt" onClick="{{build}}">I don't know my birth time</button>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<!-- building -->
+<sc-if value="{{s4}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 34px; padding: 24px">
+<svg viewBox="0 0 600 600" style="width: 280px; height: 280px; overflow: visible" aria-hidden="true">
+<circle cx="300" cy="300" r="266" fill="none" stroke="rgba(237,230,214,.3)" stroke-width="10" stroke-dasharray="1.2 22.0126" stroke-dashoffset="0.6"></circle>
+<circle cx="300" cy="300" r="230" fill="none" stroke="rgba(237,230,214,.18)" stroke-dasharray="2 7"></circle>
+<circle class="arcd" cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" transform="rotate(-90 300 300)" style="stroke-dasharray: {{arc}}"></circle>
+<line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="3"></line>
+<circle cx="300" cy="300" r="8" fill="#EDE6D6"></circle>
+<g style="transform: rotate({{angle}}deg); transform-origin: 300px 300px"><g class="vb spinIn"><circle class="halo" cx="300" cy="70" r="40" fill="#F2B544"></circle><circle cx="300" cy="70" r="20" fill="#EDE6D6"></circle><ellipse cx="300" cy="70" rx="38" ry="10" fill="none" stroke="#F2B544" stroke-width="3.5" transform="rotate(-22 300 70)"></ellipse></g></g>
+</svg>
+<div style="display: flex; flex-direction: column; gap: 12px; text-align: center; font-size: 17px; color: #BDB6A8">
+<span class="ln" style="animation-delay: .2s">Placing Saturn on the day you were born</span>
+<span class="ln" style="animation-delay: 1.2s; color: #EDE6D6">Saturn in {{signName}}, {{deg}}°</span>
+<span class="ln" style="animation-delay: 2.2s">Tracking it forward, retrogrades included</span>
+<span class="ln" style="animation-delay: 3.1s; color: #F2B544">{{passFound}}</span>
+</div>
+</div>
+</sc-if>
+
+<!-- result -->
+<sc-if value="{{s5}}" hint-placeholder-val="{{ false }}">
+<div class="scroll" style="flex: 1; display: flex; flex-direction: column; gap: 18px; padding: 52px 24px 30px">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<div class="disp" style="display: flex; align-items: center; gap: 9px; font-size: 22px; font-weight: 700"><svg width="24" height="24" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="6.5" fill="#EDE6D6"></circle><ellipse cx="15" cy="15" rx="13.5" ry="4" fill="none" stroke="#F2B544" stroke-width="1.8" transform="rotate(-22 15 15)"></ellipse></svg>Rite</div>
+<button type="button" class="txt" onClick="{{restart}}">Start again</button>
+</div>
+<div class="pop" style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px">
+<h1 class="disp" style="margin: 0; font-size: 46px; letter-spacing: -0.045em; font-weight: 700">
+<span style="display: block; font-size: 0.36em; font-weight: 500; font-style: italic; color: #BDB6A8; line-height: 1; padding: 0 0 0.12em 0.1em">Your</span>
+<span style="display: block; line-height: 0.86">Saturn in</span>
+<span style="display: block; font-size: 1.5em; font-weight: 800; letter-spacing: -0.06em; line-height: 0.82; color: #F2B544">{{signName}}.</span>
+</h1>
+<span class="disp" aria-hidden="true" style="font-size: 64px; color: #F2B544; line-height: 1; opacity: .9">{{glyph}}</span>
+</div>
+<div class="pop" style="animation-delay: .1s; display: flex; align-items: center; gap: 14px">
+<span class="disp" style="font-size: 52px; font-weight: 800; letter-spacing: -0.04em; line-height: .9; color: #F2B544">{{pct}}<span style="font-size: 24px">%</span></span>
+<span style="display: flex; flex-direction: column; gap: 2px; font-size: 15px; line-height: 1.3"><span>of the way round</span><span style="color: #A7A196">{{nextLine}}</span></span>
+</div>
+<div class="pop" style="animation-delay: .2s; background: #14171D; border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+<span class="disp" style="font-size: 20px; font-weight: 600">Your {{ord}} return window</span>
+<div style="position: relative; height: 10px; border-radius: 5px; background: rgba(237,230,214,.1)">
+<div class="fill" style="position: absolute; left: 0; top: 0; bottom: 0; width: {{fillW}}; border-radius: 5px; background: #F2B544"></div>
+<sc-for list="{{ticks}}" as="t" hint-placeholder-count="1"><div style="position: absolute; left: {{t.left}}; top: -5px; bottom: -5px; width: 2px; margin-left: -1px; background: #EDE6D6; opacity: .6; border-radius: 1px"></div></sc-for>
+<sc-if value="{{inside}}" hint-placeholder-val="{{ true }}"><div style="position: absolute; left: {{fillW}}; top: 50%; box-sizing: border-box; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; background: #0E1014; border: 3px solid #EDE6D6"></div></sc-if>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 13px; color: #A7A196"><span>{{openL}}</span><span style="color: #EDE6D6">{{midL}}</span><span>{{closeL}}</span></div>
+</div>
+<div class="pop" style="animation-delay: .3s; display: flex; flex-direction: column; gap: 10px">
+<span class="disp" style="font-size: 20px; font-weight: 600">{{hitsSummary}}</span>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{chips}}" as="c" hint-placeholder-count="1"><span style="display: inline-flex; gap: 8px; align-items: baseline; padding: 11px 16px; border-radius: 999px; border: 1px solid rgba(237,230,214,.2); font-size: 14px"><span style="color: #A7A196">{{c.label}}</span><span style="color: #F2B544; font-weight: 600">{{c.date}}</span></span></sc-for>
+</div>
+<span style="font-size: 14px; color: #8F897E">Exact days are in the full reading.</span>
+</div>
+<div class="pop" style="animation-delay: .4s; display: flex; flex-direction: column; gap: 10px; margin-top: 4px">
+<a href="Result.dc.html" class="cta">See my full result</a>
+<div style="display: flex; gap: 10px">
+<button type="button" class="ghost {{remCls}}" onClick="{{remind}}">{{remText}}</button>
+<a href="ShareCard.dc.html" class="ghost" style="text-decoration: none">Share</a>
+</div>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { step: 0, date: '', time: '', place: '', calc: null, reminded: false };
+  }
+  componentWillUnmount() { clearTimeout(this.t); }
+  satLon(t) {
+    var RAD = Math.PI / 180;
+    function rev(x) { return x - Math.floor(x / 360) * 360; }
+    function kep(M, e) { var E = M + e * Math.sin(M) * (1 + e * Math.cos(M)); for (var k = 0; k < 8; k++) { E = E - (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E)); } return E; }
+    var d = t / 864e5 + 2440587.5 - 2451543.5;
+    var ws = 282.9404 + 4.70935e-5 * d, es = 0.016709 - 1.151e-9 * d, Ms = rev(356.0470 + 0.9856002585 * d);
+    var Es = kep(Ms * RAD, es), xv = Math.cos(Es) - es, yv = Math.sqrt(1 - es * es) * Math.sin(Es);
+    var ls = rev(Math.atan2(yv, xv) / RAD + ws), rs = Math.sqrt(xv * xv + yv * yv);
+    var xs = rs * Math.cos(ls * RAD), ys = rs * Math.sin(ls * RAD);
+    var N = 113.6634 + 2.3898e-5 * d, i = 2.4886 - 1.081e-7 * d, w = 339.3939 + 2.97661e-5 * d, a = 9.55475, e = 0.055546 - 9.499e-9 * d, M = rev(316.967 + 0.0334442282 * d), Mj = rev(19.895 + 0.0830853001 * d);
+    var E = kep(M * RAD, e); xv = a * (Math.cos(E) - e); yv = a * Math.sqrt(1 - e * e) * Math.sin(E);
+    var v = Math.atan2(yv, xv) / RAD, r = Math.sqrt(xv * xv + yv * yv), vw = (v + w) * RAD, Nr = N * RAD, ir = i * RAD;
+    var xh = r * (Math.cos(Nr) * Math.cos(vw) - Math.sin(Nr) * Math.sin(vw) * Math.cos(ir));
+    var yh = r * (Math.sin(Nr) * Math.cos(vw) + Math.cos(Nr) * Math.sin(vw) * Math.cos(ir));
+    var zh = r * Math.sin(vw) * Math.sin(ir);
+    var lon = Math.atan2(yh, xh) / RAD, lat = Math.atan2(zh, Math.sqrt(xh * xh + yh * yh)) / RAD;
+    lon += 0.812 * Math.sin((2 * Mj - 5 * M - 67.6) * RAD) - 0.229 * Math.cos((2 * Mj - 4 * M - 2) * RAD) + 0.119 * Math.sin((Mj - 2 * M - 3) * RAD) + 0.046 * Math.sin((2 * Mj - 6 * M - 69) * RAD) + 0.014 * Math.sin((Mj - 3 * M + 32) * RAD);
+    var cl = Math.cos(lat * RAD); xh = r * Math.cos(lon * RAD) * cl; yh = r * Math.sin(lon * RAD) * cl;
+    return rev(Math.atan2(yh + ys, xh + xs) / RAD);
+  }
+  compute(ds, ts) {
+    if (!ds) return null;
+    var p = ds.split('-');
+    if (p.length < 3 || p[0].length !== 4) return null;
+    var hh = 12, mm = 0;
+    if (ts) { var q = ts.split(':'); hh = +q[0] || 0; mm = +q[1] || 0; }
+    var b = Date.UTC(+p[0], +p[1] - 1, +p[2], hh, mm), now = Date.now();
+    if (isNaN(b) || b > now || +p[0] < 1900) return null;
+    var self = this, D = 864e5, Y = 365.2422 * D, P = 29.4571 * Y;
+    var nat = this.satLon(b), sg = Math.floor(nat / 30);
+    function wrap(x) { x = x - Math.floor(x / 360) * 360; return x > 180 ? x - 360 : x; }
+    var R = null;
+    for (var k = 1; k <= 4; k++) {
+      var c = b + k * P, passes = [], prev = null;
+      for (var t = c - 2.6 * Y; t < c + 2.6 * Y; t += D) { var df = wrap(self.satLon(t) - nat); if (prev !== null && Math.abs(df) < 5 && ((prev < 0) !== (df < 0))) passes.push(t); prev = df; }
+      if (!passes.length) continue;
+      var open = passes[0], close = passes[passes.length - 1];
+      for (var t2 = passes[0] - 3.2 * Y; t2 < passes[0]; t2 += D) { if (Math.floor(self.satLon(t2) / 30) === sg) { open = t2; break; } }
+      for (var t3 = passes[passes.length - 1] + 3.2 * Y; t3 > passes[passes.length - 1]; t3 -= D) { if (Math.floor(self.satLon(t3) / 30) === sg) { close = t3; break; } }
+      R = { k: k, open: open, close: close, passes: passes };
+      if (close > now) break;
+    }
+    if (!R) return null;
+    return { nat: nat, sg: sg, deg: nat % 30, R: R, ang: (this.satLon(now) - nat + 360) % 360 };
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var M = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var SIGNS = ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'];
+    var ORD = ['first','second','third','fourth'], NW = ['', 'one', 'two', 'three', 'four'];
+    function mon(t) { var d = new Date(t); return M[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); }
+    function monS(t) { var d = new Date(t); return MS[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); }
+    var c = s.calc, st = s.step, v = {};
+    if (c) {
+      var R = c.R, now = Date.now(), frac = (now - R.open) / (R.close - R.open), inside = frac >= 0 && frac <= 1, n = R.passes.length;
+      var yrs = (R.open - now) / (365.2422 * 864e5);
+      v = {
+        signName: SIGNS[c.sg], deg: Math.floor(c.deg), glyph: String.fromCharCode(0x2648 + c.sg) + '︎',
+        angle: c.ang.toFixed(1), arc: (c.ang / 360 * 2 * Math.PI * 230).toFixed(1) + ' 2000', pct: Math.round(c.ang / 360 * 100),
+        nextLine: inside ? 'Inside your ' + ORD[R.k - 1] + ' return now' : 'Your ' + ORD[R.k - 1] + ' return opens ' + monS(R.open),
+        ord: ORD[R.k - 1], fillW: (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + '%', inside: inside,
+        openL: monS(R.open), closeL: monS(R.close), midL: inside ? 'You are here' : (yrs >= 1.5 ? 'In about ' + Math.round(yrs) + ' years' : 'Soon'),
+        ticks: R.passes.map(function (t) { return { left: ((t - R.open) / (R.close - R.open) * 100).toFixed(1) + '%' }; }),
+        chips: R.passes.map(function (t, i) { return { label: ['Pass one','Pass two','Pass three','Pass four'][i] || 'Pass', date: mon(t) }; }),
+        hitsSummary: n === 1 ? 'One exact pass' : (NW[n] || n).charAt(0).toUpperCase() + (NW[n] || '').slice(1) + ' exact passes',
+        passFound: (n === 1 ? 'One exact pass found' : (NW[n] || n) + ' exact passes found').replace(/^./, function (x) { return x.toUpperCase(); })
+      };
+    }
+    return Object.assign({
+      signName: '', deg: '', glyph: '', angle: 0, arc: '0 2000', pct: 0, nextLine: '', ord: 'first', fillW: '0%', inside: false, openL: '', closeL: '', midL: '', ticks: [], chips: [], hitsSummary: '', passFound: ''
+    }, v, {
+      s0: st === 0, inSteps: st >= 1 && st <= 3, s1: st === 1, s2: st === 2, s3: st === 3, s4: st === 4, s5: st === 5,
+      stepNo: st, progress: (st / 3 * 100) + '%', date: s.date, time: s.time, place: s.place,
+      start: function () { self.setState({ step: 1 }); },
+      setDate: function (e) { self.setState({ date: e.target.value }); },
+      setTime: function (e) { self.setState({ time: e.target.value }); },
+      setPlace: function (e) { self.setState({ place: e.target.value }); },
+      next: function () { self.setState({ step: Math.min(self.state.step + 1, 3) }); },
+      back: function () { self.setState({ step: Math.max(self.state.step - 1, 0) }); },
+      build: function () {
+        var calc = self.compute(self.state.date || '1997-08-14', self.state.time);
+        if (!calc) calc = self.compute('1997-08-14', '');
+        self.setState({ step: 4, calc: calc });
+        clearTimeout(self.t);
+        self.t = setTimeout(function () { self.setState({ step: 5 }); }, 4300);
+      },
+      restart: function () { self.setState({ step: 0, calc: null, reminded: false }); },
+      remCls: s.reminded ? 'done' : '', remText: s.reminded ? 'Reminder set' : 'Remind me',
+      remind: function () { self.setState({ reminded: true }); }
+    });
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rite free result</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0E1014}
+a{color:#F2B544}a:hover{color:#FFD27A}
+.rt{font-family:'Hanken Grotesk',system-ui,sans-serif;color:#EDE6D6;background:#0E1014;overflow-x:hidden}
+.disp{font-family:'Bricolage Grotesque',serif}
+.cta{height:56px;border:0;border-radius:999px;background:#F2B544;color:#14110A;font:600 17px 'Hanken Grotesk',sans-serif;padding:0 28px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;transition:transform .25s cubic-bezier(.2,.8,.2,1),background .2s}
+.cta:hover{background:#FFC85C;color:#14110A;transform:translateY(-2px)}
+.ghost{height:48px;border-radius:999px;border:1px solid rgba(237,230,214,.25);background:none;color:#EDE6D6;padding:0 22px;display:inline-flex;align-items:center;gap:10px;text-decoration:none;font:500 16px 'Hanken Grotesk',sans-serif;cursor:pointer;transition:border-color .2s,background .2s}
+.ghost:hover{color:#EDE6D6;border-color:#F2B544;background:rgba(242,181,68,.08)}
+.pass{flex:1 1 220px;text-align:left;background:#14171D;border:1px solid rgba(237,230,214,.1);border-radius:22px;padding:20px 22px;color:#EDE6D6;cursor:pointer;display:flex;flex-direction:column;gap:6px;font-family:'Hanken Grotesk',sans-serif;transition:border-color .25s,transform .25s cubic-bezier(.2,.8,.2,1)}
+.pass:hover{border-color:rgba(242,181,68,.5);transform:translateY(-3px)}
+.pass.on{border-color:#F2B544;background:#1A1D23}
+.em{height:52px;border-radius:999px;border:1px solid rgba(237,230,214,.2);background:#14171D;color:#EDE6D6;font:500 16px 'Hanken Grotesk',sans-serif;padding:0 20px;flex:1 1 220px;min-width:0;color-scheme:dark}
+.em:focus{outline:none;border-color:#F2B544}
+.lock{display:flex;gap:14px;align-items:flex-start;padding:16px 0;border-top:1px solid rgba(20,17,10,.12);font-size:17px;line-height:1.45}
+.path{stroke-dasharray:1800;stroke-dashoffset:1800;animation:draw 2.8s cubic-bezier(.45,.05,.2,1) .3s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.mk{opacity:0;animation:mk .5s ease forwards}
+@keyframes mk{from{opacity:0}to{opacity:1}}
+.pulse{animation:pulse 2s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(2.2);opacity:0}}
+.w{display:inline-block;opacity:0;transform:translateY(50%);animation:wIn .9s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes wIn{to{opacity:1;transform:none}}
+.swap{animation:swap .6s cubic-bezier(.2,.8,.2,1)}
+@keyframes swap{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@supports (animation-timeline: view()){
+.rv{animation:rv linear both;animation-timeline:view();animation-range:entry 0% cover 30%}
+@keyframes rv{from{opacity:0;transform:translateY(60px)}to{opacity:1;transform:none}}
+}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}.w,.mk{opacity:1;transform:none}.path{stroke-dashoffset:0}}
+</style>
+</helmet>
+<div class="rt" style="width: 100%; min-height: 100vh">
+
+<header style="max-width: 1240px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 48px); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<a href="Main.dc.html" class="disp" style="color: #EDE6D6; text-decoration: none; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px">
+<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="6.5" fill="#EDE6D6"></circle><ellipse cx="15" cy="15" rx="13.5" ry="4" fill="none" stroke="#F2B544" stroke-width="1.8" transform="rotate(-22 15 15)"></ellipse></svg>
+Rite
+</a>
+<a href="Main.dc.html" style="color: #BDB6A8; font-weight: 500; text-decoration: none">Check another birthday</a>
+</header>
+
+<section style="max-width: 1240px; margin: 0 auto; padding: 32px clamp(16px, 4vw, 48px) 40px; display: flex; flex-direction: column; gap: 24px">
+<p style="margin: 0; font-size: 17px; color: #A7A196">Born 14 August 1997, Melbourne</p>
+<h1 class="disp" style="margin: 0; font-size: clamp(56px, 8vw, 128px); line-height: 0.9; letter-spacing: -0.045em; font-weight: 800">
+<span style="display: block; overflow: hidden"><span class="w">Saturn</span> <span class="w" style="animation-delay: .08s">in</span> <span class="w" style="animation-delay: .16s; color: #F2B544">Aries</span></span>
+</h1>
+<p class="disp" style="margin: 0; max-width: 720px; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.3; letter-spacing: -0.01em">Your first return opened in February 2026 and runs into mid 2028. You are about a third of the way in, and the first exact pass is six months away.</p>
+</section>
+
+<!-- timeline -->
+<section style="max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px) 32px">
+<div style="background: #14171D; border-radius: 32px; padding: clamp(20px, 3vw, 40px); overflow-x: auto">
+<svg viewBox="0 0 1100 360" style="width: 100%; min-width: 640px; display: block" role="img" aria-label="Saturn's path across your natal degree, crossing it in April 2027, November 2027 and February 2028">
+<rect x="40" y="20" width="815" height="290" rx="14" fill="rgba(242,181,68,.05)"></rect>
+<line x1="40" y1="118" x2="1060" y2="118" stroke="rgba(237,230,214,.4)" stroke-dasharray="4 6"></line>
+<text x="1060" y="108" text-anchor="end" fill="#A7A196" font-size="14" font-family="Hanken Grotesk, sans-serif">your natal Saturn, 21° Aries</text>
+<line x1="40" y1="310" x2="1060" y2="310" stroke="rgba(237,230,214,.15)"></line>
+<text x="40" y="338" fill="#A7A196" font-size="14" font-family="Hanken Grotesk, sans-serif">2026</text>
+<text x="360" y="338" fill="#A7A196" font-size="14" font-family="Hanken Grotesk, sans-serif">2027</text>
+<text x="709" y="338" fill="#A7A196" font-size="14" font-family="Hanken Grotesk, sans-serif">2028</text>
+<text x="855" y="338" text-anchor="middle" fill="#A7A196" font-size="14" font-family="Hanken Grotesk, sans-serif">closes</text>
+<line x1="273" y1="20" x2="273" y2="310" stroke="#EDE6D6" stroke-width="1.5" stroke-dasharray="2 4"></line>
+<rect x="241" y="2" width="64" height="26" rx="13" fill="#EDE6D6"></rect>
+<text x="273" y="20" text-anchor="middle" fill="#0E1014" font-size="13" font-weight="600" font-family="Hanken Grotesk, sans-serif">Today</text>
+<path class="path" d="M40 300 C 110 240, 150 185, 186 179 S 300 245, 331 239 S 420 150, 447 118 S 530 66, 563 66 S 630 104, 651 118 S 675 128, 680 127 S 715 124, 739 118 S 860 50, 911 40 S 1000 28, 1060 22" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round"></path>
+<g class="mk" style="animation-delay: 1.6s"><circle class="pulse" cx="447" cy="118" r="10" fill="#F2B544" style="opacity: {{o1}}"></circle><circle cx="447" cy="118" r="8" fill="#0E1014" stroke="#F2B544" stroke-width="3"></circle></g>
+<g class="mk" style="animation-delay: 2.2s"><circle class="pulse" cx="651" cy="118" r="10" fill="#F2B544" style="opacity: {{o2}}"></circle><circle cx="651" cy="118" r="8" fill="#0E1014" stroke="#F2B544" stroke-width="3"></circle></g>
+<g class="mk" style="animation-delay: 2.6s"><circle class="pulse" cx="739" cy="118" r="10" fill="#F2B544" style="opacity: {{o3}}"></circle><circle cx="739" cy="118" r="8" fill="#0E1014" stroke="#F2B544" stroke-width="3"></circle></g>
+</svg>
+</div>
+</section>
+
+<!-- passes -->
+<section style="max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px) 72px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<sc-for list="{{passes}}" as="p" hint-placeholder-count="3">
+<button type="button" class="pass {{p.cls}}" aria-pressed="{{p.on}}" onClick="{{p.pick}}">
+<span style="font-size: 14px; color: #A7A196">{{p.label}}</span>
+<span class="disp" style="font-size: 30px; font-weight: 700; letter-spacing: -0.02em">{{p.month}}</span>
+</button>
+</sc-for>
+</div>
+<div class="swap" style="border-top: 1px solid rgba(237,230,214,.12); padding-top: 28px; display: flex; flex-wrap: wrap; gap: 20px 56px; align-items: flex-start">
+<div style="flex: 0 1 320px; display: flex; flex-direction: column; gap: 10px">
+<h2 class="disp" style="margin: 0; font-size: 40px; letter-spacing: -0.03em; font-weight: 700; line-height: 1">{{passName}}</h2>
+<span style="display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: #A7A196"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5 7V5a3 3 0 0 1 6 0v2"></path></svg>Exact day in the full reading</span>
+</div>
+<p style="margin: 0; flex: 1 1 360px; font-size: 19px; line-height: 1.6; color: #BDB6A8">{{passBody}}</p>
+</div>
+</section>
+
+<!-- actions -->
+<section style="max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px) 120px; display: flex; flex-wrap: wrap; gap: 20px">
+<div class="rv" style="flex: 1 1 340px; background: #14171D; border-radius: 28px; padding: 32px; display: flex; flex-direction: column; gap: 16px">
+<h3 class="disp" style="margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.02em">Share your dates</h3>
+<p style="margin: 0; font-size: 16px; line-height: 1.55; color: #BDB6A8">A card with your sign and passes. No birth details on it.</p>
+<div><a href="ShareCard.dc.html" class="ghost"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2v10M5 6l4-4 4 4M3 11v4h12v-4"></path></svg>Make my card</a></div>
+</div>
+<div class="rv" style="flex: 1 1 440px; background: #14171D; border-radius: 28px; padding: 32px; display: flex; flex-direction: column; gap: 16px">
+<h3 class="disp" style="margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.02em">Get a heads-up before each pass</h3>
+<sc-if value="{{notSubbed}}" hint-placeholder-val="{{ true }}">
+<form onSubmit="{{sub}}" style="display: flex; flex-wrap: wrap; gap: 12px">
+<label for="em" style="position: absolute; left: -9999px">Email</label>
+<input id="em" class="em" type="email" placeholder="you@example.com">
+<button type="submit" class="ghost" style="height: 52px">Remind me</button>
+</form>
+<p style="margin: 0; font-size: 14px; color: #8F897E">Three emails, one a week before each pass. Nothing else unless you ask.</p>
+</sc-if>
+<sc-if value="{{subbed}}" hint-placeholder-val="{{ false }}">
+<p class="swap" style="margin: 0; font-size: 17px; line-height: 1.55; color: #EDE6D6">Done. The first one lands a week before your April 2027 pass.</p>
+</sc-if>
+</div>
+</section>
+
+<!-- offer -->
+<section style="max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px) 120px">
+<div class="rv" style="background: #EDE6D6; color: #14110A; border-radius: 40px; padding: clamp(32px, 5vw, 72px); display: flex; flex-wrap: wrap; gap: 48px 72px">
+<div style="flex: 1 1 380px; display: flex; flex-direction: column; gap: 20px">
+<h2 class="disp" style="margin: 0; font-size: clamp(40px, 4.6vw, 64px); line-height: 1; letter-spacing: -0.03em; font-weight: 700">Your full reading</h2>
+<p style="margin: 0; font-size: 18px; line-height: 1.6; color: rgba(20,17,10,.72); max-width: 440px">Everything above, plus the exact days, your Saturn house and what to do in each phase. Built from this chart, ready the moment you pay.</p>
+<div style="display: flex; align-items: baseline; gap: 14px; margin-top: 8px">
+<span class="disp" style="font-size: 88px; font-weight: 800; letter-spacing: -0.05em; line-height: 0.85">$29</span>
+<span style="font-size: 16px; color: rgba(20,17,10,.7)">once, no subscription</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: center">
+<a href="Reading.dc.html" class="cta" style="background: #14110A; color: #EDE6D6">Unlock the full reading</a>
+<a href="#" style="color: #14110A; font-weight: 500">Buy one as a gift</a>
+</div>
+<p style="margin: 0; font-size: 14px; color: rgba(20,17,10,.6)">Not useful? Full refund within 14 days.</p>
+</div>
+<div style="flex: 1 1 380px; display: flex; flex-direction: column">
+<div class="lock"><svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="#8A6A1E" stroke-width="1.6" aria-hidden="true" style="flex: 0 0 auto; margin-top: 3px"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5 7V5a3 3 0 0 1 6 0v2"></path></svg><span><strong>Your Saturn.</strong> Sign, house and the exact degree your return is measured against.</span></div>
+<div class="lock"><svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="#8A6A1E" stroke-width="1.6" aria-hidden="true" style="flex: 0 0 auto; margin-top: 3px"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5 7V5a3 3 0 0 1 6 0v2"></path></svg><span><strong>The window.</strong> How your return opens, peaks and closes, phase by phase.</span></div>
+<div class="lock"><svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="#8A6A1E" stroke-width="1.6" aria-hidden="true" style="flex: 0 0 auto; margin-top: 3px"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5 7V5a3 3 0 0 1 6 0v2"></path></svg><span><strong>Every pass, to the day.</strong> All three crossings dated, with what each tends to ask of you.</span></div>
+<div class="lock"><svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="#8A6A1E" stroke-width="1.6" aria-hidden="true" style="flex: 0 0 auto; margin-top: 3px"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5 7V5a3 3 0 0 1 6 0v2"></path></svg><span><strong>The checkpoints.</strong> Saturn's squares and opposition at about 7, 14 and 21.</span></div>
+<div class="lock" style="border-bottom: 1px solid rgba(20,17,10,.12)"><svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="#8A6A1E" stroke-width="1.6" aria-hidden="true" style="flex: 0 0 auto; margin-top: 3px"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5 7V5a3 3 0 0 1 6 0v2"></path></svg><span><strong>What to do with it.</strong> Practical prompts for each phase.</span></div>
+</div>
+</div>
+</section>
+
+<footer style="border-top: 1px solid rgba(237,230,214,.1)">
+<div style="max-width: 1240px; margin: 0 auto; padding: 36px clamp(16px, 4vw, 48px); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; font-size: 15px; color: #A7A196">
+<a href="Main.dc.html" class="disp" style="color: #EDE6D6; text-decoration: none; font-weight: 600; font-size: 18px">Rite: Saturn Return</a>
+<span>Personal guidance for the transits that have names.</span>
+</div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":3000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { pass: 0, subbed: false };
+  }
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    var P = [
+      ['Pass one', 'April 2027', 'First contact', 'Saturn reaches your natal degree for the first time. Whatever has been vague about work, home or commitments starts asking for a decision.'],
+      ['Pass two', 'November 2027', 'The backtrack', 'Saturn backs over the same point in retrograde. What you started at the first pass gets tested, revised or dropped.'],
+      ['Pass three', 'February 2028', 'The settle', 'The last crossing. What survived the backtrack becomes the structure you carry into the next 29 years.']
+    ];
+    var passes = P.map(function (p, i) {
+      var on = s.pass === i;
+      return { label: p[0], month: p[1], on: on, cls: on ? 'on' : '', pick: function () { self.setState({ pass: i }); } };
+    });
+    return {
+      passes: passes,
+      passName: P[s.pass][2],
+      passBody: P[s.pass][3],
+      o1: s.pass === 0 ? 1 : 0,
+      o2: s.pass === 1 ? 1 : 0,
+      o3: s.pass === 2 ? 1 : 0,
+      notSubbed: !s.subbed,
+      subbed: s.subbed,
+      sub: function (e) { e.preventDefault(); self.setState({ subbed: true }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

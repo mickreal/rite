@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Saturn return in Aries</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0E1014}
+a{color:#F2B544}a:hover{color:#FFD27A}
+.rt{font-family:'Hanken Grotesk',system-ui,sans-serif;color:#EDE6D6;background:#0E1014;overflow-x:hidden}
+.disp{font-family:'Bricolage Grotesque',serif}
+.cta{height:56px;border:0;border-radius:999px;background:#F2B544;color:#14110A;font:600 17px 'Hanken Grotesk',sans-serif;padding:0 28px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;transition:transform .25s cubic-bezier(.2,.8,.2,1),background .2s}
+.cta:hover{background:#FFC85C;color:#14110A;transform:translateY(-2px)}
+.inp{height:56px;border-radius:999px;border:1px solid rgba(237,230,214,.2);background:#0E1014;color:#EDE6D6;font:500 17px 'Hanken Grotesk',sans-serif;padding:0 22px;color-scheme:dark;flex:1 1 220px;min-width:0}
+.inp:focus{outline:none;border-color:#F2B544;box-shadow:0 0 0 4px rgba(242,181,68,.18)}
+.fact{background:#14171D;border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:8px}
+.art p{margin:0;font-size:19px;line-height:1.7;color:#CFC8BA;max-width:680px}
+.art h2{margin:24px 0 0;font-family:'Bricolage Grotesque',serif;font-size:clamp(32px,3.4vw,48px);line-height:1.05;letter-spacing:-.03em;font-weight:700;color:#EDE6D6}
+.sign{height:48px;padding:0 20px;border-radius:999px;border:1px solid rgba(237,230,214,.18);color:#EDE6D6;text-decoration:none;display:inline-flex;align-items:center;font-weight:500;transition:border-color .2s,background .2s}
+.sign:hover{color:#EDE6D6;border-color:#F2B544;background:rgba(242,181,68,.08)}
+.sign.cur{background:#EDE6D6;color:#0E1014;border-color:#EDE6D6}
+.swap{animation:swap .5s cubic-bezier(.2,.8,.2,1)}
+@keyframes swap{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.grow{transform-origin:left center;animation:grow 1.4s cubic-bezier(.3,.7,.2,1) both}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@supports (animation-timeline: view()){
+.rv{animation:rv linear both;animation-timeline:view();animation-range:entry 0% cover 28%}
+@keyframes rv{from{opacity:0;transform:translateY(48px)}to{opacity:1;transform:none}}
+}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div class="rt" style="width: 100%; min-height: 100vh">
+
+<header style="max-width: 1240px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 48px); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<a href="Main.dc.html" class="disp" style="color: #EDE6D6; text-decoration: none; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px">
+<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="6.5" fill="#EDE6D6"></circle><ellipse cx="15" cy="15" rx="13.5" ry="4" fill="none" stroke="#F2B544" stroke-width="1.8" transform="rotate(-22 15 15)"></ellipse></svg>
+Rite
+</a>
+<a href="Main.dc.html" style="color: #BDB6A8; font-weight: 500; text-decoration: none">Saturn return calculator</a>
+</header>
+
+<section style="max-width: 1240px; margin: 0 auto; padding: 40px clamp(16px, 4vw, 48px) 64px; display: flex; flex-direction: column; gap: 28px">
+<h1 class="disp" style="margin: 0; font-size: clamp(56px, 8.4vw, 136px); line-height: 0.88; letter-spacing: -0.05em; font-weight: 800">Saturn return<br><span style="color: #F2B544">in Aries</span></h1>
+<p style="margin: 0; max-width: 680px; font-size: 20px; line-height: 1.6; color: #BDB6A8">Saturn is back in Aries until April 2028. If it was in Aries when you were born, this is your return.</p>
+
+<div style="background: #14171D; border-radius: 28px; padding: 28px; display: flex; flex-direction: column; gap: 16px; max-width: 720px">
+<label for="sd" class="disp" style="font-size: 22px; font-weight: 600">Is it yours? Enter your birth date.</label>
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<input id="sd" class="inp" type="date" onChange="{{onDate}}">
+<a href="Result.dc.html" class="cta">Get exact dates</a>
+</div>
+<sc-if value="{{hasAns}}" hint-placeholder-val="{{ false }}">
+<p class="swap" style="margin: 0; font-size: 18px; line-height: 1.5; color: {{ansColor}}">{{ans}}</p>
+</sc-if>
+</div>
+</section>
+
+<section class="rv" style="max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px) 80px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px">
+<div class="fact"><span style="font-size: 14px; color: #A7A196">Saturn in Aries now</span><span class="disp" style="font-size: 26px; font-weight: 700; line-height: 1.15">Feb 2026 to Apr 2028</span></div>
+<div class="fact"><span style="font-size: 14px; color: #A7A196">First return, born</span><span class="disp" style="font-size: 26px; font-weight: 700; line-height: 1.15">Apr 1996 to Jun 1998</span><span style="font-size: 14px; color: #A7A196">and Oct 1998 to Feb 1999</span></div>
+<div class="fact"><span style="font-size: 14px; color: #A7A196">Second return, born</span><span class="disp" style="font-size: 26px; font-weight: 700; line-height: 1.15">Mar 1967 to Apr 1969</span></div>
+<div class="fact"><span style="font-size: 14px; color: #A7A196">How long it lasts</span><span class="disp" style="font-size: 26px; font-weight: 700; line-height: 1.15">About 2 to 3 years</span></div>
+</section>
+
+<section class="rv" style="max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px) 96px">
+<div style="background: #14171D; border-radius: 28px; padding: 32px; display: flex; flex-direction: column; gap: 18px">
+<h2 class="disp" style="margin: 0; font-size: 26px; font-weight: 600">When Saturn is in Aries</h2>
+<div style="position: relative; height: 56px; border-radius: 14px; background: rgba(237,230,214,.05); overflow: hidden" aria-hidden="true">
+<div class="grow" style="position: absolute; left: 0; width: 12%; top: 12px; bottom: 12px; border-radius: 8px; background: rgba(242,181,68,.45)"></div>
+<div class="grow" style="position: absolute; left: 30%; width: 70%; top: 12px; bottom: 12px; border-radius: 8px; background: #F2B544; animation-delay: .3s"></div>
+</div>
+<div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 15px; color: #A7A196">
+<span>May to Sep 2025, a first dip</span><span>Feb 2026 to Apr 2028, the main stretch</span>
+</div>
+</div>
+</section>
+
+<article class="art" style="max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px) 96px; display: flex; flex-direction: column; gap: 22px">
+<h2 class="rv">What it tends to be about</h2>
+<p class="rv">Aries is the sign of starting things, acting on your own and going first. Saturn there asks for the slower version of that: leadership that holds up over time, and independence you can actually support.</p>
+<p class="rv">People in this return often describe questions about self-direction. Am I building my own thing or someone else's? What am I willing to be responsible for?</p>
+<h2 class="rv">Why it lasts years, not days</h2>
+<p class="rv">Saturn takes about 29 years to circle the zodiac and moves slowly enough to cross the same degree up to three times as it goes retrograde and direct again. Your exact passes depend on the degree Saturn held on the day you were born, which is why two people born a year apart get different dates.</p>
+<div class="rv" style="margin-top: 12px"><a href="Result.dc.html" class="cta">Find your exact passes</a></div>
+</article>
+
+<section style="max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px) 120px; display: flex; flex-direction: column; gap: 20px">
+<h2 class="disp rv" style="margin: 0; font-size: 26px; font-weight: 600">Saturn return by sign</h2>
+<div class="rv" style="display: flex; flex-wrap: wrap; gap: 10px">
+<a href="#" class="sign">Aquarius</a><a href="#" class="sign">Pisces</a><a href="#" class="sign cur" aria-current="page">Aries</a><a href="#" class="sign">Taurus</a><a href="#" class="sign">Gemini</a><a href="#" class="sign">Cancer</a><a href="#" class="sign">Leo</a><a href="#" class="sign">Virgo</a><a href="#" class="sign">Libra</a><a href="#" class="sign">Scorpio</a><a href="#" class="sign">Sagittarius</a><a href="#" class="sign">Capricorn</a>
+</div>
+</section>
+
+<footer style="border-top: 1px solid rgba(237,230,214,.1)">
+<div style="max-width: 1240px; margin: 0 auto; padding: 36px clamp(16px, 4vw, 48px); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; font-size: 15px; color: #A7A196">
+<a href="Main.dc.html" class="disp" style="color: #EDE6D6; text-decoration: none; font-weight: 600; font-size: 18px">Rite: Saturn Return</a>
+<span>Personal guidance for the transits that have names.</span>
+</div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":3800}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { date: '' };
+  }
+  renderVals() {
+    var self = this;
+    var d = this.state.date;
+    var ans = '', color = '#EDE6D6';
+    if (d) {
+      var R = [['1967-03-03', '1969-04-29', 'second'], ['1996-04-07', '1998-06-09', 'first'], ['1998-10-25', '1999-03-01', 'first']];
+      var hit = null;
+      for (var i = 0; i < R.length; i++) { if (d >= R[i][0] && d < R[i][1]) { hit = R[i][2]; } }
+      if (hit) { ans = 'Yes. Saturn was in Aries when you were born, so this is your ' + hit + ' return.'; color = '#F2B544'; }
+      else { ans = 'Saturn wasn’t in Aries on that date. Your return falls in another sign; the calculator will find it.'; }
+    }
+    return {
+      onDate: function (e) { self.setState({ date: e.target.value }); },
+      hasAns: !!ans, ans: ans, ansColor: color
+    };
+  }
+}
+</script>
+</body>
+</html>

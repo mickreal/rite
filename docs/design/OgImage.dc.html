@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rite link preview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0E1014}
+.disp{font-family:'Bricolage Grotesque',serif}
+</style>
+</helmet>
+<div style="width: 1200px; height: 630px; box-sizing: border-box; background: #0E1014; color: #EDE6D6; font-family: 'Hanken Grotesk', sans-serif; padding: 72px 80px; display: flex; align-items: center; gap: 40px; position: relative; overflow: hidden">
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 28px; position: relative; z-index: 1">
+<div class="disp" style="display: flex; align-items: center; gap: 14px; font-size: 38px; font-weight: 700; letter-spacing: -0.02em">
+<svg width="42" height="42" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="6.5" fill="#EDE6D6"></circle><ellipse cx="15" cy="15" rx="13.5" ry="4" fill="none" stroke="#F2B544" stroke-width="1.8" transform="rotate(-22 15 15)"></ellipse></svg>
+Rite
+</div>
+<h1 class="disp" style="margin: 0; font-size: 84px; line-height: 0.92; letter-spacing: -0.045em; font-weight: 800; max-width: 640px">When does your <span style="color: #F2B544">Saturn</span> return hit?</h1>
+<p style="margin: 0; font-size: 26px; color: #BDB6A8">Your sign, window and every pass. Free in ten seconds.</p>
+</div>
+<svg viewBox="0 0 600 600" style="position: absolute; right: -120px; top: 50%; width: 640px; height: 640px; margin-top: -320px" aria-hidden="true">
+<circle cx="300" cy="300" r="266" fill="none" stroke="rgba(237,230,214,.3)" stroke-width="10" stroke-dasharray="1.2 22.0126" stroke-dashoffset="0.6"></circle>
+<circle cx="300" cy="300" r="230" fill="none" stroke="rgba(237,230,214,.18)" stroke-dasharray="2 7"></circle>
+<circle cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" transform="rotate(-90 300 300)" stroke-dasharray="1100 2000"></circle>
+<line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="2.5"></line>
+<circle cx="300" cy="300" r="8" fill="#EDE6D6"></circle>
+<g transform="rotate(275 300 300)"><circle cx="300" cy="70" r="36" fill="#F2B544" opacity=".18"></circle><circle cx="300" cy="70" r="19" fill="#EDE6D6"></circle><ellipse cx="300" cy="70" rx="36" ry="9" fill="none" stroke="#F2B544" stroke-width="3" transform="rotate(-22 300 70)"></ellipse></g>
+</svg>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":630}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
