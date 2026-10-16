@@ -68,7 +68,8 @@ npm run deploy                                   # → https://rite.<account>.wo
 # 4. Stripe webhook
 #    Stripe dashboard → Developers → Webhooks → Add endpoint:
 #    URL: https://<your-worker-url>/webhook/stripe
-#    Events: checkout.session.completed, customer.subscription.deleted, charge.refunded
+#    Events: checkout.session.completed, customer.subscription.deleted, charge.refunded,
+#            invoice.payment_failed, invoice.paid        (the last two pause/resume Saturn Season on failed renewals)
 #    Copy the signing secret → wrangler secret put STRIPE_WEBHOOK_SECRET → npm run deploy again
 
 # 5. Domain
@@ -110,7 +111,7 @@ Every number comes from code. The model only writes prose and is told it may not
 
 - `GET /health` — Saturn's current longitude and the time.
 - `GET /admin/stats` and `POST /admin/refund {"email"}` — bearer token is the Stripe webhook secret. Wire `/admin/refund` to an inbox rule later if you want refund-on-request automation.
-- Events table (`visit`, `preview`, `checkout`, `paid`, `generated`, `emailed`, `season_sent`, `refund`, `error`) is the funnel. `wrangler d1 execute rite --remote --command "SELECT kind, COUNT(*) FROM events GROUP BY kind"`.
+- Events table (`visit`, `preview`, `checkout`, `paid`, `generated`, `emailed`, `season_sent`, `season_welcome`, `season_plan`, `season_cancel`, `season_past_due`, `season_resumed`, `season_complete`, `season_refund`, `refund`, `error`) is the funnel. `wrangler d1 execute rite --remote --command "SELECT kind, COUNT(*) FROM events GROUP BY kind"`.
 
 ## Public pages
 

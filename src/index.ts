@@ -396,7 +396,7 @@ app.get("/r/:tok", async (c) => {
   const comp = recompute(p); const cy = cycle(comp);
   const askRows = await c.env.DB.prepare("SELECT q, a FROM asks WHERE purchase_id = ? ORDER BY id").bind(pu.id).all<{ q: string; a: string }>();
   const asks = askRows.results ?? [];
-  const sub = await c.env.DB.prepare("SELECT status FROM subscriptions WHERE purchase_id = ? AND status = 'active'").bind(pu.id).first<{ status: string }>();
+  const sub = await c.env.DB.prepare("SELECT status FROM subscriptions WHERE purchase_id = ? AND status IN ('active','past_due')").bind(pu.id).first<{ status: string }>(); // past_due still shows the manage link
   return c.html(readingPage({ subscribed: !!sub, siteUrl: c.env.SITE_URL, token: pu.id, c: comp, cy, r, firstName: pu.first_name, birthLabel: birthLabelOf(p), placeLabel: p.place_label, askLeft: Math.max(0, ASK_CAP - asks.length), asks }));
 });
 
@@ -745,7 +745,21 @@ app.post("/webhook/stripe", async (c) => {
     }
   } else if (event.type === "customer.subscription.deleted") {
     const sub = event.data.object as Stripe.Subscription;
-    await c.env.DB.prepare("UPDATE subscriptions SET status='canceled' WHERE id=?").bind(sub.id).run();
+    await c.env.DB.prepare("UPDATE subscriptions SET status='canceled' WHERE id=? AND status IN ('active','past_due')").bind(sub.id).run(); // 'complete' stays 'complete' when our own cancel echoes back
+  } else if (event.type === "invoice.payment_failed" || event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") {
+    // Pause the notes while a renewal is unpaid; resume when Stripe's retry (or a card update) goes through.
+    const inv = event.data.object as Stripe.Invoice;
+    const sd = inv.parent?.subscription_details?.subscription;
+    const subId = typeof sd === "string" ? sd : sd?.id;
+    if (subId) {
+      if (event.type === "invoice.payment_failed") {
+        const r = await c.env.DB.prepare("UPDATE subscriptions SET status='past_due' WHERE id=? AND status='active'").bind(subId).run();
+        if (r.meta.changes) await log(c.env, "season_past_due", subId, { invoice: inv.id, attempt: inv.attempt_count });
+      } else {
+        const r = await c.env.DB.prepare("UPDATE subscriptions SET status='active' WHERE id=? AND status='past_due'").bind(subId).run();
+        if (r.meta.changes) await log(c.env, "season_resumed", subId, { invoice: inv.id });
+      }
+    }
   } else if (event.type === "charge.refunded") {
     const ch = event.data.object as Stripe.Charge;
     const pi = typeof ch.payment_intent === "string" ? ch.payment_intent : ch.payment_intent?.id;
