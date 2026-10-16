@@ -1,6 +1,7 @@
 import { html, raw } from "hono/html";
 import { shell, ARROW, MARK } from "./theme";
 import { fmtMonYrL } from "../astro/cycle";
+import { RETURN_AGES, ageSpan } from "../content/return-ages";
 
 /** Data for the second-return variant (/second): the sign Saturn is in now and who is having their second return in it. */
 export interface SecondReturn {
@@ -19,7 +20,7 @@ const midYear = (born: SecondReturn["born"]) => { const b = [...born].sort((x, y
 function secondFaq(s: SecondReturn): Array<[string, string]> {
   const r = bornRanges(s.born);
   return [
-    ["What is a second Saturn return?", "Saturn takes about 29 and a half years to come back to where it was when you were born. The second time, you're somewhere between 56 and 60. The first return asked what you would build. This one asks what is worth keeping, and what you are done proving."],
+    ["What is a second Saturn return?", `Saturn takes about 29 and a half years to come back to where it was when you were born. The second time, the exact passes fall when you're ${ageSpan(RETURN_AGES[2].pass, "or")}. The first return asked what you would build. This one asks what is worth keeping, and what you are done proving.`],
     [`I was born in ${midYear(s.born)}. Am I in it now?`, `If you were born between ${r}, yes. Saturn is in ${s.sign} until ${monthLong(s.until)}. Put your birth date in above and you'll see your own window and every exact pass.`],
     ["I don't know my birth time. Does that matter?", "Your dates stay accurate, because Saturn moves slowly. Without a time we use noon and leave houses out of the reading."],
     ["Is the reading different from a first-return reading?", "Yes. It is written for someone around 58, not 29: no first-adulthood framing. The history chapter looks back over the checkpoints since your first return, at about 37, 44 and 51."],
@@ -364,7 +365,7 @@ document.querySelectorAll('#pills .pill').forEach(function(b){b.addEventListener
 // faq
 document.querySelectorAll('.faqb').forEach(function(b){b.addEventListener('click',function(){var open=b.classList.contains('open');document.querySelectorAll('.faqb').forEach(function(x){x.classList.remove('open');x.setAttribute('aria-expanded','false')});document.querySelectorAll('.faqa').forEach(function(x){x.classList.remove('open')});if(!open){b.classList.add('open');b.setAttribute('aria-expanded','true');b.nextElementSibling.classList.add('open')}})});
 // ages
-var AGES={29:['The first return','Usually somewhere between 27 and 30. The one most people mean when they say Saturn return.'],58:['The second return',${JSON.stringify(second ? `Usually between 56 and 60. Saturn checks back in on what you built after the first. Born between ${bornRanges(second.born)}: yours is open now.` : "Usually between 56 and 60. Saturn checks back in on what you built after the first.")}],87:['The third return','Around 87 or 88, for those who reach it.']};
+var AGES={29:['The first return',${JSON.stringify(`Usually between ${ageSpan(RETURN_AGES[1].pass)}. The one most people mean when they say Saturn return.`)}],58:['The second return',${JSON.stringify(second ? `Usually at ${ageSpan(RETURN_AGES[2].pass, "or")}. Saturn checks back in on what you built after the first. Born between ${bornRanges(second.born)}: yours is open now.` : `Usually at ${ageSpan(RETURN_AGES[2].pass, "or")}. Saturn checks back in on what you built after the first.`)}],87:['The third return',${JSON.stringify(`Around ${ageSpan(RETURN_AGES[3].pass, "or")}, for those who reach it.`)}]};
 var FOCUS=${second ? 58 : 29};
 var counting=false;
 function startCount(){if(counting)return;counting=true;var btns=document.querySelectorAll('.age');

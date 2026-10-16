@@ -3,6 +3,7 @@ import { shell } from "./theme";
 import { SIGNS, type Sign } from "../astro/saturn";
 import { SIGN_PAGES } from "../content/signs";
 import { fmtMonth } from "../compute";
+import { WINDOW_YEARS } from "../content/return-ages";
 
 type Period = { from: string; to: string };
 
@@ -94,7 +95,7 @@ export function signPage(opts: { siteUrl: string; d: SignPageData }) {
   <div class="fact"><span class="muted" style="font-size:14px">Saturn in ${s} ${inGroup ? "now" : future ? "next" : "most recently"}</span><span class="disp" style="font-size:26px;font-weight:700;line-height:1.15">${span(main)}</span>${before.length ? html`<span class="muted" style="font-size:14px">after a first dip, ${before.map(span).join(" and ")}</span>` : ""}${after.length ? html`<span class="muted" style="font-size:14px">then a last pass back, ${after.map(span).join(" and ")}</span>` : ""}${future && d.prev ? html`<span class="muted" style="font-size:14px">last there ${span(d.prev)}</span>` : ""}${!future && !inGroup && d.next ? html`<span class="muted" style="font-size:14px">back ${span(d.next)}</span>` : ""}</div>
   ${bornCard("First return, born", d.firstBorn)}
   ${bornCard("Second return, born", d.secondBorn)}
-  <div class="fact"><span class="muted" style="font-size:14px">How long it lasts</span><span class="disp" style="font-size:26px;font-weight:700;line-height:1.15">About 2 to 3 years</span></div>
+  <div class="fact"><span class="muted" style="font-size:14px">How long it lasts</span><span class="disp" style="font-size:26px;font-weight:700;line-height:1.15">${Math.floor(WINDOW_YEARS[0])} to ${Math.ceil(WINDOW_YEARS[1])} years</span></div>
 </section>
 <section class="wrap rv" style="padding-bottom:80px">
   <p style="margin:0;max-width:720px;font-size:19px;line-height:1.6;color:#CFC8BA">${forWhom} Not sure where Saturn was? The date box above tells you.</p>
