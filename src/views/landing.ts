@@ -92,6 +92,7 @@ const CSS = `
 .split{animation:split .7s cubic-bezier(.2,1.2,.4,1) both}@keyframes split{from{opacity:0;transform:translateX(-70%) scale(.9)}to{opacity:1;transform:none}}
 .hint:hover{color:#9A948A}
 .heroText>p,.heroText>form{contain:inline-size}
+@media (max-width:420px){#start .field input{padding:0 10px;font-size:16px}} /* two columns are ~150px wide here: keep mm/dd/yyyy from clipping */
 .d7{animation-delay:.8s!important}.d8{animation-delay:.92s!important}.d9{animation-delay:1.04s!important}
 .rd0{display:flex;align-items:center;gap:12px;font-size:17px;color:#BDB6A8;white-space:nowrap}
 .dot{width:8px;height:8px;border-radius:50%;background:#F2B544;flex:0 0 auto;animation:dotp 2s ease-in-out infinite}
@@ -197,7 +198,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
     ${opts.gift ? html`<div class="card" style="border:1px solid rgba(242,181,68,.5);display:flex;flex-direction:column;gap:6px;padding:18px 22px"><span class="kicker" style="color:#F2B544;font-size:14px">A gift${opts.gift.from ? ` from ${opts.gift.from}` : ""}</span><span style="font-size:16px;line-height:1.5">Someone bought you the full reading. Put in your own birth details below and it\'s yours; nothing to pay.</span>${opts.gift.message ? html`<span class="muted" style="font-size:15px;font-style:italic">“${opts.gift.message}”</span>` : ""}</div>` : ""}
     <form id="start" class="fade" method="post" action="/preview" style="animation-delay:.8s;background:#14171D;border:1px solid rgba(237,230,214,.1);border-radius:28px;padding:clamp(20px,2.8vh,28px);display:flex;flex-direction:column;gap:clamp(12px,2vh,18px)">
       <input type="hidden" name="ref" value="${opts.ref ?? ""}">${opts.gift ? html`<input type="hidden" name="gift" value="${opts.gift.code}">` : ""}
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:end">
         <div class="field"><label for="bd">Birth date</label><input id="bd" name="date" type="date" required value="${f.date ?? ""}" min="1930-01-01" max="2012-12-31"></div>
         <div class="field"><label for="bt">Birth time, if you know it</label><input id="bt" name="time" type="time" value="${f.time ?? ""}"></div>
       </div>

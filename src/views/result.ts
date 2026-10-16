@@ -88,7 +88,7 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
     ${opts.reminded === "window" ? html`<p class="swap" style="margin:0;font-size:17px;line-height:1.55">Done. One email, a month before your window opens in ${fmtMonYrL(open)}.</p>`
     : opts.reminded ? html`<p class="swap" style="margin:0;font-size:17px;line-height:1.55">Done. ${nextHit ? `The first one lands a week before your ${fmtMonYrL(Date.parse(nextHit))} pass.` : "Nothing ahead to remind you of — your passes are behind you."}</p>` : html`
     <form method="post" action="/remind" data-kind="${windowOpen ? "window_open" : "pass"}" style="display:flex;flex-wrap:wrap;gap:12px"><input type="hidden" name="preview" value="${opts.id}">${windowOpen ? html`<input type="hidden" name="kind" value="window_open">` : ""}<label for="em" style="position:absolute;left:-9999px">Email</label><input id="em" name="email" class="inp" type="email" required placeholder="you@example.com"><button type="submit" class="ghost" style="min-height:52px">${windowOpen ? "Tell me" : "Remind me"}</button></form>
-    <p style="margin:0;font-size:14px;color:#8F897E">${windowOpen ? `Your window is ${untilText(today, open)} away. One email, a month before it opens.` : w.hits.length === 1 ? "One email, a week before your pass." : "Up to three emails, one a week before each pass."} Nothing else unless you ask.</p>`}
+    <p style="margin:0;font-size:14px;color:#8F897E">${windowOpen ? `Your window opens ${untilText(today, open)}. One email, a month before it opens.` : w.hits.length === 1 ? "One email, a week before your pass." : "Up to three emails, one a week before each pass."} Nothing else unless you ask.</p>`}
   </div>
 </section>
 
