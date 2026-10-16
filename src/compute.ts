@@ -136,7 +136,7 @@ export function cycle(c: Computed, today = new Date()): Cycle {
     const o = Math.abs(((s.lon - c.natalLon + 540) % 360) - 180);
     if (o < 5 && (!turn || o < Math.abs(turn.orb))) turn = { date: s.date, orb: Math.round(o * 10) / 10 };
   }
-  const pct = Math.round(stage.wa / 360 * 100);
+  const pct = Math.floor(stage.wa / 360 * 100); // floor: just short of the return reads 99%, not 100%
   const stageEvents: Cycle["stageEvents"] = [
     { key: "approach", label: "Approach: your window opens", date: w.windowStart },
     { key: "contact", label: "Contact: your first exact pass", date: w.hits[0] },
