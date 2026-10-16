@@ -6,6 +6,7 @@ import { askSystem, type SeasonInputs } from "./content/prompts";
 import { stageAt } from "./astro/cycle";
 import SIGN_PERIODS from "./content/sign-periods.json";
 import { signPage, type SignPageData } from "./views/sign";
+import { whenPage, comparePage, type Cohort } from "./views/guides";
 import { SIGNS, type Sign } from "./astro/saturn";
 import { writePreview, writeReport, writeSeason, datesAreGrounded, parseJsonReply, answerQuestion } from "./llm";
 import { sendEmail, deliveryEmail, seasonEmail, seasonCompleteEmail, stageReminderEmail, giftEmail, day3Email, day10Email } from "./email";
@@ -166,7 +167,7 @@ function signData(sign: Sign): SignPageData {
   const y = (iso: string, dy: number) => `${parseInt(iso.slice(0, 4), 10) + dy}${iso.slice(4)}`;
   const start = cur[0].from;
   const pick = (lo: number, hi: number) => groups.filter((g) => g[0].from >= y(start, lo) && g[0].from <= y(start, hi)).flat();
-  return { sign, current: cur, firstBorn: pick(-33, -26), secondBorn: pick(-63, -55), now, prev: groups[idx - 1] ? whole(groups[idx - 1]) : undefined, next: groups[idx + 1] ? whole(groups[idx + 1]) : undefined };
+  return { sign, current: cur, firstBorn: pick(-33, -26), secondBorn: pick(-63, -55), thirdBorn: pick(-92, -84), now, prev: groups[idx - 1] ? whole(groups[idx - 1]) : undefined, next: groups[idx + 1] ? whole(groups[idx + 1]) : undefined };
 }
 app.get("/saturn-return/saturn-in/:sign", async (c) => {
   const q = c.req.param("sign").toLowerCase();
@@ -176,6 +177,24 @@ app.get("/saturn-return/saturn-in/:sign", async (c) => {
   return c.html(signPage({ siteUrl: c.env.SITE_URL, d }), 200, { "cache-control": "public, max-age=3600" });
 });
 app.get("/saturn-return", (c) => c.redirect("/", 301));
+// Evergreen explainers (views/guides.ts). Cohorts from sign-periods.json, Saturn today from the table, examples from compute().
+const cohortOf = (sign: Sign): Cohort => { const d = signData(sign); return { sign, current: d.current, firstBorn: d.firstBorn, secondBorn: d.secondBorn, thirdBorn: d.thirdBorn ?? [] }; };
+const WHEN_EXAMPLES = ["1996-09-01", "1997-04-01"]; // one exact pass, three exact passes (both computed, noon UTC)
+app.get("/saturn-return/when", async (c) => {
+  await log(c.env, "visit", c.req.query("r") ?? "when");
+  const t = new Date(), lon = saturnLongitude(t), sign = signOf(lon);
+  const examples = WHEN_EXAMPLES.map((born) => { const x = compute({ date: born, time: null, place: { label: "", lat: 0, lon: 0, tz: "UTC" } }, t);
+    return { born, sign: x.sign, degree: x.degree, windowStart: x.window.windowStart, windowEnd: x.window.windowEnd, hits: x.window.hits }; });
+  return c.html(whenPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? "when", d: {
+    now: t.toISOString().slice(0, 10), saturn: { sign, degree: degreeInSign(lon) }, cohort: cohortOf(sign), next: cohortOf(SIGNS[(SIGNS.indexOf(sign) + 1) % 12]), examples,
+  } }), 200, { "cache-control": "public, max-age=3600" });
+});
+app.get("/saturn-return/first-vs-second", (c) => {
+  const t = new Date(), lon = saturnLongitude(t), sign = signOf(lon), now = t.toISOString().slice(0, 10);
+  // the sign Saturn is in, plus any sign it is between passes through (its stretch spans today)
+  const others = SIGNS.filter((s) => s !== sign).map(cohortOf).filter((k) => now >= k.current[0].from && now <= k.current[k.current.length - 1].to);
+  return c.html(comparePage({ siteUrl: c.env.SITE_URL, d: { now, saturn: { sign, degree: degreeInSign(lon) }, cohorts: [cohortOf(sign), ...others] } }), 200, { "cache-control": "public, max-age=3600" });
+});
 // Second-return landing: whoever is having their second return in the sign Saturn is in now (dates from sign-periods.json).
 app.get("/second", async (c) => {
   await log(c.env, "visit", c.req.query("r") ?? "second");
@@ -203,7 +222,7 @@ app.get("/season", (c) => {
   }), 200, { "cache-control": "public, max-age=3600" });
 });
 app.get("/sitemap.xml", (c) => {
-  const urls = ["/", "/second", "/season", "/gift", "/privacy", "/terms", "/refunds", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
+  const urls = ["/", "/second", "/season", "/gift", "/privacy", "/terms", "/refunds", "/saturn-return/when", "/saturn-return/first-vs-second", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
   return c.body(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join("")}</urlset>`, 200, { "content-type": "application/xml" });
 });
 app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\nDisallow: /p/\nDisallow: /r/\nDisallow: /admin/\nSitemap: ${c.env.SITE_URL}/sitemap.xml\n`));
