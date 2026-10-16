@@ -40,22 +40,37 @@ function bornCard(label: string, ps: Period[]) {
   if (ps.length === 0) return html`<div class="fact"><span class="muted" style="font-size:14px">${label}</span><span class="disp" style="font-size:26px;font-weight:700;line-height:1.15">No one this cycle</span></div>`;
   const main = ps.reduce((a, b) => (days(b) > days(a) ? b : a));
   const rest = ps.filter((p) => p !== main);
-  return html`<div class="fact"><span class="muted" style="font-size:14px">${label}</span><span class="disp" style="font-size:26px;font-weight:700;line-height:1.15">${span(main)}</span>${rest.map((p) => html`<span class="muted" style="font-size:14px">and ${span(p)}</span>`)}</div>`;
+  return html`<div class="fact"><span class="muted" style="font-size:14px">${label}</span><span class="disp" style="font-size:26px;font-weight:700;line-height:1.15">${span(main)}</span>${rest.length ? html`<span class="muted" style="font-size:14px">also ${rest.map(span).join(" and ")}</span>` : ""}</div>`;
 }
 
 export function signPage(opts: { siteUrl: string; d: SignPageData }) {
   const { d } = opts; const s = d.sign; const copy = SIGN_PAGES[s];
-  const main = d.current[d.current.length - 1];
-  const first = d.current[0];
-  const inNow = d.current.some((p) => d.now >= p.from && d.now <= p.to);
-  const future = !inNow && d.now < first.from;
-  const lede = inNow ? `Saturn is in ${s} until ${fmtMonth(main.to)}. If it was in ${s} when you were born, this is your return.`
-    : future ? `Saturn enters ${s} in ${fmtMonth(first.from)} and stays until ${fmtMonth(main.to)}. If it was in ${s} when you were born, that's your return.`
-    : `Saturn left ${s} in ${fmtMonth(main.to)}${d.next ? ` and comes back in ${fmtMonth(d.next.from)}` : ""}. If it was in ${s} when you were born, your return either just finished or is a full cycle away; the birth years below say which.`;
-  // timeline bar across the whole current stretch (first dip to final exit)
-  const t0 = Date.parse(first.from), t1 = Date.parse(main.to);
-  const bars = d.current.map((p, i) => ({ left: (Date.parse(p.from) - t0) / (t1 - t0) * 100, width: (Date.parse(p.to) - Date.parse(p.from)) / (t1 - t0) * 100, main: i === d.current.length - 1 }));
-  const years = `${first.from.slice(0, 4)} to ${main.to.slice(0, 4)}`;
+  const first = d.current[0], last = d.current[d.current.length - 1];
+  const mainIdx = d.current.reduce((bi, p, i, a) => (days(p) > days(a[bi]) ? i : bi), 0);
+  const main = d.current[mainIdx];                       // the longest pass; the others are a first dip or a last pass back
+  const multi = d.current.length > 1;
+  const curIdx = d.current.findIndex((p) => d.now >= p.from && d.now <= p.to);
+  const inNow = curIdx >= 0;
+  const inGroup = d.now >= first.from && d.now <= last.to; // inside the stretch, possibly between two passes
+  const future = d.now < first.from;
+  const partLabel = (i: number) => (i < mainIdx ? "a first dip" : i > mainIdx ? "a last pass back" : multi ? "the main stretch" : "the whole stretch");
+  let lede: string;
+  if (inNow) {
+    const later = d.current.slice(curIdx + 1);
+    lede = `Saturn is in ${s} until ${fmtMonth(d.current[curIdx].to)}${later.length ? `, then back ${later.map(span).join(" and ")}` : ""}. If it was in ${s} when you were born, this is your return.`;
+  } else if (inGroup) {
+    const bi = d.current.findIndex((p) => p.from > d.now);
+    lede = `Saturn is between passes through ${s}: it left in ${fmtMonth(d.current[bi - 1].to)} and comes back ${span(d.current[bi])}. If it was in ${s} when you were born, this is your return and it isn't over.`;
+  } else if (future) {
+    lede = `Saturn enters ${s} in ${fmtMonth(first.from)} and ${multi ? "leaves for good in" : "stays until"} ${fmtMonth(last.to)}. If it was in ${s} when you were born, that's your return.`;
+  } else {
+    lede = `Saturn left ${s} in ${fmtMonth(last.to)}${d.next ? ` and comes back in ${fmtMonth(d.next.from)}` : ""}. If it was in ${s} when you were born, your return either just finished or is a full cycle away; the birth years below say which.`;
+  }
+  const before = d.current.slice(0, mainIdx), after = d.current.slice(mainIdx + 1);
+  // timeline bar across the whole current stretch (first entry to final exit)
+  const t0 = Date.parse(first.from), t1 = Date.parse(last.to);
+  const bars = d.current.map((p, i) => ({ left: (Date.parse(p.from) - t0) / (t1 - t0) * 100, width: (Date.parse(p.to) - Date.parse(p.from)) / (t1 - t0) * 100, main: i === mainIdx }));
+  const years = `${first.from.slice(0, 4)} to ${last.to.slice(0, 4)}`;
   const title = `Saturn return in ${s}: dates, who it's for, what it asks`;
   const desc = fill(copy.meta, { years });
   const forWhom = fill(copy.forWhom, { firstBorn: list(d.firstBorn), secondBorn: list(d.secondBorn) });
@@ -75,7 +90,7 @@ export function signPage(opts: { siteUrl: string; d: SignPageData }) {
   </div>
 </section>
 <section class="wrap rv" style="padding-bottom:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px">
-  <div class="fact"><span class="muted" style="font-size:14px">Saturn in ${s} ${inNow ? "now" : future ? "next" : "most recently"}</span><span class="disp" style="font-size:26px;font-weight:700;line-height:1.15">${span(main)}</span>${d.current.length > 1 ? html`<span class="muted" style="font-size:14px">after a first dip, ${span(first)}</span>` : ""}${future && d.prev ? html`<span class="muted" style="font-size:14px">last there ${span(d.prev)}</span>` : ""}${!future && !inNow && d.next ? html`<span class="muted" style="font-size:14px">back ${span(d.next)}</span>` : ""}</div>
+  <div class="fact"><span class="muted" style="font-size:14px">Saturn in ${s} ${inGroup ? "now" : future ? "next" : "most recently"}</span><span class="disp" style="font-size:26px;font-weight:700;line-height:1.15">${span(main)}</span>${before.length ? html`<span class="muted" style="font-size:14px">after a first dip, ${before.map(span).join(" and ")}</span>` : ""}${after.length ? html`<span class="muted" style="font-size:14px">then a last pass back, ${after.map(span).join(" and ")}</span>` : ""}${future && d.prev ? html`<span class="muted" style="font-size:14px">last there ${span(d.prev)}</span>` : ""}${!future && !inGroup && d.next ? html`<span class="muted" style="font-size:14px">back ${span(d.next)}</span>` : ""}</div>
   ${bornCard("First return, born", d.firstBorn)}
   ${bornCard("Second return, born", d.secondBorn)}
   <div class="fact"><span class="muted" style="font-size:14px">How long it lasts</span><span class="disp" style="font-size:26px;font-weight:700;line-height:1.15">About 2 to 3 years</span></div>
@@ -90,7 +105,7 @@ export function signPage(opts: { siteUrl: string; d: SignPageData }) {
       ${bars.map((b, i) => html`<div class="grow" style="position:absolute;left:${b.left.toFixed(1)}%;width:${Math.max(b.width, 1).toFixed(1)}%;top:12px;bottom:12px;border-radius:8px;background:${b.main ? "#F2B544" : "rgba(242,181,68,.45)"};animation-delay:${i * 0.3}s"></div>`)}
     </div>
     <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:15px;color:#A7A196">
-      ${d.current.map((p, i) => html`<span>${span(p)}, ${i === d.current.length - 1 ? (d.current.length > 1 ? "the main stretch" : "the whole stretch") : "a first dip"}</span>`)}
+      ${d.current.map((p, i) => html`<span>${span(p)}, ${partLabel(i)}</span>`)}
     </div>
   </div>
 </section>
@@ -102,9 +117,9 @@ export function signPage(opts: { siteUrl: string; d: SignPageData }) {
   <p class="rv">Saturn takes about 29 years to circle the zodiac and moves slowly enough to cross the same degree up to three times as it goes retrograde and direct again. Your exact passes depend on the degree Saturn held on the day you were born, which is why two people born a year apart get different dates.</p>
   <div class="rv" style="margin-top:12px"><a href="/#start" class="cta">Find your exact passes</a></div>
 </article>
-<section id="faq" class="wrap" style="padding-bottom:120px;display:flex;flex-direction:column;gap:20px;max-width:920px">
+<section id="faq" class="wrap" style="padding-bottom:120px;display:flex;flex-direction:column;gap:20px">
   <h2 class="disp rv" style="margin:0;font-size:clamp(32px,3.4vw,48px);line-height:1.05;letter-spacing:-.03em;font-weight:700">Questions people with Saturn in ${s} ask</h2>
-  <div>${copy.faq.map(([q, a], i) => html`<div class="rv" style="border-bottom:1px solid rgba(237,230,214,.14);${i === 0 ? "border-top:1px solid rgba(237,230,214,.14);" : ""}"><button type="button" class="faqb ${i === 0 ? "open" : ""}" aria-expanded="${i === 0}">${q}<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4v14M4 11h14"/></svg></button><p class="faqa ${i === 0 ? "open" : ""}">${a}</p></div>`)}</div>
+  <div style="max-width:820px">${copy.faq.map(([q, a], i) => html`<div class="rv" style="border-bottom:1px solid rgba(237,230,214,.14);${i === 0 ? "border-top:1px solid rgba(237,230,214,.14);" : ""}"><button type="button" class="faqb ${i === 0 ? "open" : ""}" aria-expanded="${i === 0}">${q}<svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4v14M4 11h14"/></svg></button><p class="faqa ${i === 0 ? "open" : ""}">${a}</p></div>`)}</div>
 </section>
 <script type="application/ld+json">${raw(faqLd)}</script>
 <section class="wrap" style="padding-bottom:120px;display:flex;flex-direction:column;gap:20px">
