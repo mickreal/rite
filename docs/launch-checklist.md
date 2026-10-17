@@ -8,6 +8,10 @@ Written 17 Oct 2026. It covers everything between now and public launch (L), the
 
 Every content asset already has "rite.report" burned in.
 
+**Status, 17 Oct 2026 (evening).** Done since this was written: A2 (Workers Paid), C8 (privacy page names ElevenLabs; every reminder and follow-up now has a stop link, and the page says so), C9 (replaced by real stop links: `/stop/<token>` plus List-Unsubscribe headers; manual SQL only for "stop" replies, `docs/support-macros.md` §4), C10 (server-side Season gates), D3 (four tiles added to the PostHog "Rite launch" dashboard: server pipeline, Season, errors by where, narration fallback), D8 (`docs/support-macros.md`), E1 (now one command, see below). Also: gift recipients get their own delivery email (emails review item 1), and every Season note is kept and readable at `/admin/season/<tok>/notes?key=…` whether or not the email was delivered.
+
+**Launch date floats.** L is no longer fixed at 2 Nov: the domain is bought last, so **L = domain day + about a week** (B1–B7, then C1–C4 on the live domain). Pick a Monday. Season dogfood (C6) can start now without email: subscribe on your own in-window reading and read each Monday's note at `/admin/season/<tok>/notes`. Content: `LAUNCH=<L> npm run launch` in `content/` moves the 28-day calendar onto L and renders it; it lists the posts whose wording depends on the calendar. Weeks 3–4 lean on Saturn's 11 Dec 2026 station, so an L later than about 16 Nov means rewriting part of week 4.
+
 **Key.** Owner **M** = Mick, **C** = Claude (a session in this repo; it never deploys and never touches live APIs). **Blocks** means public launch can't happen until the item is done. "Should" means do it before launch unless there's a reason not to.
 
 Commands run from the repo root. `wrangler.toml` and secrets are Mick's to change.
