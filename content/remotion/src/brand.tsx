@@ -1,6 +1,6 @@
 // Tokens from src/views/theme.ts, the dial from src/card.ts, the brand fonts from content/fonts.
 import React from "react";
-import { continueRender, delayRender, staticFile } from "remotion";
+import { continueRender, delayRender, staticFile, Easing } from "remotion";
 
 export const T = {
   bg: "#0E1014", panel: "#14171D", cream: "#EDE6D6", gold: "#F2B544", muted: "#A7A196", soft: "#BDB6A8",
@@ -36,7 +36,8 @@ export const Brand: React.FC<{ size?: number; onCream?: boolean }> = ({ size = 4
  * (the return point) round to Saturn. `angle` = how far round the cycle Saturn is, 0–360.
  * `enter` 0→1 plays the /start entrance (scale + spin in); `onCream` is the light-card variant.
  */
-export const Dial: React.FC<{ size: number; angle: number; enter?: number; onCream?: boolean; arc?: boolean; halo?: number }> = ({ size, angle, enter = 1, onCream, arc = true, halo = 0.18 }) => {
+export const Dial: React.FC<{ size: number; angle: number; enter?: number; onCream?: boolean; arc?: boolean; halo?: number; draw?: number; spin?: number; pulse?: number }> = ({ size, angle: full, enter = 1, onCream, arc = true, halo = 0.18, draw = 1, spin = 0, pulse = 0 }) => {
+  const angle = full * draw; // Saturn travels round with the arc as it draws
   const Cw = 2 * Math.PI * 230;
   const ring = onCream ? "rgba(20,17,10,.22)" : "rgba(237,230,214,.32)";
   const track = onCream ? "rgba(20,17,10,.16)" : "rgba(237,230,214,.2)";
@@ -45,7 +46,7 @@ export const Dial: React.FC<{ size: number; angle: number; enter?: number; onCre
   const sc = 0.35 + 0.65 * enter, rot = -140 * (1 - enter);
   return (
     <svg width={size} height={size} viewBox="0 0 600 600" style={{ display: "block", overflow: "visible" }}>
-      <g transform={`translate(300 300) scale(${sc}) rotate(${rot}) translate(-300 -300)`} opacity={Math.min(1, enter * 1.6)}>
+      <g transform={`translate(300 300) scale(${sc}) rotate(${rot + spin}) translate(-300 -300)`} opacity={Math.min(1, enter * 1.6)}>
         <circle cx="300" cy="300" r="266" fill="none" stroke={ring} strokeWidth="10" strokeDasharray="1.2 22.0126" strokeDashoffset="0.6" />
         <circle cx="300" cy="300" r="266" fill="none" stroke={onCream ? "rgba(20,17,10,.3)" : "rgba(237,230,214,.6)"} strokeWidth="18" strokeDasharray="1.6 137.6739" strokeDashoffset="0.8" />
         <circle cx="300" cy="300" r="230" fill="none" stroke={track} strokeDasharray="2 7" />
@@ -54,10 +55,40 @@ export const Dial: React.FC<{ size: number; angle: number; enter?: number; onCre
       <line x1="300" y1="40" x2="300" y2="100" stroke={gold} strokeWidth="3" opacity={enter} />
       <circle cx="300" cy="300" r="8" fill={planet} opacity={enter} />
       <g transform={`rotate(${angle.toFixed(2)} 300 300)`} opacity={enter}>
-        <circle cx="300" cy="70" r="40" fill={gold} opacity={halo} />
+        <circle cx="300" cy="70" r={40 * (1 + 0.22 * pulse)} fill={gold} opacity={halo * (1 + 0.8 * pulse)} />
         <circle cx="300" cy="70" r="20" fill={planet} />
         <ellipse cx="300" cy="70" rx="38" ry="10" fill="none" stroke={gold} strokeWidth="3.5" transform="rotate(-22 300 70)" />
       </g>
     </svg>
   );
+};
+
+// ---------- motion ----------
+// Cards render as Stills (no time: everything in its final state) and inside VerticalCard (time in seconds via this
+// context), so the same components serve both. All moves are eased, nothing faster than ~0.5 s.
+export const Clock = React.createContext<number | null>(null);
+const easeOut = Easing.bezier(0.22, 1, 0.36, 1);
+/** 0→1 between start and start+dur seconds (eased); always 1 in a Still. */
+export function useReveal(start: number, dur = 0.7): number {
+  const t = React.useContext(Clock);
+  if (t === null) return 1;
+  const x = Math.min(1, Math.max(0, (t - start) / dur));
+  return easeOut(x);
+}
+/** Seconds since the card started, or null in a Still. */
+export const useClock = () => React.useContext(Clock);
+/** Fade + rise for a block of text. */
+export const Rise: React.FC<{ at: number; dur?: number; dy?: number; style?: React.CSSProperties; children: React.ReactNode }> = ({ at, dur = 0.8, dy = 28, style, children }) => {
+  const p = useReveal(at, dur);
+  return <div style={{ ...style, opacity: p, transform: p < 1 ? `translateY(${((1 - p) * dy).toFixed(2)}px)` : undefined }}>{children}</div>;
+};
+
+/** The dial with the card motion: scale/spin-in entrance, the arc drawing round to Saturn, a slow drift of the tick ring
+ * and a soft halo pulse. In a Still it's the finished dial. */
+export const LiveDial: React.FC<{ size: number; angle: number; onCream?: boolean; halo?: number; at?: number }> = ({ size, angle, onCream, halo, at = 0.2 }) => {
+  const t = useClock();
+  const enter = useReveal(at, 1.6), draw = useReveal(at + 0.8, 2.4);
+  const spin = t === null ? 0 : t * 3;
+  const pulse = t === null ? 0 : (1 - Math.cos(Math.max(0, t - at - 3) * Math.PI * 2 / 3.2)) / 2;
+  return <Dial size={size} angle={angle} onCream={onCream} halo={halo} enter={enter} draw={draw} spin={spin} pulse={pulse} />;
 };

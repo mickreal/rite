@@ -4,7 +4,7 @@
 // rasterised image smoothly instead of re-laying out text every frame, which made glyphs snap and shimmer.
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, Easing } from "remotion";
-import { T } from "./brand";
+import { T, Clock } from "./brand";
 import { CohortCard } from "./CohortCard";
 import { QuoteCard } from "./QuoteCard";
 import { CARD } from "../../timing";
@@ -23,7 +23,7 @@ export const VerticalCard: React.FC<VerticalProps> = ({ card, id }) => {
     <AbsoluteFill style={{ background: bg }}>
       <AbsoluteFill style={{ opacity: Math.min(fin, fout), transform: `scale(${scale.toFixed(5)})`, willChange: "transform" }}>
         <div style={{ position: "absolute", left: 0, top: (1920 - 1350) / 2, width: 1080, height: 1350, overflow: "hidden" }}>
-          {card === "QuoteCard" ? <QuoteCard id={id} /> : <CohortCard id={id} />}
+          <Clock.Provider value={f / fps}>{card === "QuoteCard" ? <QuoteCard id={id} /> : <CohortCard id={id} />}</Clock.Provider>
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

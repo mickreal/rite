@@ -68,7 +68,7 @@ export const CLIP = {
 export const CARD = {
   // card verticals (1080×1350 card on a 1080×1920 frame), 10 s: kit style 6 is 8–12 s
   seconds: 10,
-  fadeIn: 0.7,
+  fadeIn: 0.4, // short: the elements animate in themselves
   fadeOut: 0.8,
   pushFrom: 1.0,
   pushTo: 1.035,
