@@ -1,7 +1,7 @@
 // Style 6: one line on the cream card, small Rite mark. Lines from sign openers and the launch kit.
 import React from "react";
 import { AbsoluteFill } from "remotion";
-import { T, DISPLAY, TEXT, LiveBrand, LiveDial, Rise, Glow, Sweep, useReveal } from "./brand";
+import { T, DISPLAY, TEXT, LiveBrand, LiveDial, Rise, Glow, Sweep, BrandLine, useReveal } from "./brand";
 import DATA from "../data/quotes.json";
 
 export type QuoteProps = { id: string };
@@ -22,10 +22,10 @@ export const QuoteCard: React.FC<QuoteProps> = ({ id }) => {
         {words.map((w, i) => <Word key={i} f={0.08 + i * step}>{w}{i < words.length - 1 ? " " : ""}</Word>)}
       </div>
       <Rise f={0.82} dy={16} style={{ fontFamily: TEXT, fontWeight: 600, fontSize: 34, color: T.accent, marginBottom: 44, position: "relative" }}><Glow color={T.accent}>{q.footer}</Glow></Rise>
-      <Rise f={0.94} dy={16} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative" }}>
-        <LiveBrand size={36} onCream />
+      <BrandLine style={{ display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative" }}>
+        <LiveBrand size={36} onCream refresh />
         <Sweep color={T.ink} light={T.accent} style={{ fontFamily: TEXT, fontWeight: 600, fontSize: 32 }}>{DATA.site}</Sweep>
-      </Rise>
+      </BrandLine>
     </AbsoluteFill>
   );
 };

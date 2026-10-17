@@ -1,7 +1,7 @@
 // Style 2, per cohort: "Born <range>? Your Saturn return is open now / opens <Month Year>", with the pass months.
 import React from "react";
 import { AbsoluteFill } from "remotion";
-import { T, DISPLAY, TEXT, LiveBrand, LiveDial, Rise, Glow, Sweep } from "./brand";
+import { T, DISPLAY, TEXT, LiveBrand, LiveDial, Rise, Glow, Sweep, BrandLine } from "./brand";
 import DATA from "../data/cohorts.json";
 
 export type CohortProps = { id: string };
@@ -43,10 +43,10 @@ export const CohortCard: React.FC<CohortProps> = ({ id }) => {
         )}
         <Rise f={0.86} dy={14}><span style={{ fontFamily: TEXT, fontSize: 28, color: T.muted }}>Saturn in {c.sign} · window {c.window}</span></Rise>
       </div>
-      <Rise f={0.96} dy={14} style={{ marginTop: 40, borderTop: `2px solid ${T.line}`, paddingTop: 34, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+      <BrandLine style={{ marginTop: 40, borderTop: `2px solid ${T.line}`, paddingTop: 34, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <span style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 40, letterSpacing: "-0.02em", color: T.cream }}>Your exact days, free</span>
         <Sweep color={T.gold} light="#FFF1C9" style={{ fontFamily: TEXT, fontWeight: 600, fontSize: 36 }}>{DATA.site}</Sweep>
-      </Rise>
+      </BrandLine>
     </AbsoluteFill>
   );
 };

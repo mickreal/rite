@@ -69,8 +69,8 @@ export const Dial: React.FC<{ size: number; angle: number; enter?: number; onCre
 // all over in the first two seconds:
 //   - the build-up (text reveals) runs across REVEAL of the video, each move ≥ 0.9 s, eased;
 //   - the dial keeps drawing round to Saturn for most of the video, the tick ring drifts, the halo breathes;
-//   - one quiet accent at a time after that: the key line glows at 1/3 and 2/3, the mark's ring turns once in the
-//     middle, the URL catches a light sweep near the end. None of them overlap.
+//   - one quiet accent at a time after that: the key line glows at 1/3 and 2/3; the branding line (on screen from the
+//     start) gets one refresh in the quiet gap between the end of the build-up and the second glow (refreshAt).
 export type ClockValue = { t: number; d: number } | null;
 export const Clock = React.createContext<ClockValue>(null);
 export const useClock = () => React.useContext(Clock);
@@ -101,6 +101,33 @@ export function useMove(x: number, w = 2.4): number {
   return inOut(Math.min(1, Math.max(0, u)));
 }
 
+/**
+ * When the branding line gets its one refresh, as a fraction of the video: in the quiet gap after the build-up has
+ * finished and before the key line's second glow (at 2/3), so it never lands on top of other motion.
+ */
+export function refreshAt(d: number): number {
+  const buildEnd = at({ d }, 1) + 1.1;           // last reveal settles
+  const glowStart = (2 / 3) * d - 0.9;            // second glow begins
+  const mid = (buildEnd + glowStart) / 2;
+  return Math.min(0.62, Math.max(0.45, mid / d)); // fallback to around the middle on very short videos
+}
+/** Bell 0→1→0 of the branding refresh (≈2 s); 0 in a Still. */
+export function useRefresh(w = 2.2): number {
+  const c = useClock();
+  return useAccent(c ? refreshAt(c.d) : 0, w);
+}
+/** Eased one-way progress across the branding refresh. */
+export function useRefreshMove(w = 2.2): number {
+  const c = useClock();
+  return useMove(c ? refreshAt(c.d) : 0, w);
+}
+
+/** The branding line: on screen from the start; once, mid-video, it brightens a touch and lifts 4 px, then settles. */
+export const BrandLine: React.FC<{ style?: React.CSSProperties; children: React.ReactNode }> = ({ style, children }) => {
+  const r = useRefresh();
+  return <div style={{ ...style, transform: r > 0.001 ? `translateY(${(-4 * r).toFixed(2)}px)` : undefined, filter: r > 0.001 ? `brightness(${(1 + 0.18 * r).toFixed(3)})` : undefined }}>{children}</div>;
+};
+
 /** Fade + rise for a block of text, at story position f. */
 export const Rise: React.FC<{ f: number; dur?: number; dy?: number; style?: React.CSSProperties; children: React.ReactNode }> = ({ f, dur = 1.1, dy = 26, style, children }) => {
   const p = useReveal(f, dur);
@@ -114,10 +141,10 @@ export const Glow: React.FC<{ color: string; children: React.ReactNode; style?: 
   return <span style={{ ...style, display: "inline-block", textShadow: g > 0.001 ? `0 0 ${(18 + 26 * g).toFixed(1)}px rgba(${rgb},${(0.55 * g).toFixed(3)})` : undefined, filter: g > 0.001 ? `brightness(${(1 + 0.12 * g).toFixed(3)})` : undefined }}>{children}</span>;
 };
 
-/** The URL with one light sweep across it near the end (0.82 of the video). */
+/** The URL with one light sweep across it, during the branding refresh. */
 export const Sweep: React.FC<{ color: string; light: string; children: React.ReactNode; style?: React.CSSProperties }> = ({ color, light, children, style }) => {
   const c = useClock();
-  const m = useMove(0.82, 1.8);
+  const m = useRefreshMove(1.8);
   if (!c || m <= 0 || m >= 1) return <span style={{ ...style, color }}>{children}</span>;
   const x = -30 + m * 160; // highlight band travels left → right
   return <span style={{ ...style, color, backgroundImage: `linear-gradient(100deg, ${color} ${x - 18}%, ${light} ${x}%, ${color} ${x + 18}%)`, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>{children}</span>;
@@ -136,10 +163,10 @@ export const LiveDial: React.FC<{ size: number; angle: number; onCream?: boolean
   return <Dial size={size} angle={angle} onCream={onCream} halo={halo} enter={enter} draw={draw} spin={spin} pulse={pulse} />;
 };
 
-/** The Rite mark + name; the mark's ring turns once, slowly, in the middle of the video. */
-export const LiveBrand: React.FC<{ size?: number; onCream?: boolean }> = ({ size = 44, onCream }) => {
-  const turn = useMove(0.5, 2.8);
-  const lift = useAccent(0.5, 2.8);
+/** The Rite mark + name. With `refresh`, the mark's ring turns once, slowly, during the branding refresh. */
+export const LiveBrand: React.FC<{ size?: number; onCream?: boolean; refresh?: boolean }> = ({ size = 44, onCream, refresh }) => {
+  const m = useRefreshMove(2.6), b = useRefresh(2.6);
+  const turn = refresh ? m : 0, lift = refresh ? b : 0;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: size * 0.3, fontFamily: DISPLAY, fontWeight: 700, fontSize: size, letterSpacing: "-0.02em", color: onCream ? T.ink : T.cream, lineHeight: 1 }}>
       <svg width={size * 1.2} height={size * 1.2} viewBox="0 0 30 30" style={{ display: "block", flex: "0 0 auto", overflow: "visible" }}>
