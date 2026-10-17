@@ -23,7 +23,7 @@ export const VerticalCard: React.FC<VerticalProps> = ({ card, id }) => {
     <AbsoluteFill style={{ background: bg }}>
       <AbsoluteFill style={{ opacity: Math.min(fin, fout), transform: `scale(${scale.toFixed(5)})`, willChange: "transform" }}>
         <div style={{ position: "absolute", left: 0, top: (1920 - 1350) / 2, width: 1080, height: 1350, overflow: "hidden" }}>
-          <Clock.Provider value={f / fps}>{card === "QuoteCard" ? <QuoteCard id={id} /> : <CohortCard id={id} />}</Clock.Provider>
+          <Clock.Provider value={{ t: f / fps, d: durationInFrames / fps }}>{card === "QuoteCard" ? <QuoteCard id={id} /> : <CohortCard id={id} />}</Clock.Provider>
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

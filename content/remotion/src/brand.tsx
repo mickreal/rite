@@ -64,31 +64,88 @@ export const Dial: React.FC<{ size: number; angle: number; enter?: number; onCre
 };
 
 // ---------- motion ----------
-// Cards render as Stills (no time: everything in its final state) and inside VerticalCard (time in seconds via this
-// context), so the same components serve both. All moves are eased, nothing faster than ~0.5 s.
-export const Clock = React.createContext<number | null>(null);
-const easeOut = Easing.bezier(0.22, 1, 0.36, 1);
-/** 0→1 between start and start+dur seconds (eased); always 1 in a Still. */
-export function useReveal(start: number, dur = 0.7): number {
-  const t = React.useContext(Clock);
-  if (t === null) return 1;
-  const x = Math.min(1, Math.max(0, (t - start) / dur));
-  return easeOut(x);
-}
-/** Seconds since the card started, or null in a Still. */
+// Cards render as Stills (no clock: everything in its final state) and inside VerticalCard (clock = seconds since start +
+// the video's length), so the same components serve both. Timing scales with the video, so a 20 s voiceover reel isn't
+// all over in the first two seconds:
+//   - the build-up (text reveals) runs across REVEAL of the video, each move ≥ 0.9 s, eased;
+//   - the dial keeps drawing round to Saturn for most of the video, the tick ring drifts, the halo breathes;
+//   - one quiet accent at a time after that: the key line glows at 1/3 and 2/3, the mark's ring turns once in the
+//     middle, the URL catches a light sweep near the end. None of them overlap.
+export type ClockValue = { t: number; d: number } | null;
+export const Clock = React.createContext<ClockValue>(null);
 export const useClock = () => React.useContext(Clock);
-/** Fade + rise for a block of text. */
-export const Rise: React.FC<{ at: number; dur?: number; dy?: number; style?: React.CSSProperties; children: React.ReactNode }> = ({ at, dur = 0.8, dy = 28, style, children }) => {
-  const p = useReveal(at, dur);
+const easeOut = Easing.bezier(0.22, 1, 0.36, 1);
+const inOut = Easing.bezier(0.65, 0, 0.35, 1);
+export const REVEAL = 0.42; // share of the video the build-up takes
+/** Seconds for a story position f (0–1 of the build-up). */
+const at = (c: { d: number }, f: number) => 0.3 + f * Math.min(9, Math.max(3.5, c.d * REVEAL));
+
+/** 0→1 for a reveal placed at story position f; always 1 in a Still. */
+export function useReveal(f: number, dur = 1.1): number {
+  const c = useClock();
+  if (!c) return 1;
+  return easeOut(Math.min(1, Math.max(0, (c.t - at(c, f)) / dur)));
+}
+/** A soft bell 0→1→0 centred on fraction x of the whole video, `w` seconds wide; 0 in a Still. */
+export function useAccent(x: number, w = 1.6): number {
+  const c = useClock();
+  if (!c) return 0;
+  const u = (c.t - x * c.d) / w + 0.5;
+  return u <= 0 || u >= 1 ? 0 : (1 - Math.cos(u * Math.PI * 2)) / 2;
+}
+/** Eased 0→1 progress of a one-off move centred on fraction x of the video, lasting `w` seconds. */
+export function useMove(x: number, w = 2.4): number {
+  const c = useClock();
+  if (!c) return 0;
+  const u = (c.t - x * c.d) / w + 0.5;
+  return inOut(Math.min(1, Math.max(0, u)));
+}
+
+/** Fade + rise for a block of text, at story position f. */
+export const Rise: React.FC<{ f: number; dur?: number; dy?: number; style?: React.CSSProperties; children: React.ReactNode }> = ({ f, dur = 1.1, dy = 26, style, children }) => {
+  const p = useReveal(f, dur);
   return <div style={{ ...style, opacity: p, transform: p < 1 ? `translateY(${((1 - p) * dy).toFixed(2)}px)` : undefined }}>{children}</div>;
 };
 
-/** The dial with the card motion: scale/spin-in entrance, the arc drawing round to Saturn, a slow drift of the tick ring
- * and a soft halo pulse. In a Still it's the finished dial. */
-export const LiveDial: React.FC<{ size: number; angle: number; onCream?: boolean; halo?: number; at?: number }> = ({ size, angle, onCream, halo, at = 0.2 }) => {
-  const t = useClock();
-  const enter = useReveal(at, 1.6), draw = useReveal(at + 0.8, 2.4);
-  const spin = t === null ? 0 : t * 3;
-  const pulse = t === null ? 0 : (1 - Math.cos(Math.max(0, t - at - 3) * Math.PI * 2 / 3.2)) / 2;
+/** The key line: glows softly twice, at 1/3 and 2/3 of the video. */
+export const Glow: React.FC<{ color: string; children: React.ReactNode; style?: React.CSSProperties }> = ({ color, children, style }) => {
+  const g = Math.max(useAccent(1 / 3, 1.8), useAccent(2 / 3, 1.8));
+  const rgb = color.replace("#", "").match(/../g)!.map((h) => parseInt(h, 16)).join(",");
+  return <span style={{ ...style, display: "inline-block", textShadow: g > 0.001 ? `0 0 ${(18 + 26 * g).toFixed(1)}px rgba(${rgb},${(0.55 * g).toFixed(3)})` : undefined, filter: g > 0.001 ? `brightness(${(1 + 0.12 * g).toFixed(3)})` : undefined }}>{children}</span>;
+};
+
+/** The URL with one light sweep across it near the end (0.82 of the video). */
+export const Sweep: React.FC<{ color: string; light: string; children: React.ReactNode; style?: React.CSSProperties }> = ({ color, light, children, style }) => {
+  const c = useClock();
+  const m = useMove(0.82, 1.8);
+  if (!c || m <= 0 || m >= 1) return <span style={{ ...style, color }}>{children}</span>;
+  const x = -30 + m * 160; // highlight band travels left → right
+  return <span style={{ ...style, color, backgroundImage: `linear-gradient(100deg, ${color} ${x - 18}%, ${light} ${x}%, ${color} ${x + 18}%)`, WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" }}>{children}</span>;
+};
+
+/** The dial with the card motion: scale/spin-in entrance, the gold arc drawing slowly round to Saturn for most of the
+ * video (the planet travelling with it), a slow drift of the tick ring, and a breathing halo. Finished dial in a Still. */
+export const LiveDial: React.FC<{ size: number; angle: number; onCream?: boolean; halo?: number }> = ({ size, angle, onCream, halo }) => {
+  const c = useClock();
+  if (!c) return <Dial size={size} angle={angle} onCream={onCream} halo={halo} />;
+  const enter = easeOut(Math.min(1, Math.max(0, (c.t - 0.2) / 2.6)));
+  const drawEnd = Math.max(6, c.d * 0.72);
+  const draw = inOut(Math.min(1, Math.max(0, (c.t - 1.4) / (drawEnd - 1.4))));
+  const spin = c.t * 2.2;
+  const pulse = c.t < 3 ? 0 : (1 - Math.cos((c.t - 3) * Math.PI * 2 / 4.5)) / 2;
   return <Dial size={size} angle={angle} onCream={onCream} halo={halo} enter={enter} draw={draw} spin={spin} pulse={pulse} />;
+};
+
+/** The Rite mark + name; the mark's ring turns once, slowly, in the middle of the video. */
+export const LiveBrand: React.FC<{ size?: number; onCream?: boolean }> = ({ size = 44, onCream }) => {
+  const turn = useMove(0.5, 2.8);
+  const lift = useAccent(0.5, 2.8);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: size * 0.3, fontFamily: DISPLAY, fontWeight: 700, fontSize: size, letterSpacing: "-0.02em", color: onCream ? T.ink : T.cream, lineHeight: 1 }}>
+      <svg width={size * 1.2} height={size * 1.2} viewBox="0 0 30 30" style={{ display: "block", flex: "0 0 auto", overflow: "visible" }}>
+        <circle cx="15" cy="15" r={6.5 * (1 + 0.06 * lift)} fill={onCream ? T.ink : T.cream} />
+        <ellipse cx="15" cy="15" rx="13.5" ry="4" fill="none" stroke={onCream ? T.accent : T.gold} strokeWidth="1.8" transform={`rotate(${(-22 + 360 * turn).toFixed(2)} 15 15)`} />
+      </svg>Rite
+    </div>
+  );
 };
