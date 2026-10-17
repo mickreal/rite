@@ -39,8 +39,8 @@ export const Brand: React.FC<{ size?: number; onCream?: boolean }> = ({ size = 4
 export const Dial: React.FC<{ size: number; angle: number; enter?: number; onCream?: boolean; arc?: boolean; halo?: number; draw?: number; spin?: number; pulse?: number }> = ({ size, angle: full, enter = 1, onCream, arc = true, halo = 0.18, draw = 1, spin = 0, pulse = 0 }) => {
   const angle = full * draw; // Saturn travels round with the arc as it draws
   const Cw = 2 * Math.PI * 230;
-  const ring = onCream ? "rgba(20,17,10,.22)" : "rgba(237,230,214,.32)";
-  const track = onCream ? "rgba(20,17,10,.16)" : "rgba(237,230,214,.2)";
+  const ring = onCream ? "rgba(20,17,10,.3)" : "rgba(237,230,214,.32)";
+  const track = onCream ? "rgba(20,17,10,.3)" : "rgba(237,230,214,.2)";
   const gold = onCream ? T.accent : T.gold;
   const planet = onCream ? T.ink : T.cream;
   const sc = 0.35 + 0.65 * enter, rot = -140 * (1 - enter);
@@ -49,7 +49,7 @@ export const Dial: React.FC<{ size: number; angle: number; enter?: number; onCre
       <g transform={`translate(300 300) scale(${sc}) rotate(${rot + spin}) translate(-300 -300)`} opacity={Math.min(1, enter * 1.6)}>
         <circle cx="300" cy="300" r="266" fill="none" stroke={ring} strokeWidth="10" strokeDasharray="1.2 22.0126" strokeDashoffset="0.6" />
         <circle cx="300" cy="300" r="266" fill="none" stroke={onCream ? "rgba(20,17,10,.3)" : "rgba(237,230,214,.6)"} strokeWidth="18" strokeDasharray="1.6 137.6739" strokeDashoffset="0.8" />
-        <circle cx="300" cy="300" r="230" fill="none" stroke={track} strokeDasharray="2 7" />
+        <circle cx="300" cy="300" r="230" fill="none" stroke={track} strokeWidth={onCream ? 2.5 : 1} strokeDasharray={onCream ? "4 6" : "2 7"} />
       </g>
       {arc && angle > 0.5 && <circle cx="300" cy="300" r="230" fill="none" stroke={gold} strokeWidth="4" strokeLinecap="round" transform="rotate(-90 300 300)" strokeDasharray={`${(angle / 360 * Cw).toFixed(1)} 2000`} opacity={enter} />}
       <line x1="300" y1="40" x2="300" y2="100" stroke={gold} strokeWidth="3" opacity={enter} />
@@ -175,4 +175,18 @@ export const LiveBrand: React.FC<{ size?: number; onCream?: boolean; refresh?: b
       </svg>Rite
     </div>
   );
+};
+
+/** Dates never split across lines: "8 Apr 1996", "May 2025" hold together, and in a range the dash stays with the
+ * first date so the line can only break after it ("8 Apr 1996 –" / "9 Jun 1998"). */
+export const keepDates = (t: string) => t
+  .replace(/(\d{1,2}) ([A-Z][a-z]{2,8}) (\d{4})/g, "$1\u00A0$2\u00A0$3")
+  .replace(/\b([A-Z][a-z]{2,8}) (\d{4})/g, "$1\u00A0$2")
+  .replace(/ – /g, "\u00A0– ");
+
+/** A date range as a headline: break after the dash, each date kept whole. */
+export const Range: React.FC<{ text: string; prefix?: string; suffix?: string }> = ({ text, prefix = "", suffix = "" }) => {
+  const parts = text.split(" – ");
+  if (parts.length !== 2) return <>{keepDates(`${prefix}${text}${suffix}`)}</>;
+  return <>{keepDates(`${prefix}${parts[0]}`)}{"\u00A0–"}<br />{keepDates(`${parts[1]}${suffix}`)}</>;
 };

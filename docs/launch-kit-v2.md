@@ -11,7 +11,7 @@ Written 17 Oct 2026. Replaces the content sections of `launch-kit.md` (the Polsi
 ## (a) Positioning in five lines
 
 1. Saturn is in Aries from 25 May 2025 to 12 Apr 2028 (with a step back into Pisces from 1 Sep 2025 to 14 Feb 2026). If you were born 8 Apr 1996 – 9 Jun 1998, 26 Oct 1998 – 1 Mar 1999, or 4 Mar 1967 – 29 Apr 1969, this is your Saturn return, and it is happening now.
-2. It is not a birthday and not a day. It is a season of two to three years with one or three exact passes, each dated to the day; the free preview shows you your window and your passes in ten seconds, no account, no email.
+2. It is not a birthday and not a day. It is a season of two to four years with one or three exact passes, each dated to the day; the free preview shows you your window and your passes in ten seconds, no account, no email.
 3. The full reading is $29 ($19 without a birth time): ten chapters, narrated, with every date as a calendar file, a workbook that opens phase by phase, and five follow-up questions answered from your chart.
 4. Gift codes ($29) for the friend who keeps saying "I think I'm in my Saturn return" without knowing when.
 5. Saturn Season: a short note every Monday on where Saturn is against your chart this week, $7 a month or $59 a year, and it stops itself the week your window closes.
@@ -90,7 +90,7 @@ Format per script: style (from `gtm-plan.md` §2), length, hook (spoken in the f
 ### 6. Style 3 (talking head) — "It's not a day, it's a season"
 ~40 s. Mick or a creator to camera, one on-screen date.
 - Hook: "Your Saturn return is not a birthday. Nobody's is."
-- Beat 1: "Saturn takes about 29 and a half years to go round. It comes back to the degree it held when you were born, and it spends two to three years in that sign while it does it." On screen: **Saturn in Aries: 25 May 2025 – 12 Apr 2028**
+- Beat 1: "Saturn takes about 29 and a half years to go round. It comes back to the degree it held when you were born, and it spends two to four years in that sign while it does it." On screen: **Saturn in Aries: 25 May 2025 – 12 Apr 2028**
 - Beat 2: "Inside that window there's one exact pass, or three if Saturn goes backwards over your degree. That's the part with a date."
 - Beat 3: "Before the pass is approach: pressure, no verdict. The pass is contact. After the last pass is integration: what you chose becomes structure."
 - Beat 4: "If someone tells you it hits at 29, ask them which day. If they can't say, they're guessing."
@@ -166,10 +166,10 @@ Cream card, gold dial, dark type. Slide 1 is the cover (big line, one date), las
 ### Carousel 1 — What a Saturn return actually is
 1. **Cover:** "A Saturn return is not a birthday." Small: Saturn in Aries until 12 Apr 2028.
 2. Saturn takes about 29.5 years to go round the Sun. Your return is when it gets back to the degree it held the day you were born.
-3. It spends two to three years in that sign while it does it. That's your window. Dial graphic: ingress → egress.
+3. It spends two to four years in that sign while it does it. That's your window. Dial graphic: ingress → egress.
 4. Inside the window: one exact pass, or three if Saturn goes backwards over your degree. Those are the dates.
 5. Three phases. Approach: pressure, no verdict. Contact: the pass. Integration: what you chose becomes structure.
-6. It happens around 27–30, again around 56–60, again around 85–88. Same maths, different question each time.
+6. It happens around 28–30, again around 58–59, again around 87–88. Same maths, different question each time.
 7. Saturn describes the work, not what happens to you. Nothing here predicts an event.
 8. **CTA:** "Your window and your passes, free, in ten seconds. rite.report"
 
@@ -196,8 +196,8 @@ Cream card, gold dial, dark type. Slide 1 is the cover (big line, one date), las
 ### Carousel 4 — First vs second return
 1. **Cover:** "Born 1968 and born 1997 are in the same Saturn return."
 2. The maths is identical: Saturn back at your natal degree, in your natal sign, for the same window. 25 May 2025 – 12 Apr 2028 for both.
-3. First return (27–30): the first adult reckoning. What are you actually responsible for? What did you start that you'll still be doing in three years?
-4. Second return (56–60): nothing left to prove. What structures outlast you? Which obligations did you choose, and which did you inherit?
+3. First return (28–30): the first adult reckoning. What are you actually responsible for? What did you start that you'll still be doing in three years?
+4. Second return (58–59): nothing left to prove. What structures outlast you? Which obligations did you choose, and which did you inherit?
 5. Same sign, same work. Saturn in Aries asks for initiative that holds up over time: starting things you also finish, leadership you can support.
 6. Example pair, both Los Angeles: born 10 Aug 1997, one pass 28 Apr 2027. Born 11 Feb 1969, passes 5 May 2027, 15 Dec 2027, 1 Jan 2028.
 7. **CTA:** "The reading is written for both. rite.report"
@@ -235,7 +235,7 @@ What decides whether you get one pass or three is where your natal Saturn sits r
 
 Second-return people: same degrees, same pass dates, 29.5 years later. Born 9 May – 16 Oct 1967 or 29 Jan – 30 Mar 1968, you're in the three-pass loop now too.
 
-Two things I'd push back on from the usual content. One: "it hits at 29." It hits at a degree, on a date, and the window around it is two to three years. Two: Saturn in Aries "means" some event. It doesn't. The sign describes the kind of work (for Aries: initiative that holds up over time, starting things you also finish, independence you can actually support) and the house, if you have a birth time, says where. What happens is yours.
+Two things I'd push back on from the usual content. One: "it hits at 29." It hits at a degree, on a date, and the window around it is two to four years. Two: Saturn in Aries "means" some event. It doesn't. The sign describes the kind of work (for Aries: initiative that holds up over time, starting things you also finish, independence you can actually support) and the house, if you have a birth time, says where. What happens is yours.
 
 Happy to work out anyone's degree and pass dates from a birth date in the comments. No time needed for the sign; time needed for the house.
 

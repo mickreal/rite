@@ -1,7 +1,7 @@
 // Style 2, per cohort: "Born <range>? Your Saturn return is open now / opens <Month Year>", with the pass months.
 import React from "react";
 import { AbsoluteFill } from "remotion";
-import { T, DISPLAY, TEXT, LiveBrand, LiveDial, Rise, Glow, Sweep, BrandLine } from "./brand";
+import { T, DISPLAY, TEXT, LiveBrand, LiveDial, Rise, Glow, Sweep, BrandLine, keepDates, Range } from "./brand";
 import DATA from "../data/cohorts.json";
 
 export type CohortProps = { id: string };
@@ -12,16 +12,16 @@ export const CohortCard: React.FC<CohortProps> = ({ id }) => {
   const c = DATA.cohorts.find((x) => x.id === id) ?? DATA.cohorts[0];
   const head = c.headline.replace(/^opens /, "");
   const opens = c.state === "opens";
-  const bornSize = c.born.length > 22 ? 84 : 96;
+  const bornSize = 96; // the range always breaks after its dash, so each line is one date
   return (
     <AbsoluteFill style={{ background: T.bg, padding: 72, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* the dial, whole, in the top-right corner beside the mark */}
       <div style={{ position: "absolute", right: 56, top: 40, opacity: 0.55 }}><LiveDial size={250} angle={c.state === "open" ? 352 : 320} halo={0.14} /></div>
       <Rise f={0}><LiveBrand size={42} /></Rise>
       <Rise f={0.08} style={{ marginTop: 120, fontFamily: DISPLAY, fontWeight: 800, fontSize: bornSize, letterSpacing: "-0.045em", lineHeight: 0.98, color: T.cream, maxWidth: 900 }}>
-        Born {c.born}?
+        <Range text={c.born} prefix="Born " suffix="?" />
       </Rise>
-      {c.alsoBorn.length > 0 && <Rise f={0.2} style={{ marginTop: 18, fontFamily: TEXT, fontSize: 32, color: T.soft, lineHeight: 1.35, maxWidth: 900 }}>or {c.alsoBorn.join(", or ")}</Rise>}
+      {c.alsoBorn.length > 0 && <Rise f={0.2} style={{ marginTop: 18, fontFamily: TEXT, fontSize: 32, color: T.soft, lineHeight: 1.35, maxWidth: 900 }}>{keepDates(`or ${c.alsoBorn.join(", or ")}`)}</Rise>}
       <Rise f={0.34} style={{ marginTop: 52, fontFamily: DISPLAY, fontWeight: 600, fontSize: 52, letterSpacing: "-0.02em", color: T.cream, lineHeight: 1 }}>
         Your {c.returnNumber > 1 ? `${RN[c.returnNumber - 1]} ` : ""}Saturn return {opens ? "opens" : "is"}
       </Rise>
@@ -39,9 +39,9 @@ export const CohortCard: React.FC<CohortProps> = ({ id }) => {
             ))}
           </div>
         ) : (
-          <Rise f={0.62} style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 44, letterSpacing: "-0.02em", lineHeight: 1.15, color: T.cream }}>{c.passSpan}</Rise>
+          <Rise f={0.62} style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 44, letterSpacing: "-0.02em", lineHeight: 1.15, color: T.cream }}>{keepDates(c.passSpan ?? "")}</Rise>
         )}
-        <Rise f={0.86} dy={14}><span style={{ fontFamily: TEXT, fontSize: 28, color: T.muted }}>Saturn in {c.sign} · window {c.window}</span></Rise>
+        <Rise f={0.86} dy={14}><span style={{ fontFamily: TEXT, fontSize: 28, color: T.muted }}>{keepDates(`Saturn in ${c.sign} · window ${c.window}`)}</span></Rise>
       </div>
       <BrandLine style={{ marginTop: 40, borderTop: `2px solid ${T.line}`, paddingTop: 34, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <span style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 40, letterSpacing: "-0.02em", color: T.cream }}>Your exact days, free</span>

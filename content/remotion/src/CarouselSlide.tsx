@@ -34,11 +34,11 @@ export const CarouselSlide: React.FC<CarouselProps> = ({ id, n }) => {
   if (s.kind === "cover" || last) {
     return (
       <AbsoluteFill style={{ background: T.cream, padding: 80, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ position: "absolute", right: -260, bottom: -300, opacity: 0.85 }}><Dial size={900} angle={last ? 352 : 300} onCream halo={0.12} /></div>
+        <div style={{ position: "absolute", right: 80, bottom: 150, opacity: 0.85 }}><Dial size={460} angle={last ? 352 : 300} onCream halo={0.12} /></div>
         {top}
         <div style={{ marginTop: 130, width: 96, height: 8, borderRadius: 4, background: T.accent, position: "relative" }} />
         <div style={{ marginTop: 44, fontFamily: DISPLAY, fontWeight: 800, fontSize: sizeFor(s.head!, [[30, 132], [45, 116], [999, 100]]), letterSpacing: "-0.045em", lineHeight: 0.98, color: T.ink, maxWidth: 900, textWrap: "balance" as never, position: "relative" }}>
-          {s.head}
+          {nw(s.head!)}
         </div>
         {s.small && <div style={{ marginTop: 40, fontFamily: TEXT, fontWeight: 600, fontSize: 36, color: T.accent, position: "relative" }}>{nw(s.small)}</div>}
         {last && <div style={{ marginTop: 56, fontFamily: DISPLAY, fontWeight: 800, fontSize: 104, letterSpacing: "-0.04em", lineHeight: 1, color: T.accent, position: "relative" }}>{DATA.site}</div>}
@@ -53,7 +53,7 @@ export const CarouselSlide: React.FC<CarouselProps> = ({ id, n }) => {
   const textSize = s.head ? 52 : sizeFor(body, [[90, 82], [140, 70], [999, 62]]);
   return (
     <AbsoluteFill style={{ background: T.cream, padding: 80, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div style={{ position: "absolute", right: -380, top: -380, opacity: 0.45 }}><Dial size={760} angle={300} onCream arc={false} halo={0.08} /></div>
+      {!s.dial && <div style={{ position: "absolute", right: 80, top: 100, opacity: 0.6 }}><Dial size={150} angle={300} onCream halo={0.1} /></div>}
       {top}
       <div style={{ marginTop: "auto", marginBottom: "auto", display: "flex", flexDirection: "column", gap: 36, position: "relative", maxWidth: 920 }}>
         {s.head && (
