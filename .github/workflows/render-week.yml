@@ -1,0 +1,167 @@
+# Scheduled render (docs/automation-builds.md, build 4): every Thursday renders the next Monday–Sunday of posts, uploads
+# them to R2 (bucket rite-content) with weeks/<monday>/manifest.json, which auto-posting (build 5) reads.
+# Setup, secrets and the manifest format: content/README.md, "Scheduled render (GitHub Actions)".
+# A failing date check or render fails the run, and GitHub emails the repo owner (keep Actions failure notifications on).
+name: Render week
+
+on:
+  schedule:
+    - cron: "0 2 * * 4" # Thursday 02:00 UTC (12:00 Brisbane): next week's posts, four days ahead
+  workflow_dispatch:
+    inputs:
+      week_start:
+        description: "Monday of the week to render (YYYY-MM-DD). Empty: next Monday"
+        required: false
+        default: ""
+      plan:
+        description: "Plan file under content/ (empty: scripts/plan-launch.json if present; weeks after it use the rolling plan)"
+        required: false
+        default: ""
+      upload:
+        description: "Upload to R2 (off: render and print the manifest only)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-week
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    defaults:
+      run:
+        working-directory: content
+    env:
+      WRANGLER_SEND_METRICS: "false"
+      # Clips run against a local `wrangler dev --local` that render-clip.ts starts (local D1 and KV, the AI binding
+      # unused): no Cloudflare token is needed or wanted here.
+      VO_PROVIDER: elevenlabs
+      ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET || 'rite-content' }}
+      R2_PUBLIC_BASE: ${{ secrets.R2_PUBLIC_BASE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            content/package-lock.json
+            content/remotion/package-lock.json
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: System tools (ffmpeg, zip, en_GB locale for the date field)
+        working-directory: .
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg zip locales >/dev/null
+          sudo locale-gen en_GB.UTF-8 >/dev/null
+          ffmpeg -hide_banner -filters 2>/dev/null | grep -q drawtext || echo "::warning::ffmpeg has no drawtext (libfreetype)"
+
+      - name: npm ci (root, content, content/remotion)
+        working-directory: .
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --no-audit --no-fund --prefix content
+          npm ci --no-audit --no-fund --prefix content/remotion
+
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Chromium (Playwright) → CHROMIUM
+        working-directory: .
+        run: |
+          npx playwright install --with-deps chromium
+          CHROMIUM="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          test -x "$CHROMIUM" || { echo "::error::no Chromium at $CHROMIUM"; exit 1; }
+          echo "CHROMIUM=$CHROMIUM" >> "$GITHUB_ENV"
+          echo "Chromium: $CHROMIUM"
+
+      # Voiceover takes are cached by text (clips/vo/cache), so re-runs and reused assets don't spend credits twice.
+      - name: Cache voiceover takes
+        uses: actions/cache@v4
+        with:
+          path: content/clips/vo/cache
+          key: vo-${{ github.run_id }}
+          restore-keys: vo-
+
+      - name: Pick the week and the plan
+        id: week
+        env:
+          IN_WEEK: ${{ inputs.week_start }}
+          IN_PLAN: ${{ inputs.plan }}
+        run: |
+          W="${IN_WEEK:-$(date -u -d 'next monday' +%F)}"
+          [[ $W =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && date -u -d "$W" >/dev/null || { echo "::error::week_start '$W' is not YYYY-MM-DD"; exit 1; }
+          [[ $(date -u -d "$W" +%u) == 1 ]] || echo "::warning::$W is not a Monday"
+          END="$(date -u -d "$W + 6 days" +%F)"
+          LAUNCH="${IN_PLAN:-scripts/plan-launch.json}"
+          if [[ -n $IN_PLAN && ! -f $IN_PLAN ]]; then echo "::error::no plan at content/$IN_PLAN"; exit 1; fi
+          LAST=""
+          [[ -f $LAUNCH ]] && LAST="$(node -e "const p=require('./$LAUNCH');console.log((Array.isArray(p)?p:p.posts).map(x=>x.date).sort().pop()||'')")"
+          if [[ -n $LAST && ! $END > $LAST ]]; then
+            PLAN="$LAUNCH"
+            echo "Week $W – $END is inside $LAUNCH (ends $LAST)"
+          else
+            echo "Week $W – $END is after ${LAST:-the end of any launch plan}: generating the rolling plan"
+            # rolling-plan runs the date check itself and swaps out any clip that fails on its posting day
+            if [[ -f $LAUNCH ]]; then bun scripts/rolling-plan.ts --week "$W" --plan "$LAUNCH"
+            else bun scripts/rolling-plan.ts --week "$W"; fi
+            PLAN="out/plans/week-$W.json"
+          fi
+          node -e "const p=require('./$PLAN');const posts=(Array.isArray(p)?p:p.posts).filter(x=>x.date>='$W'&&x.date<='$END');require('fs').mkdirSync('out/plans',{recursive:true});require('fs').writeFileSync('out/plans/check-$W.json',JSON.stringify({posts},null,2));console.log(posts.length+' post(s) this week');if(!posts.length)process.exit(1)"
+          { echo "week=$W"; echo "end=$END"; echo "plan=$PLAN"; } >> "$GITHUB_OUTPUT"
+
+      - name: Date check (on screen, VO, captions; fails the run on any stale date)
+        env:
+          TODAY: ${{ steps.week.outputs.week }}
+        run: |
+          bun clips/check-cohorts.ts --plan "out/plans/check-${{ steps.week.outputs.week }}.json"
+          bun scripts/check-captions.ts --plan "out/plans/check-${{ steps.week.outputs.week }}.json"
+
+      - name: Render the week
+        env:
+          TODAY: ${{ steps.week.outputs.week }}
+        run: |
+          SILENT=""
+          if [[ -z $ELEVENLABS_API_KEY ]]; then SILENT="--silent"; echo "::notice::No ELEVENLABS_API_KEY secret: rendering silent versions only"; fi
+          bun scripts/render-batch.ts --plan "${{ steps.week.outputs.plan }}" --dest "week-${{ steps.week.outputs.week }}" \
+            --from "${{ steps.week.outputs.week }}" --to "${{ steps.week.outputs.end }}" --allow-missing-presenter --no-zip $SILENT
+
+      - name: Upload to R2
+        env:
+          DO_UPLOAD: ${{ github.event_name == 'schedule' || inputs.upload }}
+        run: |
+          if [[ $DO_UPLOAD != true ]]; then bun scripts/upload-week.ts --week "${{ steps.week.outputs.week }}" --dry-run; exit 0; fi
+          for v in R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_PUBLIC_BASE; do
+            [[ -n ${!v} ]] || { echo "::error::repo secret $v is not set (content/README.md, Scheduled render)"; exit 1; }
+          done
+          bun scripts/upload-week.ts --week "${{ steps.week.outputs.week }}"
+
+      - name: Keep the manifests with the run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: week-${{ steps.week.outputs.week || 'unknown' }}-manifests
+          path: |
+            content/out/week-*/manifest.*
+            content/out/weeks/*/manifest.json
+            content/out/plans/*.json
+          if-no-files-found: ignore
+          retention-days: 30

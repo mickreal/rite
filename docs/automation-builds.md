@@ -95,6 +95,8 @@ About 16 agent days in all. Builds 1–6 (about 7.5 days) fit before and around 
 
 **Done when.** A dispatched run produces a week's files and manifest in R2 within the Actions time limit; a deliberately stale caption fails the run.
 
+**Status (17 Oct).** Built: `.github/workflows/render-week.yml`, `content/scripts/rolling-plan.ts`, `content/scripts/upload-week.ts`, `--from`/`--to` on render-batch and export-batch. Setup, secrets, the manual dispatch and the manifest format (what build 5 reads): `content/README.md`, "Scheduled render (GitHub Actions)". Mick keeps GitHub's Actions failure emails on; a failed run is the alert.
+
 ## 5. Auto-posting (Postiz)
 
 **Why.** Posting by hand is daily work.
