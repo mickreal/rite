@@ -6,6 +6,7 @@ import { STAGES, fmtMonYr, fmtMonYrL, untilText } from "../astro/cycle";
 import { saturnLongitude } from "../astro/saturn";
 import { ORDINAL } from "../content/notes";
 import { yearlyAllowed } from "../season";
+import { NARRATION_VERSION } from "../tts";
 
 export interface ReportJson {
   cover_line: string; saturn_p1: string; saturn_p2: string; house_h3: string; house_p: string;
@@ -345,7 +346,7 @@ setStage('today','today');
 // narration: chapters 0..8 play back to back; each MP3 is generated on first request and cached
 var CH=9,cur=0,au=new Audio(),playing=false,ready=false,durs=[];
 var btn=$('#playBtn'),ico=$('#playIco'),eqEl=$('#playEq'),bar=$('#playBar'),meta=$('#playMeta');
-function src(i){return '/r/'+TOK+'/audio/'+i+'.mp3'}
+function src(i){return '/r/'+TOK+'/audio/'+i+'.mp3?v=${NARRATION_VERSION}'}
 function setUI(){ico.style.display=playing?'none':'';eqEl.style.display=playing?'flex':'none';btn.setAttribute('aria-label',playing?'Pause narration':'Play narration')}
 function load(i,play){cur=i;au.src=src(i);meta.textContent='Chapter '+i+' of 8'+(i===0?', preparing':'');if(play){au.play().catch(function(){playing=false;setUI()})}if(i+1<CH){fetch(src(i+1)).catch(function(){})}}
 au.addEventListener('playing',function(){playing=true;setUI();meta.textContent='Chapter '+cur+' of 8'});

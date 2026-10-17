@@ -21,7 +21,9 @@ import { flowPage } from "./views/flow";
 import { giftPage } from "./views/gift";
 import { writingPage } from "./views/writing";
 import { legalPage } from "./views/legal";
-import { narrationText, splitForTts, CHAPTERS } from "./narration";
+import { narrationText, CHAPTERS } from "./narration";
+import { synthesize, ttsConfig, audioCacheKey, MAX_ADMIN_CHARS } from "./tts";
+import { voicePage } from "./views/voice";
 import { resultPage } from "./views/result";
 import { seasonManagePage, type SeasonManageData } from "./views/season";
 import { seasonLandingPage } from "./views/season-landing";
@@ -40,7 +42,7 @@ export interface Env {
   MODEL_REPORT: string; MODEL_PREVIEW: string;
   FROM_EMAIL: string; SUPPORT_EMAIL: string;
   STRIPE_SECRET_KEY: string; STRIPE_WEBHOOK_SECRET: string; ADMIN_KEY?: string; ANTHROPIC_API_KEY: string; RESEND_API_KEY: string;
-  AI?: Ai; TTS_VOICE?: string; ADMIN_EMAIL?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string;
+  AI?: Ai; TTS_MODEL?: string; TTS_VOICE?: string; ADMIN_EMAIL?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -568,7 +570,8 @@ app.get("/r/:tok/stage", async (c) => {
   return c.json({ ...s, isToday, when: fmtMonYr(t.getTime()), next, slider: slider >= 0 && slider <= 431 ? slider : null });
 });
 
-// Narration: one MP3 per chapter, generated on first play with Workers AI (Deepgram Aura) and cached in KV.
+// Narration: one MP3 per chapter, generated on first play with Workers AI (TTS_MODEL / TTS_VOICE, defaults in src/tts.ts)
+// and cached in KV. The script's pause markup is synthesised in chunks with real silence spliced between them.
 app.get("/r/:tok/audio/:ch{[0-9]+\\.mp3}", async (c) => {
   const ch = parseInt(c.req.param("ch"), 10);
   if (!(ch >= 0 && ch < CHAPTERS)) return c.notFound();
@@ -577,35 +580,22 @@ app.get("/r/:tok/audio/:ch{[0-9]+\\.mp3}", async (c) => {
   const r = parseReport(pu.report_md);
   if (!r) return c.text("Reading not written yet", 409);
   if (!c.env.AI) return c.text("Narration isn't available on this deployment", 503);
-  const key = `audio:v1:${pu.id}:${ch}`;
+  const cfg = ttsConfig(c.env);
+  const key = audioCacheKey(pu.id, ch, cfg);
   const hit = await c.env.CACHE.get(key, "arrayBuffer");
   if (hit) return c.body(hit, 200, { "content-type": "audio/mpeg", "cache-control": "private, max-age=86400", "x-cache": "hit" });
   const p = await getPreview(c.env, pu.preview_id);
   if (!p) return c.notFound();
   const comp = recompute(p); const cy = cycle(comp);
-  const text = narrationText(ch, comp, cy, r, pu.first_name);
-  const parts: Uint8Array[] = [];
-  try {
-    for (const seg of splitForTts(text)) {
-      const res = await c.env.AI.run("@cf/deepgram/aura-1" as never, { text: seg, speaker: c.env.TTS_VOICE || "luna", encoding: "mp3" } as never) as unknown;
-      parts.push(new Uint8Array(await toArrayBuffer(res)));
-    }
-  } catch (e) { await log(c.env, "error", pu.id, { where: "tts", ch, e: String(e) }); return c.text("Narration failed just now; try again in a moment.", 502); }
-  const total = parts.reduce((n, b) => n + b.byteLength, 0);
-  const buf = new Uint8Array(total); let off = 0; for (const b of parts) { buf.set(b, off); off += b.byteLength; }
-  c.executionCtx.waitUntil(c.env.CACHE.put(key, buf.buffer, { expirationTtl: 86400 * 365 }));
-  await log(c.env, "narrated", pu.id, { ch, chars: text.length });
-  return c.body(buf.buffer, 200, { "content-type": "audio/mpeg", "cache-control": "private, max-age=86400", "x-cache": "miss" });
+  const script = narrationText(ch, comp, cy, r, pu.first_name);
+  let out;
+  try { out = await synthesize(c.env.AI, script, cfg); }
+  catch (e) { await log(c.env, "error", pu.id, { where: "tts", ch, model: cfg.model, e: String(e) }); return c.text("Narration failed just now; try again in a moment.", 502); }
+  const buf = out.bytes.slice().buffer as ArrayBuffer;
+  c.executionCtx.waitUntil(c.env.CACHE.put(key, buf, { expirationTtl: 86400 * 365 }));
+  await log(c.env, "narrated", pu.id, { ch, chars: out.chars, chunks: out.chunks, spliced: out.spliced, model: cfg.model, voice: cfg.voice });
+  return c.body(buf, 200, { "content-type": "audio/mpeg", "cache-control": "private, max-age=86400", "x-cache": "miss" });
 });
-async function toArrayBuffer(res: unknown): Promise<ArrayBuffer> {
-  if (res instanceof ArrayBuffer) return res;
-  if (res instanceof ReadableStream) return new Response(res).arrayBuffer();
-  if (res instanceof Uint8Array) return res.buffer.slice(res.byteOffset, res.byteOffset + res.byteLength) as ArrayBuffer;
-  if (res && typeof res === "object" && "audio" in (res as Record<string, unknown>)) { // JSON { audio: base64 }
-    const b64 = String((res as Record<string, unknown>).audio); const bin = atob(b64); const out = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out.buffer;
-  }
-  throw new Error("unexpected TTS response shape");
-}
 
 app.get("/r/:tok/calendar.ics", async (c) => {
   const pu = await getPurchase(c.env, c.req.param("tok"));
@@ -964,6 +954,29 @@ app.get("/admin", async (c) => {
   const [stats, extras] = await Promise.all([adminStats(c.env.DB, adminDays(c.req.query("days"))), adminExtras(c.env.DB)]);
   return c.html(adminPage({ stats, extras, currency: c.env.CURRENCY, key: c.req.query("key"), generatedAt: now() }), 200,
     { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
+});
+
+// Voice audition (GET /admin/voice) and the TTS endpoint behind it, which is also the content engine's VO endpoint
+// (POST /admin/tts). ADMIN_KEY only (bearer or ?key=), plain 404 otherwise, like GET /admin. Same pipeline as the reading.
+const ADMIN_HDRS = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" };
+const adminKeyOk = (env: Env, auth: string | undefined, key: string | undefined) => !!env.ADMIN_KEY && adminAuthorized(env.ADMIN_KEY, auth, key);
+app.get("/admin/voice", (c) => {
+  if (!adminKeyOk(c.env, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
+  return c.html(voicePage({ key: c.req.query("key"), current: ttsConfig(c.env), ai: !!c.env.AI }), 200, ADMIN_HDRS);
+});
+app.post("/admin/tts", async (c) => {
+  if (!adminKeyOk(c.env, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
+  const b = await c.req.json<{ text?: unknown; model?: unknown; voice?: unknown }>().catch(() => null);
+  const text = typeof b?.text === "string" ? b.text.trim() : "";
+  if (!text) return c.json({ error: "text is required" }, 400, ADMIN_HDRS);
+  if (text.length > MAX_ADMIN_CHARS) return c.json({ error: `text is over ${MAX_ADMIN_CHARS} characters` }, 413, ADMIN_HDRS);
+  if (!c.env.AI) return c.json({ error: "no AI binding on this deployment (deploy, or wrangler dev --remote)" }, 503, ADMIN_HDRS);
+  const cfg = ttsConfig(c.env, { model: b?.model, voice: b?.voice });
+  try {
+    const out = await synthesize(c.env.AI, text, cfg);
+    return c.body(out.bytes.slice().buffer as ArrayBuffer, 200, { ...ADMIN_HDRS, "content-type": "audio/mpeg", "x-tts-model": cfg.model, "x-tts-voice": cfg.voice,
+      "x-tts-chunks": String(out.chunks), "x-tts-spliced": String(out.spliced), "x-tts-duration-ms": String(out.durationMs) });
+  } catch (e) { return c.json({ error: String(e) }, 502, ADMIN_HDRS); }
 });
 
 // ---------- cron: Saturn Season ----------

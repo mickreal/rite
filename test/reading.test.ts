@@ -69,7 +69,7 @@ describe("narration", () => {
   it("builds a script for every chapter, degrees spelled out, dates spoken", () => {
     let total = 0;
     for (let i = 0; i < CHAPTERS; i++) { const t = narrationText(i, c, cy, r, "Sam"); expect(t.length).toBeGreaterThan(40); expect(t).not.toMatch(/°/); total += t.length; }
-    expect(narrationText(3, c, cy, r, null)).toContain("28 April 2027");
+    expect(narrationText(3, c, cy, r, null)).toContain("the twenty-eighth of April, twenty twenty-seven");
     expect(total).toBeGreaterThan(3000);
   });
   it("splits on sentence boundaries under the TTS limit", () => {
