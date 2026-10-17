@@ -62,7 +62,7 @@ ${d.flash === "started" && d.status !== "active" ? html`<meta http-equiv="refres
       <p>You're on the yearly plan. Switching to monthly takes effect now; the unused part of the year becomes a credit that covers your monthly invoices until it runs out.</p>
       <form method="post" action="/season/plan/${d.token}"><input type="hidden" name="plan" value="month"><button type="submit" class="ghost">Switch to $${d.monthlyPrice} a month</button></form>`
     : d.yearlyAllowed ? html`
-      <p>Yearly is $${d.yearlyPrice} for the full year (${Math.round((1 - d.yearlyPrice / (d.monthlyPrice * 12)) * 100)}% less than twelve months). Stripe credits the unused part of this month and charges the difference today. If your window closes before the year is up, the unused months come back to you automatically.</p>
+      <p>Yearly is $${d.yearlyPrice} for the full year (${Math.round((1 - d.yearlyPrice / (d.monthlyPrice * 12)) * 100)}% less than twelve months). Stripe credits the unused part of this month against the year, and the difference is on your next invoice. If you stop it, or your window closes before the year is up, the unused months come back to you automatically.</p>
       <form method="post" action="/season/plan/${d.token}"><input type="hidden" name="plan" value="year"><button type="submit" class="solid">Switch to $${d.yearlyPrice} a year</button></form>`
     : html`<p>You're on monthly. Yearly isn't offered this close to the end of your window (it needs at least nine months left), so monthly is the better deal for you.</p>`}
   </section>
