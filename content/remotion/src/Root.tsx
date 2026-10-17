@@ -15,6 +15,7 @@ export const Root: React.FC = () => (
     <Still id="CohortCard" component={CohortCard as React.FC<CohortProps>} width={1080} height={1350} defaultProps={{ id: "aries-1997-three-pass" }} />
     <Still id="QuoteCard" component={QuoteCard as React.FC<QuoteProps>} width={1080} height={1350} defaultProps={{ id: "aries-opener" }} />
     <Still id="CarouselSlide" component={CarouselSlide as React.FC<CarouselProps>} width={1080} height={1350} defaultProps={{ id: "carousel-1-what-it-is", n: 1 }} />
-    <Composition id="VerticalCard" component={VerticalCard as React.FC<VerticalProps>} width={1080} height={1920} fps={30} durationInFrames={CARD.seconds * 30} defaultProps={{ card: "CohortCard", id: "aries-first-return" }} />
+    <Composition id="VerticalCard" component={VerticalCard as React.FC<VerticalProps>} width={1080} height={1920} fps={30} durationInFrames={CARD.seconds * 30} defaultProps={{ card: "CohortCard", id: "aries-first-return" }}
+      calculateMetadata={({ props }) => ({ durationInFrames: Math.round(((props as VerticalProps & { seconds?: number }).seconds ?? CARD.seconds) * 30) })} />
   </>
 );

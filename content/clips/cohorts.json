@@ -8,8 +8,20 @@
       "city": "London",
       "time": null,
       "hook": "Born in 1996? Your exact pass already happened. The window hasn't closed.",
-      "lines": ["Saturn at 5° Aries when you were born", "Exact pass: 3 Apr 2026", "Window open until 12 Apr 2028", "Yours are different. Free preview at rite.report"],
-      "expect": { "sign": "Aries", "returnNumber": 1, "hits": ["2026-04-03"], "windowEnd": "2028-04-12" }
+      "lines": [
+        "Saturn at 5° Aries when you were born",
+        "Exact pass: 3 Apr 2026",
+        "Window open until 12 Apr 2028",
+        "Yours are different. Free preview at rite.report"
+      ],
+      "expect": {
+        "sign": "Aries",
+        "returnNumber": 1,
+        "hits": [
+          "2026-04-03"
+        ],
+        "windowEnd": "2028-04-12"
+      }
     },
     {
       "id": "aries-three-pass-1997",
@@ -18,9 +30,34 @@
       "city": "New York",
       "time": null,
       "hook": "Born in spring 1997? You don't get one Saturn return. You get three dates.",
-      "lines": ["Saturn at 10° Aries when you were born", "13 May 2026 · 15 Oct 2026", "And once more: 3 Feb 2027", "One season, three dates", "Yours are different. Free preview at rite.report"],
-      "vo": {"script": "(c) 1", "hook": "Born in spring 1997? You don't get one Saturn return. You get three dates.", "lines": ["Saturn was at 10 degrees Aries when you were born.", "It crossed that degree on 13 May. It's crossing it again right now, going backwards.", "And once more in February, going forwards. That's the one that settles.", "Three passes. Not a day. Not a birthday.", "Yours are different. Free preview at rite dot report."]},
-      "expect": { "sign": "Aries", "returnNumber": 1, "hits": ["2026-05-13", "2026-10-15", "2027-02-03"], "windowEnd": "2028-04-12" }
+      "lines": [
+        "Saturn at 10° Aries when you were born",
+        "13 May 2026 · 15 Oct 2026",
+        "And once more: 3 Feb 2027",
+        "One season, three dates",
+        "Yours are different. Free preview at rite.report"
+      ],
+      "vo": {
+        "script": "(c) 1",
+        "hook": "Born in spring 1997? You don't get one Saturn return. You get three dates.",
+        "lines": [
+          "Saturn was at 10 degrees Aries when you were born.",
+          "It crossed that degree on 13 May. It's crossing it again right now, going backwards.",
+          "And once more in February, going forwards. That's the one that settles.",
+          "Three passes. Not a day. Not a birthday.",
+          "Yours are different. Free preview at rite dot report."
+        ]
+      },
+      "expect": {
+        "sign": "Aries",
+        "returnNumber": 1,
+        "hits": [
+          "2026-05-13",
+          "2026-10-15",
+          "2027-02-03"
+        ],
+        "windowEnd": "2028-04-12"
+      }
     },
     {
       "id": "aries-approach-1997",
@@ -29,9 +66,30 @@
       "city": "London",
       "time": null,
       "hook": "Born in late 1997? Your Saturn return is dated. It's next spring.",
-      "lines": ["Today: 10° Aries · You: 20° Aries", "Turns direct 11 Dec 2026", "Exact on 29 Apr 2027", "Free preview at rite.report"],
-      "vo": {"script": "(c) 2", "hook": "Born in the second half of 1997? Your Saturn return hasn't happened yet. It's dated.", "lines": ["Saturn is at 10 degrees Aries today. Yours is at 20.", "It's moving backwards until 11 December. Then it turns and comes for your degree.", "Exact on 29 April 2027. This is the year you set the thing up, not the year it gets tested.", "Free preview at rite dot report."]},
-      "expect": { "sign": "Aries", "returnNumber": 1, "hits": ["2027-04-29"], "windowEnd": "2028-04-12" }
+      "lines": [
+        "Today: 10° Aries · You: 20° Aries",
+        "Turns direct 11 Dec 2026",
+        "Exact on 29 Apr 2027",
+        "Free preview at rite.report"
+      ],
+      "vo": {
+        "script": "(c) 2",
+        "hook": "Born in the second half of 1997? Your Saturn return hasn't happened yet. It's dated.",
+        "lines": [
+          "Saturn is at 10 degrees Aries today. Yours is at 20.",
+          "It's moving backwards until 11 December. Then it turns and comes for your degree.",
+          "Exact on 29 April 2027. This is the year you set the thing up, not the year it gets tested.",
+          "Free preview at rite dot report."
+        ]
+      },
+      "expect": {
+        "sign": "Aries",
+        "returnNumber": 1,
+        "hits": [
+          "2027-04-29"
+        ],
+        "windowEnd": "2028-04-12"
+      }
     },
     {
       "id": "aries-three-pass-1998",
@@ -40,8 +98,22 @@
       "city": "London",
       "time": null,
       "hook": "Born in spring 1998? Yours runs May 2027 to January 2028, in three passes.",
-      "lines": ["Saturn at 21° Aries when you were born", "11 May 2027 · 23 Nov 2027", "Last pass: 22 Jan 2028", "Free preview at rite.report"],
-      "expect": { "sign": "Aries", "returnNumber": 1, "hits": ["2027-05-11", "2027-11-23", "2028-01-22"], "windowEnd": "2028-04-12" }
+      "lines": [
+        "Saturn at 21° Aries when you were born",
+        "11 May 2027 · 23 Nov 2027",
+        "Last pass: 22 Jan 2028",
+        "Free preview at rite.report"
+      ],
+      "expect": {
+        "sign": "Aries",
+        "returnNumber": 1,
+        "hits": [
+          "2027-05-11",
+          "2027-11-23",
+          "2028-01-22"
+        ],
+        "windowEnd": "2028-04-12"
+      }
     },
     {
       "id": "aries-last-degrees-1998",
@@ -50,9 +122,30 @@
       "city": "London",
       "time": null,
       "hook": "Born in Nov 1998? Your pass is the last thing Saturn does in Aries.",
-      "lines": ["Saturn at 28° Aries when you were born", "Exact on 31 Mar 2028", "Window closes 12 Apr 2028", "Free preview at rite.report"],
-      "vo": {"script": "(c) 5", "hook": "Born in November 1998? Your Saturn return is the last thing Saturn does before it leaves Aries.", "lines": ["Natal Saturn at 28 degrees Aries. Saturn's just under 10 today, going backwards.", "Exact on 31 March 2028.", "Window closes twelve days later. A short, clean pass at the very end. Most of your window is approach.", "Free preview at rite dot report."]},
-      "expect": { "sign": "Aries", "returnNumber": 1, "hits": ["2028-03-31"], "windowEnd": "2028-04-12" }
+      "lines": [
+        "Saturn at 28° Aries when you were born",
+        "Exact on 31 Mar 2028",
+        "Window closes 12 Apr 2028",
+        "Free preview at rite.report"
+      ],
+      "vo": {
+        "script": "(c) 5",
+        "hook": "Born in November 1998? Your Saturn return is the last thing Saturn does before it leaves Aries.",
+        "lines": [
+          "Natal Saturn at 28 degrees Aries. Saturn's just under 10 today, going backwards.",
+          "Exact on 31 March 2028.",
+          "Window closes twelve days later. A short, clean pass at the very end. Most of your window is approach.",
+          "Free preview at rite dot report."
+        ]
+      },
+      "expect": {
+        "sign": "Aries",
+        "returnNumber": 1,
+        "hits": [
+          "2028-03-31"
+        ],
+        "windowEnd": "2028-04-12"
+      }
     },
     {
       "id": "taurus-2028",
@@ -61,9 +154,30 @@
       "city": "London",
       "time": null,
       "hook": "Born in 1999? Your Saturn return opens 13 April 2028. Here's your date.",
-      "lines": ["Saturn at 3° Taurus when you were born", "Window opens 13 Apr 2028", "First exact pass: 10 May 2028", "Free preview at rite.report. It'll email you when it starts"],
-      "vo": {"script": "(c) 3", "hook": "Born in 1999? Everyone's talking about Saturn returns, and yours hasn't started.", "lines": ["Saturn was in Taurus when you were born. It's in Aries now.", "Your window opens the day Saturn enters Taurus.", "First exact pass a month later. You have eighteen months. Use them.", "Free preview at rite dot report. It'll email you when it starts."]},
-      "expect": { "sign": "Taurus", "returnNumber": 1, "hits": ["2028-05-10"], "windowStart": "2028-04-13" }
+      "lines": [
+        "Saturn at 3° Taurus when you were born",
+        "Window opens 13 Apr 2028",
+        "First exact pass: 10 May 2028",
+        "Free preview at rite.report. It'll email you when it starts"
+      ],
+      "vo": {
+        "script": "(c) 3",
+        "hook": "Born in 1999? Everyone's talking about Saturn returns, and yours hasn't started.",
+        "lines": [
+          "Saturn was in Taurus when you were born. It's in Aries now.",
+          "Your window opens the day Saturn enters Taurus.",
+          "First exact pass a month later. You have eighteen months. Use them.",
+          "Free preview at rite dot report. It'll email you when it starts."
+        ]
+      },
+      "expect": {
+        "sign": "Taurus",
+        "returnNumber": 1,
+        "hits": [
+          "2028-05-10"
+        ],
+        "windowStart": "2028-04-13"
+      }
     },
     {
       "id": "aries-second-return-1967",
@@ -72,9 +186,32 @@
       "city": "London",
       "time": null,
       "hook": "Born in 1967 or 68? Your second Saturn return is running now, on the same dates as the 1997 kids.",
-      "lines": ["Second return · 11° Aries", "21 May 2026 · 4 Oct 2026", "And once more: 11 Feb 2027", "Free preview at rite.report. Written for second returns too"],
-      "vo": {"script": "(c) 4", "hook": "Born in 1967 or 68? This is your second Saturn return, and it's running on the same calendar as your kids' first.", "lines": ["Saturn's back at the degree it held the day you were born. For the second time.", "Three passes: May and October this year,", "and once more in February. The first one was about what you had to prove. This one's about what outlasts you.", "Free preview at rite dot report. Written for second returns too."]},
-      "expect": { "sign": "Aries", "returnNumber": 2, "hits": ["2026-05-21", "2026-10-04", "2027-02-11"], "windowEnd": "2028-04-12" }
+      "lines": [
+        "Second return · 11° Aries",
+        "21 May 2026 · 4 Oct 2026",
+        "And once more: 11 Feb 2027",
+        "Free preview at rite.report. Written for second returns too"
+      ],
+      "vo": {
+        "script": "(c) 4",
+        "hook": "Born in 1967 or 68? This is your second Saturn return, and it's running on the same calendar as your kids' first.",
+        "lines": [
+          "Saturn's back at the degree it held the day you were born. For the second time.",
+          "Three passes: May and October this year,",
+          "and once more in February. The first one was about what you had to prove. This one's about what outlasts you.",
+          "Free preview at rite dot report. Written for second returns too."
+        ]
+      },
+      "expect": {
+        "sign": "Aries",
+        "returnNumber": 2,
+        "hits": [
+          "2026-05-21",
+          "2026-10-04",
+          "2027-02-11"
+        ],
+        "windowEnd": "2028-04-12"
+      }
     },
     {
       "id": "celeb-lisa-1997",
@@ -83,8 +220,32 @@
       "city": "Buriram",
       "time": null,
       "hook": "Lisa's Saturn return has three passes. The second is today, 24 Oct 2026.",
-      "lines": ["Born 27 Mar 1997 · Saturn at 9° Aries", "6 May 2026 · 24 Oct 2026", "And once more: 25 Jan 2027", "Yours are different. Free preview at rite.report"],
-      "expect": { "sign": "Aries", "returnNumber": 1, "hits": ["2026-05-06", "2026-10-24", "2027-01-25"], "windowEnd": "2028-04-12" }
+      "lines": [
+        "Born 27 Mar 1997 · Saturn at 9° Aries",
+        "6 May 2026 · 24 Oct 2026",
+        "And once more: 25 Jan 2027",
+        "Yours are different. Free preview at rite.report"
+      ],
+      "expect": {
+        "sign": "Aries",
+        "returnNumber": 1,
+        "hits": [
+          "2026-05-06",
+          "2026-10-24",
+          "2027-01-25"
+        ],
+        "windowEnd": "2028-04-12"
+      },
+      "vo": {
+        "script": "Lisa (kit h), VO written 17 Oct 2026",
+        "hook": "Lisa's Saturn return has three passes. The second one is today.",
+        "lines": [
+          "Born on 27 March 1997. Saturn at 9 degrees Aries.",
+          "The first pass was 6 May. The second is today, 24 October.",
+          "And once more, on 25 January 2027.",
+          "Yours are different. Free preview at rite dot report."
+        ]
+      }
     }
   ]
 }
