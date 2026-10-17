@@ -5,6 +5,10 @@
 //                         {text, voice?, model?} with Authorization: Bearer $RITE_ADMIN_KEY. Same voice pipeline as
 //                         the reading's narration; supports pause markup such as "[pause 800]".
 //                         Optional: RITE_TTS_VOICE, RITE_TTS_MODEL.
+//   elevenlabs            ElevenLabs text-to-speech with $ELEVENLABS_API_KEY (needs the Text to Speech permission).
+//                         Voice: $ELEVENLABS_VOICE_ID (default Anna, warm & natural Australian, raT7q57pHznZDO2jDPDe);
+//                         model: $ELEVENLABS_MODEL (default eleven_v3). Chosen by Mick on 17 Oct 2026 for the reels.
+//                         Write numbers and dates in words in the VO lines ("the thirteenth of May") for the best read.
 //   files                 pre-recorded takes: clips/vo/<cohort id>/<NN>.{mp3,wav,m4a} (00 = hook, 01 = first line …),
 //                         e.g. Mick's own recording cut into lines.
 //
@@ -61,6 +65,25 @@ export const riteAdmin: TtsProvider = {
   },
 };
 
+export const elevenlabs: TtsProvider = {
+  name: "elevenlabs",
+  unavailable: () => process.env.ELEVENLABS_API_KEY ? null : "ELEVENLABS_API_KEY is not set",
+  async synth(text) {
+    const voice = process.env.ELEVENLABS_VOICE_ID ?? "raT7q57pHznZDO2jDPDe";
+    const body = { text: plain(text), model_id: process.env.ELEVENLABS_MODEL ?? "eleven_v3", voice_settings: { stability: 0.5, similarity_boost: 0.75 } };
+    const key = createHash("sha1").update(JSON.stringify(["elevenlabs", voice, body])).digest("hex").slice(0, 16);
+    mkdirSync(CACHE, { recursive: true });
+    const f = join(CACHE, `${key}.mp3`);
+    if (existsSync(f)) return f;
+    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`, { method: "POST", headers: { "content-type": "application/json", "xi-api-key": process.env.ELEVENLABS_API_KEY! }, body: JSON.stringify(body) });
+    if (r.status === 401 || r.status === 403) throw new VoUnavailable(`ElevenLabs returned ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    if (!r.ok) throw new Error(`ElevenLabs returned ${r.status}: ${(await r.text()).slice(0, 300)}`);
+    writeFileSync(f, Buffer.from(await r.arrayBuffer()));
+    ffprobeSeconds(f);
+    return f;
+  },
+};
+
 export const files: TtsProvider = {
   name: "files",
   unavailable: () => null,
@@ -72,9 +95,9 @@ export const files: TtsProvider = {
 };
 
 export function provider(): TtsProvider {
-  const name = process.env.VO_PROVIDER ?? "rite-admin";
-  const p = ({ "rite-admin": riteAdmin, files } as Record<string, TtsProvider>)[name];
-  if (!p) throw new Error(`Unknown VO_PROVIDER "${name}" (rite-admin | files)`);
+  const name = process.env.VO_PROVIDER ?? "elevenlabs";
+  const p = ({ "rite-admin": riteAdmin, elevenlabs, files } as Record<string, TtsProvider>)[name];
+  if (!p) throw new Error(`Unknown VO_PROVIDER "${name}" (rite-admin | elevenlabs | files)`);
   return p;
 }
 

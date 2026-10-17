@@ -42,7 +42,7 @@ Or a whole scheduled batch in one command (date check → clips → cards → ex
 ```sh
 npm run batch                     # = TODAY=2026-10-19 bun scripts/render-batch.ts --plan scripts/plan-2026-10-weeks-1-2.json --dest 2026-10-weeks-1-2-v2
                                   #   → out/2026-10-weeks-1-2-v2/ and out/2026-10-weeks-1-2-v2.zip
-RITE_ADMIN_KEY=… npm run batch    # the same, with voiceover versions (see Voiceover)
+ELEVENLABS_API_KEY=… npm run batch    # the same, with voiceover versions (see Voiceover)
 ```
 
 `render-batch.ts` works out what to render from the plan's `asset`s (cohort ids → dial clips, `<id>-summary` → `--stills`, `cohort-…`/`quote-…`/`carousel-…`/`…-vertical` → cards). Flags: `--silent`, `--skip-clips`, `--skip-cards`, `--no-zip`. `BASE_URL=http://localhost:8871` reuses a `wrangler dev` you already started.
@@ -99,12 +99,13 @@ Signs come straight from `src/content/sign-periods.json` and `src/content/signs.
 No music, ever: it's added in the app's reel editor. A clip gets a voiceover when its cohort has a `vo` script (from the kit's scripts (c) 1–5; in `clips/cohorts.json`) and a TTS provider is available. Then `render-clip.ts` renders **two files from the same frames**: `<id>_vo.mp4` (VO) and `<id>.mp4` (silent), both captioned.
 
 ```sh
-RITE_ADMIN_KEY=… bun clips/render-clip.ts --only aries-three-pass-1997    # one clip, silent + _vo
-RITE_ADMIN_KEY=… npm run batch                                            # the whole weeks 1–2 batch, silent + _vo
+ELEVENLABS_API_KEY=… bun clips/render-clip.ts --only aries-three-pass-1997    # one clip, silent + _vo
+ELEVENLABS_API_KEY=… npm run batch                                        # the whole weeks 1–2 batch, silent + _vo
 ```
 
 - **Provider** (`clips/vo.ts`, pluggable via `VO_PROVIDER`):
-  - `rite-admin` (default): `POST https://rite.mickreal.workers.dev/admin/tts` with `{text, voice?, model?}` and `Authorization: Bearer $RITE_ADMIN_KEY`; the same voice pipeline as the reading's narration, with `[pause 800]`-style markup. `RITE_TTS_URL`, `RITE_TTS_VOICE`, `RITE_TTS_MODEL` override the URL and parameters. Responses are cached in `clips/vo/cache/` (git-ignored) by text, so re-renders don't re-synthesise.
+  - `elevenlabs` (default, chosen 17 Oct 2026): ElevenLabs `eleven_v3`, voice Anna (warm & natural, Australian; `ELEVENLABS_VOICE_ID`, `ELEVENLABS_MODEL` override). The key needs the Text to Speech permission. Spell numbers and dates as words in VO lines for the most natural read. Cached in `clips/vo/cache/`. The Workers AI voice (`rite-admin`) was judged too robotic for social.
+  - `rite-admin`: `POST https://rite.mickreal.workers.dev/admin/tts` with `{text, voice?, model?}` and `Authorization: Bearer $RITE_ADMIN_KEY`; the same voice pipeline as the reading's narration, with `[pause 800]`-style markup. `RITE_TTS_URL`, `RITE_TTS_VOICE`, `RITE_TTS_MODEL` override the URL and parameters. Responses are cached in `clips/vo/cache/` (git-ignored) by text, so re-renders don't re-synthesise.
   - `files`: pre-recorded takes at `clips/vo/<cohort id>/00.wav` (hook), `01.wav` (first line) … (`.mp3`/`.m4a` too; `VO_DIR` points elsewhere). Use it for Mick's own recording.
 - **No key, or the endpoint 404s / 401s:** no VO. The clip renders silent and the run ends with `NO VOICEOVER (…reason…); rendered silent only` for each clip. Nothing else is tried.
 - **Timing to the VO:** every line is synthesised first and measured with ffprobe; each beat lasts `voLead + line + voTail` (at least `minBeat`), the caption for a line fades in `voLead` before it's spoken, and the intro is held longer if the hook needs it. So captions are synced to the spoken words at beat level, and the silent version has the same timing.
