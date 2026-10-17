@@ -140,7 +140,50 @@ Every number comes from code. The model only writes prose and is told it may not
 
 - **Gift** (`/gift`): `POST /checkout` with `gift=1` runs a $29 Stripe Checkout with optional "from" and note fields. Fulfilment writes a `gifts` row with an 8-character code and emails it to the buyer; `/gift/thanks/:code` shows it. The recipient opens `/gift/:code` (landing with a gift banner), enters their own details, and the result page offers **Open my reading** (`POST /redeem`: creates a $0 purchase, marks the code used, writes the reading). `/admin/refund` also refunds an unredeemed gift by buyer email.
 - **Stage reminders**: when a reading is written, `stage_reminders` gets one row per future stage opening (contact, integration, window close, then the first square / opposition / closing square ahead). The hourly cron emails each one seven days before (`stageReminderEmail`), once. Workbook prompts for a phase stay locked until that phase opens.
-- **Narration**: `GET /r/:tok/audio/:ch.mp3` (chapters 0–8) builds a plain-text script from the same computed data + report JSON (`src/narration.ts`), sends it in ≤1800-char sentence-aligned chunks to Workers AI `@cf/deepgram/aura-1` (voice `TTS_VOICE`, default `luna`), concatenates the MP3 and caches it in KV for a year. The player on the reading page plays chapters back to back and prefetches the next. Cost is about $0.015 per 1,000 characters, so roughly 30 cents per reading, once. Needs the `[ai]` binding in `wrangler.toml` (no dashboard setup); the binding only works deployed or with `wrangler dev --remote`.
+- **Narration**: `GET /r/:tok/audio/:ch.mp3` (chapters 0–8) builds a script from the same computed data + report JSON (`src/narration.ts`) and runs it through the TTS pipeline in `src/tts.ts` (see [Narration](#narration) below). The player on the reading page plays chapters back to back and prefetches the next. Needs the `[ai]` binding in `wrangler.toml` (no dashboard setup); the binding only works deployed or with `wrangler dev --remote`.
+
+## Narration
+
+**Pipeline.** Script with pause markup → split at pause points into chunks (≤ 1,800 chars each, ≤ 24 per chapter) → one Workers AI call per chunk (3 in flight) → MP3 frames spliced with real silence between chunks (`src/mp3.ts`) → cached in KV for a year under `audio:<NARRATION_VERSION>:<model>:<voice>:<purchase>:<chapter>`. Bump `NARRATION_VERSION` in `src/tts.ts` whenever the script or pipeline changes; changing `TTS_MODEL` / `TTS_VOICE` changes the key by itself. The player also requests `?v=<NARRATION_VERSION>` so browsers don't replay their own day-long cached copy.
+
+**Config.** `TTS_MODEL` (default `@cf/deepgram/aura-1`) and `TTS_VOICE` (default `luna`) as `[vars]`; unset means the defaults in code. An unknown model falls back to the default; a voice the model doesn't have falls back to that model's default.
+
+**Markup** (in `narration.ts` scripts and in `POST /admin/tts` text):
+
+| Write | You get |
+|---|---|
+| blank line | paragraph pause, 700 ms of silence |
+| `[pause 800]` | exactly 800 ms of silence (0–5000; `[pause]` alone = 500 ms; several in a row add up and override the paragraph default) |
+| `.` between sentences | no splice: the voice's own short pause (splitting every sentence would reset its intonation and cost a request each) |
+| `,` and ` — ` | short breaths inside a sentence (Deepgram treats both as short pauses) |
+
+Chapter titles are followed by `[pause 1000]`, labels ("What to focus on.") by `[pause 450]`. Dates are written in words, matching the page's day-month order: "the thirteenth of May, twenty twenty-six", "May twenty twenty-six" (`speakDates` also rewrites dates inside the model's prose). If a script would need more than 24 requests, the shortest pauses are dropped first (their text is joined; punctuation stays). `[slow]…[/slow]` is reserved and stripped: no Workers AI TTS model accepts a rate yet.
+
+**How silence is spliced.** Deepgram's MP3 is MPEG-2 Layer III, 22,050 Hz, 48 kbps CBR, 576 samples (26.1 ms) per frame. Each chunk's ID3 tags and Xing/Info/VBRI frames are dropped (a mid-file Info frame makes browsers think the file ends after chunk one), silence is a run of frames cloned from that chunk's own header with zeroed side info (decodes as digital silence; ±13 ms rounding), and a fresh Info frame with the total frame/byte counts goes at the front so duration and seeking are exact. Works for any Layer III stream (MeloTTS's 44.1 kHz too). If a chunk isn't recognisable MP3, or chunks disagree on sample rate/channels, it falls back to plain concatenation (no pauses) and the response says `x-tts-spliced: false`. CPU is a header walk plus memcpy, well under 1 ms for a ten-minute chapter; MeloTTS returns base64 JSON, decoded with `Uint8Array.fromBase64` where available (the fallback loop costs ~1 ms per 100 kB). Verified with ffprobe/ffmpeg on synthetic MP3s at Aura's parameters (`test/narration.test.ts`; that test skips if ffmpeg isn't installed). Why MP3 and not WAV: linear16 at 24 kHz is 48 kB/s, so a ten-minute chapter would be ~29 MB, over KV's 25 MiB value limit and heavy on mobile.
+
+**Audition and VO.** `GET /admin/voice?key=<ADMIN_KEY>` (linked from `/admin`): textarea prefilled with a chapter-three excerpt, model and voice pickers, Play. Play calls `POST /admin/tts`, which is also the content engine's VO endpoint:
+
+```bash
+curl -sS https://rite.report/admin/tts -H "Authorization: Bearer $ADMIN_KEY" -H 'content-type: application/json' \
+  -d '{"text":"Your Saturn return, dated. [pause 600]\n\nFree in ten seconds.","model":"@cf/deepgram/aura-2-en","voice":"thalia"}' -o vo.mp3
+```
+
+`{text, model?, voice?}`; text ≤ 8,000 chars; returns `audio/mpeg` with `x-tts-model`, `x-tts-voice`, `x-tts-chunks`, `x-tts-spliced`, `x-tts-duration-ms`. ADMIN_KEY only (bearer or `?key=`), plain 404 otherwise; `no-store`, `noindex`, `no-referrer`, never tagged by PostHog. Nothing is cached, so each call is billed.
+
+**Workers AI text-to-speech models** (October 2026; the catalogue lists four):
+
+| Model | Voices | Input | Price |
+|---|---|---|---|
+| `@cf/deepgram/aura-1` | 12: angus (schema default), asteria, arcas, orion, orpheus, athena, luna, zeus, perseus, helios, hera, stella | `text` (required), `speaker`, `encoding` (linear16, flac, mulaw, alaw, mp3, opus, aac), `container` (none, wav, ogg), `sample_rate`, `bit_rate` | $0.015 / 1k chars (≈ 30¢ a reading) |
+| `@cf/deepgram/aura-2-en` | 40: amalthea, andromeda, apollo, arcas, aries, asteria, athena, atlas, aurora, callista, cora, cordelia, delia, draco, electra, harmonia, helena, hera, hermes, hyperion, iris, janus, juno, jupiter, luna (default), mars, minerva, neptune, odysseus, ophelia, orion, orpheus, pandora, phoebe, pluto, saturn, thalia, theia, vesta, zeus | same as Aura 1 | $0.03 / 1k chars (≈ 60¢ a reading) |
+| `@cf/deepgram/aura-2-es` | 10 Spanish voices (sirio, nestor, carina, celeste, alvaro, diana, aquila, selena, estrella, javier) | same | $0.03 / 1k chars; not offered here (English readings) |
+| `@cf/myshell-ai/melotts` | one per language (`lang`, default `en`) | `prompt` (required), `lang` | $0.000205 / audio minute |
+
+- Deepgram encodings (Deepgram docs): mp3 is fixed at 22,050 Hz with `bit_rate` 32000 or 48000 (default); linear16 8/16/24 (default)/32/48 kHz, WAV container by default; opus 48 kHz in ogg; aac 22,050 Hz. Max 2,000 characters per request. Output from the binding is a `ReadableStream` of audio. Rite asks for `encoding: "mp3"` and leaves the rest at defaults.
+- **No SSML and no pause markup on Workers AI.** Deepgram's own API has a `speed` parameter for Aura-2 (0.7–1.5) and `{pause:500}` markers for its newer Flux TTS only ("Aura-2 does not support pause control"); neither is in the Workers AI schemas. Deepgram documents commas/periods as very short pauses, hyphens as extra pauses, `...` as a longer "thinking" pause and `. . .` (spaced) as a silent-pause workaround for Aura (unreliable if overused). That's why pauses here are spliced silence, which works the same on every model.
+- MeloTTS returns MP3 as base64 JSON (or binary); no voice, speed or pause parameters.
+
+Sources: [Workers AI models](https://developers.cloudflare.com/workers-ai/models/), [aura-1](https://developers.cloudflare.com/workers-ai/models/aura-1/) and its [input schema](https://developers.cloudflare.com/workers-ai/models/aura-1/schema-input.json), [aura-2-en](https://developers.cloudflare.com/workers-ai/models/aura-2-en/) ([schema](https://developers.cloudflare.com/workers-ai/models/aura-2-en/schema-input.json)), [aura-2-es](https://developers.cloudflare.com/workers-ai/models/aura-2-es/), [melotts](https://developers.cloudflare.com/workers-ai/models/melotts/) ([schema](https://developers.cloudflare.com/workers-ai/models/melotts/schema-input.json)), Deepgram [media output settings](https://developers.deepgram.com/docs/tts-media-output-settings), [TTS prompting](https://developers.deepgram.com/docs/text-to-speech-prompting), [formatting text for Aura-2](https://developers.deepgram.com/docs/improving-aura-2-formatting), [voice controls](https://developers.deepgram.com/docs/tts-voice-controls), [text-to-speech limits](https://developers.deepgram.com/docs/text-to-speech).
 
 ## Analytics, legal, ops
 

@@ -53,6 +53,7 @@ describe("GET /admin", () => {
     const h = await r.text();
     expect(h).toContain("<h1>Admin</h1>");
     expect(h).toContain(`href="/admin?days=30&amp;key=${SECRET}"`);
+    expect(h).toContain(`href="/admin/voice?key=${SECRET}"`);
     expect(h).toMatch(/class="on"[^>]*>7 days/);
     expect(seen.some((s) => s.includes("FROM stories"))).toBe(true);
     expect((await get("/admin", { authorization: `Bearer ${SECRET}` })).status).toBe(200);

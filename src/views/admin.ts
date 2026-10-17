@@ -50,7 +50,7 @@ export function adminPage(d: AdminPageData) {
 
   const body = html`<main class="adm">
 <div class="bar"><h1>Admin</h1><nav class="days" aria-label="Period">${[7, 30, 90].map((n) => html`<a href="${href(n)}" class="${n === s.days ? "on" : ""}" ${n === s.days ? html`aria-current="page"` : ""}>${n} days</a>`)}</nav></div>
-<p class="muted" style="margin:-16px 0 0">Last ${s.days} days${d.generatedAt ? html` · as of ${when(d.generatedAt)} UTC` : ""}. Same numbers as <code>/admin/stats?days=${s.days}</code>.</p>
+<p class="muted" style="margin:-16px 0 0">Last ${s.days} days${d.generatedAt ? html` · as of ${when(d.generatedAt)} UTC` : ""}. Same numbers as <code>/admin/stats?days=${s.days}</code>. <a href="${`/admin/voice${d.key ? `?key=${encodeURIComponent(d.key)}` : ""}`}" style="color:#F2B544">Voice audition</a></p>
 
 <section aria-labelledby="h-funnel"><h2 id="h-funnel">Funnel</h2><div class="tiles">
 ${tile(f.previews, "previews")}${tile(f.checkouts, `checkouts · ${f.preview_to_checkout}% of previews`)}${tile(f.paid, `paid · ${f.checkout_to_paid}% of checkouts`)}${tile(f.generated, "readings written")}
