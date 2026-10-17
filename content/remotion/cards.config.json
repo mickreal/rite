@@ -18,6 +18,9 @@
     { "id": "not-a-birthday", "text": "Three passes. Not a day. Not a birthday.", "footer": "Your Saturn return is a season, with dates", "source": "launch-kit-v2 script 1" },
     { "id": "second-return", "text": "The first one was about what you had to prove. This one's about what outlasts you.", "footer": "Second Saturn return · born 1967–69", "source": "launch-kit-v2 script 4" },
     { "id": "taurus-opener", "signOpener": "Taurus", "footer": "Saturn enters Taurus 13 Apr 2028", "source": "src/content/signs.ts Taurus opener" },
-    { "id": "closest-turn", "text": "Saturn stops on 11 December at 7.9° Aries. If yours is within a degree, this is your closest turn.", "footer": "11 Dec 2026 · 7.9° Aries", "source": "launch-kit-v2 script 10" }
+    { "id": "closest-turn", "text": "Saturn stops on 11 December at 7.9° Aries. If yours is within a degree, this is your closest turn.", "footer": "11 Dec 2026 · 7.9° Aries", "source": "launch-kit-v2 script 10" },
+    { "id": "taurus-sign-line", "text": "Taurus is the sign of what lasts: money, land, the body, routine. Saturn there asks whether your security is real or just familiar.", "footer": "Saturn enters Taurus 13 Apr 2028", "source": "calendar week 3 (Sat 7 Nov): the Taurus sign page's about line, shortened like the Aries one in (c) bonus style 6" },
+    { "id": "aniston-jenner", "text": "Jennifer Aniston and Kylie Jenner are in the same Saturn return. One week apart.", "footer": "28 Apr 2027 · 5 May 2027", "source": "launch-kit-v2 (c) script 9 hook, as a no-person stand-in for the style 5 piece; dates from (h), checked by check-cohorts.ts" },
+    { "id": "craig-biles", "text": "Daniel Craig and Simone Biles are in the same Saturn loop. His second return, her first.", "footer": "Three passes each · Saturn turns 11 Dec 2026", "source": "calendar week 4 (Tue 10 Nov), no-person stand-in for the style 5 piece. The kit's \"both have December passes\" is wrong for Craig (20 May 2026, 5 Oct 2026, 11 Feb 2027); the card says what holds: both three-pass, the 11 Dec 2026 station inside both runs" }
   ]
 }

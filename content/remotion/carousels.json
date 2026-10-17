@@ -5,44 +5,282 @@
       "id": "carousel-1-what-it-is",
       "title": "What a Saturn return actually is",
       "slides": [
-        { "kind": "cover", "head": "A Saturn return is not a birthday.", "small": "Saturn in Aries until 12 Apr 2028",
-          "alt": "Cream card with a gold orbit dial. Large text: A Saturn return is not a birthday. Small text: Saturn in Aries until 12 Apr 2028." },
-        { "text": "Saturn takes about 29.5 years to go round the Sun. Your return is when it gets back to the degree it held the day you were born.",
-          "alt": "Text slide: Saturn takes about 29.5 years to go round the Sun. Your return is when it gets back to the degree it held the day you were born." },
-        { "text": "It spends two to four years in that sign while it does it. That's your window.", "dial": "window",
-          "alt": "Text slide with an orbit dial whose gold arc runs from where Saturn enters your sign to where it leaves. Text: It spends two to four years in that sign while it does it. That's your window." },
-        { "text": "Inside the window: one exact pass, or three if Saturn goes backwards over your degree. Those are the dates.",
-          "alt": "Text slide: Inside the window: one exact pass, or three if Saturn goes backwards over your degree. Those are the dates." },
-        { "head": "Three phases.", "list": [["Approach", "pressure, no verdict."], ["Contact", "the pass."], ["Integration", "what you chose becomes structure."]],
-          "alt": "Text slide headed Three phases, listing Approach: pressure, no verdict. Contact: the pass. Integration: what you chose becomes structure." },
-        { "text": "It happens around 28–30, again around 58–59, again around 87–88. Same maths, different question each time.",
-          "alt": "Text slide: It happens around 27 to 30, again around 56 to 60, again around 85 to 88. Same maths, different question each time." },
-        { "text": "Saturn describes the work, not what happens to you. Nothing here predicts an event.",
-          "alt": "Text slide: Saturn describes the work, not what happens to you. Nothing here predicts an event." },
-        { "kind": "cta", "head": "Your window and your passes, free, in ten seconds.",
-          "alt": "Closing slide: Your window and your passes, free, in ten seconds. rite.report" }
+        {
+          "kind": "cover",
+          "head": "A Saturn return is not a birthday.",
+          "small": "Saturn in Aries until 12 Apr 2028",
+          "alt": "Cream card with a gold orbit dial. Large text: A Saturn return is not a birthday. Small text: Saturn in Aries until 12 Apr 2028."
+        },
+        {
+          "text": "Saturn takes about 29.5 years to go round the Sun. Your return is when it gets back to the degree it held the day you were born.",
+          "alt": "Text slide: Saturn takes about 29.5 years to go round the Sun. Your return is when it gets back to the degree it held the day you were born."
+        },
+        {
+          "text": "It spends two to four years in that sign while it does it. That's your window.",
+          "dial": "window",
+          "alt": "Text slide with an orbit dial whose gold arc runs from where Saturn enters your sign to where it leaves. Text: It spends two to four years in that sign while it does it. That's your window."
+        },
+        {
+          "text": "Inside the window: one exact pass, or three if Saturn goes backwards over your degree. Those are the dates.",
+          "alt": "Text slide: Inside the window: one exact pass, or three if Saturn goes backwards over your degree. Those are the dates."
+        },
+        {
+          "head": "Three phases.",
+          "list": [
+            [
+              "Approach",
+              "pressure, no verdict."
+            ],
+            [
+              "Contact",
+              "the pass."
+            ],
+            [
+              "Integration",
+              "what you chose becomes structure."
+            ]
+          ],
+          "alt": "Text slide headed Three phases, listing Approach: pressure, no verdict. Contact: the pass. Integration: what you chose becomes structure."
+        },
+        {
+          "text": "It happens around 28–30, again around 58–59, again around 87–88. Same maths, different question each time.",
+          "alt": "Text slide: It happens around 28 to 30, again around 58 to 59, again around 87 to 88. Same maths, different question each time."
+        },
+        {
+          "text": "Saturn describes the work, not what happens to you. Nothing here predicts an event.",
+          "alt": "Text slide: Saturn describes the work, not what happens to you. Nothing here predicts an event."
+        },
+        {
+          "kind": "cta",
+          "head": "Your window and your passes, free, in ten seconds.",
+          "alt": "Closing slide: Your window and your passes, free, in ten seconds. rite.report"
+        }
       ]
     },
     {
       "id": "carousel-2-window-by-birth-year",
       "title": "Your window by birth year",
       "slides": [
-        { "kind": "cover", "head": "Find your Saturn return by birth date.",
-          "alt": "Cream card with a gold orbit dial. Large text: Find your Saturn return by birth date." },
-        { "head": "Born 29 Jan 1994 – 7 Apr 1996", "text": "Saturn in Pisces. Return window 8 Mar 2023 – 13 Feb 2026.", "tag": "Done.",
-          "alt": "Born 29 January 1994 to 7 April 1996: Saturn in Pisces. Return window 8 March 2023 to 13 February 2026. Done." },
-        { "head": "Born 8 Apr 1996 – 9 Jun 1998, or 26 Oct 1998 – 1 Mar 1999", "text": "Saturn in Aries. Window 25 May 2025 – 12 Apr 2028.", "tag": "Now.",
-          "alt": "Born 8 April 1996 to 9 June 1998, or 26 October 1998 to 1 March 1999: Saturn in Aries. Window 25 May 2025 to 12 April 2028. Now." },
-        { "head": "Born 10 Jun – 25 Oct 1998, 2 Mar 1999 – 10 Aug 2000, or 17 Oct 2000 – 20 Apr 2001", "text": "Saturn in Taurus. Window 13 Apr 2028 – 31 May 2030.", "tag": "Next.",
-          "alt": "Born 10 June to 25 October 1998, 2 March 1999 to 10 August 2000, or 17 October 2000 to 20 April 2001: Saturn in Taurus. Window 13 April 2028 to 31 May 2030. Next." },
-        { "head": "Born 4 Mar 1967 – 29 Apr 1969", "text": "Saturn in Aries. Second return, window 25 May 2025 – 12 Apr 2028.", "tag": "Now.",
-          "alt": "Born 4 March 1967 to 29 April 1969: Saturn in Aries. Second return, window 25 May 2025 to 12 April 2028. Now." },
-        { "head": "Born 30 Apr 1969 – 18 Jun 1971", "text": "Saturn in Taurus. Second return opens 13 Apr 2028.",
-          "alt": "Born 30 April 1969 to 18 June 1971: Saturn in Taurus. Second return opens 13 April 2028." },
-        { "text": "Born on a boundary day? Your birth time decides the sign. The site checks.",
-          "alt": "Text slide: Born on a boundary day? Your birth time decides the sign. The site checks." },
-        { "kind": "cta", "head": "Exact passes to the day.",
-          "alt": "Closing slide: Exact passes to the day. rite.report" }
+        {
+          "kind": "cover",
+          "head": "Find your Saturn return by birth date.",
+          "alt": "Cream card with a gold orbit dial. Large text: Find your Saturn return by birth date."
+        },
+        {
+          "head": "Born 29 Jan 1994 – 7 Apr 1996",
+          "text": "Saturn in Pisces. Return window 8 Mar 2023 – 13 Feb 2026.",
+          "tag": "Done.",
+          "alt": "Born 29 January 1994 to 7 April 1996: Saturn in Pisces. Return window 8 March 2023 to 13 February 2026. Done."
+        },
+        {
+          "head": "Born 8 Apr 1996 – 9 Jun 1998, or 26 Oct 1998 – 1 Mar 1999",
+          "text": "Saturn in Aries. Window 25 May 2025 – 12 Apr 2028.",
+          "tag": "Now.",
+          "alt": "Born 8 April 1996 to 9 June 1998, or 26 October 1998 to 1 March 1999: Saturn in Aries. Window 25 May 2025 to 12 April 2028. Now."
+        },
+        {
+          "head": "Born 10 Jun – 25 Oct 1998, 2 Mar 1999 – 10 Aug 2000, or 17 Oct 2000 – 20 Apr 2001",
+          "text": "Saturn in Taurus. Window 13 Apr 2028 – 31 May 2030.",
+          "tag": "Next.",
+          "alt": "Born 10 June to 25 October 1998, 2 March 1999 to 10 August 2000, or 17 October 2000 to 20 April 2001: Saturn in Taurus. Window 13 April 2028 to 31 May 2030. Next."
+        },
+        {
+          "head": "Born 4 Mar 1967 – 29 Apr 1969",
+          "text": "Saturn in Aries. Second return, window 25 May 2025 – 12 Apr 2028.",
+          "tag": "Now.",
+          "alt": "Born 4 March 1967 to 29 April 1969: Saturn in Aries. Second return, window 25 May 2025 to 12 April 2028. Now."
+        },
+        {
+          "head": "Born 30 Apr 1969 – 18 Jun 1971",
+          "text": "Saturn in Taurus. Second return opens 13 Apr 2028.",
+          "alt": "Born 30 April 1969 to 18 June 1971: Saturn in Taurus. Second return opens 13 April 2028."
+        },
+        {
+          "text": "Born on a boundary day? Your birth time decides the sign. The site checks.",
+          "alt": "Text slide: Born on a boundary day? Your birth time decides the sign. The site checks."
+        },
+        {
+          "kind": "cta",
+          "head": "Exact passes to the day.",
+          "alt": "Closing slide: Exact passes to the day. rite.report"
+        }
+      ]
+    },
+    {
+      "id": "carousel-3-three-passes",
+      "title": "The three passes",
+      "slides": [
+        {
+          "kind": "cover",
+          "head": "Why some people get three Saturn return dates in a year.",
+          "small": "Saturn turns direct 11 Dec 2026",
+          "alt": "Cream card with a gold orbit dial. Large text: Why some people get three Saturn return dates in a year. Small text: Saturn turns direct 11 Dec 2026."
+        },
+        {
+          "text": "Saturn doesn't move in a straight line from our point of view. Each year it stops, backs up for about four and a half months, and stops again.",
+          "alt": "Text slide: Saturn doesn't move in a straight line from our point of view. Each year it stops, backs up for about four and a half months, and stops again."
+        },
+        {
+          "head": "This year's loop",
+          "list": [
+            [
+              "27 Jul 2026",
+              "stops at 14.7° Aries"
+            ],
+            [
+              "11 Dec 2026",
+              "turns direct at 7.9° Aries"
+            ]
+          ],
+          "alt": "Text slide headed This year's loop: 27 July 2026, Saturn stops at 14.7 degrees Aries. 11 December 2026, it turns direct at 7.9 degrees Aries."
+        },
+        {
+          "text": "Natal Saturn between 7.9° and 14.7° Aries? It crosses you going forwards (Apr–Jul), backwards (Aug–Dec, now) and forwards again (Dec–Mar).",
+          "tag": "Three passes.",
+          "alt": "Text slide: Natal Saturn between 7.9 and 14.7 degrees Aries? It crosses you going forwards (April to July), backwards (August to December, now) and forwards again (December to March). Three passes."
+        },
+        {
+          "head": "Born 12 Mar – 6 May 1997, or 10 Nov 1997 – 21 Jan 1998?",
+          "text": "That's you. Second return: 9 May – 16 Oct 1967, or 30 Jan – 30 Mar 1968.",
+          "alt": "Born 12 March to 6 May 1997, or 10 November 1997 to 21 January 1998? That's you. Second return: 9 May to 16 October 1967, or 30 January to 30 March 1968."
+        },
+        {
+          "head": "Example: born 1 Apr 1997, New York",
+          "list": [
+            [
+              "13 May 2026",
+              "forwards"
+            ],
+            [
+              "15 Oct 2026",
+              "backwards"
+            ],
+            [
+              "3 Feb 2027",
+              "forwards again: the one that settles"
+            ]
+          ],
+          "alt": "Example, born 1 April 1997 in New York: 13 May 2026, forwards. 15 October 2026, backwards. 3 February 2027, forwards again, the one that settles."
+        },
+        {
+          "text": "Everyone else in Aries gets one clean pass. Neither is better. Three means the theme surfaces, retreats, then settles.",
+          "alt": "Text slide: Everyone else in Aries gets one clean pass. Neither is better. Three means the theme surfaces, retreats, then settles."
+        },
+        {
+          "kind": "cta",
+          "head": "Your passes, dated.",
+          "alt": "Closing slide: Your passes, dated. rite.report"
+        }
+      ]
+    },
+    {
+      "id": "carousel-4-first-vs-second",
+      "title": "First vs second return",
+      "slides": [
+        {
+          "kind": "cover",
+          "head": "Born 1968 and born 1997 are in the same Saturn return.",
+          "small": "Saturn in Aries until 12 Apr 2028",
+          "alt": "Cream card with a gold orbit dial. Large text: Born 1968 and born 1997 are in the same Saturn return. Small text: Saturn in Aries until 12 Apr 2028."
+        },
+        {
+          "text": "The maths is identical: Saturn back at your natal degree, in your natal sign, for the same window.",
+          "tag": "25 May 2025 – 12 Apr 2028",
+          "alt": "Text slide: The maths is identical: Saturn back at your natal degree, in your natal sign, for the same window. 25 May 2025 to 12 April 2028, for both."
+        },
+        {
+          "head": "First return (28–30)",
+          "text": "The first adult reckoning. What are you actually responsible for? What did you start that you'll still be doing in three years?",
+          "alt": "First return, ages 28 to 30: the first adult reckoning. What are you actually responsible for? What did you start that you'll still be doing in three years?"
+        },
+        {
+          "head": "Second return (58–59)",
+          "text": "Nothing left to prove. What structures outlast you? Which obligations did you choose, and which did you inherit?",
+          "alt": "Second return, ages 58 to 59: nothing left to prove. What structures outlast you? Which obligations did you choose, and which did you inherit?"
+        },
+        {
+          "text": "Same sign, same work. Saturn in Aries asks for initiative that holds up over time: starting things you also finish, leadership you can support.",
+          "alt": "Text slide: Same sign, same work. Saturn in Aries asks for initiative that holds up over time: starting things you also finish, leadership you can support."
+        },
+        {
+          "head": "Example pair, both Los Angeles",
+          "list": [
+            [
+              "Born 10 Aug 1997",
+              "one pass: 28 Apr 2027"
+            ],
+            [
+              "Born 11 Feb 1969",
+              "5 May 2027, 15 Dec 2027, 1 Jan 2028"
+            ]
+          ],
+          "alt": "Example pair, both born in Los Angeles. Born 10 August 1997: one pass, 28 April 2027. Born 11 February 1969: passes 5 May 2027, 15 December 2027 and 1 January 2028."
+        },
+        {
+          "kind": "cta",
+          "head": "The reading is written for both.",
+          "alt": "Closing slide: The reading is written for both. rite.report"
+        }
+      ]
+    },
+    {
+      "id": "carousel-5-each-phase",
+      "title": "What to do in each phase",
+      "slides": [
+        {
+          "kind": "cover",
+          "head": "Your Saturn return has three phases. Here's the job in each.",
+          "alt": "Cream card with a gold orbit dial. Large text: Your Saturn return has three phases. Here's the job in each."
+        },
+        {
+          "head": "Approach",
+          "text": "Window open, no pass yet. Set the thing up. Decide what you're building and write it down. Don't wait for the pass to make the decision for you.",
+          "alt": "Approach (window open, no pass yet): set the thing up. Decide what you're building and write it down. Don't wait for the pass to make the decision for you."
+        },
+        {
+          "head": "Approach, concretely",
+          "text": "One commitment with a daily shape. One agreement you've been avoiding, had out loud.",
+          "alt": "Approach, concretely: one commitment with a daily shape. One agreement you've been avoiding, had out loud."
+        },
+        {
+          "head": "Contact",
+          "text": "The pass, or the three passes. Hold. This is where the thing you set up gets tested. The job is to not quit at the first boring stretch.",
+          "alt": "Contact (the pass, or the three passes): hold. This is where the thing you set up gets tested. The job is to not quit at the first boring stretch."
+        },
+        {
+          "head": "Contact, concretely",
+          "text": "Keep the promise small and often. The week before each pass, reread what you wrote in approach.",
+          "alt": "Contact, concretely: keep the promise small and often. The week before each pass, reread what you wrote in approach."
+        },
+        {
+          "head": "Integration",
+          "text": "After the last pass, until Saturn leaves the sign. Consolidate: what you chose becomes structure. Drop the story about yourself that no longer matches what you did.",
+          "alt": "Integration (after the last pass, until Saturn leaves the sign): consolidate. What you chose becomes structure. Drop the story about yourself that no longer matches what you did."
+        },
+        {
+          "head": "Your phase today",
+          "list": [
+            [
+              "Integration",
+              "born Apr 1996 – early Mar 1997"
+            ],
+            [
+              "Contact",
+              "born mid-Mar – early May 1997, or Nov 1997 – Jan 1998"
+            ],
+            [
+              "Approach",
+              "everyone else with Saturn in Aries"
+            ]
+          ],
+          "alt": "Your phase today: integration if born April 1996 to early March 1997; contact if born mid-March to early May 1997, or November 1997 to January 1998; approach for everyone else with Saturn in Aries. The window closes for all of Aries on 12 April 2028.",
+          "text": "Window closes for all of Aries on 12 Apr 2028."
+        },
+        {
+          "kind": "cta",
+          "head": "The workbook opens phase by phase.",
+          "alt": "Closing slide: The workbook opens phase by phase. rite.report"
+        }
       ]
     }
   ]

@@ -7,10 +7,10 @@ the root `tsconfig.json` and `vitest.config.ts` only see `src/` and `test/`, and
 |---|---|---|---|
 | 1 | Dial clip of the real /start flow, 1080×1920, 30 fps, 22–33 s, captions burned in; plus a voiceover version when the cohort has a kit script and TTS is available | `clips/render-clip.ts` + `clips/cohorts.json` (+ `clips/vo.ts`) | `out/clips/<cohort>.mp4` (silent), `out/clips/<cohort>_vo.mp4` |
 | 2 | Sign card, 1080×1350 still | `remotion/src/SignCard.tsx` | `out/signs/sign-<sign>.png` |
-| 2 | Sign card, 1080×1920, 8 s animated | `remotion/src/SignCard.tsx` (`SignCardVertical`) | `out/signs/sign-<sign>-vertical.mp4` |
+| 2 | Sign card, 1080×1920, animated, as long as its voiceover + 1.6 s | `remotion/src/SignCard.tsx` (`SignCardVertical`) + `clips/card-vo.json` | `out/signs/sign-<sign>-vertical.mp4` (+ `_vo`) |
 | 2 | Cohort card, 1080×1350 | `remotion/src/CohortCard.tsx` | `out/cohorts/cohort-<id>.png` |
 | 6 | Quote card (cream), 1080×1350 | `remotion/src/QuoteCard.tsx` | `out/quotes/quote-<id>.png` |
-| 2/6 | Cohort or quote card on a 1080×1920 frame, 10 s push-in (TikTok / Reels slot) | `remotion/src/VerticalCard.tsx` | `out/cohorts/cohort-<id>-vertical.mp4`, `out/quotes/quote-<id>-vertical.mp4` |
+| 2/6 | Cohort or quote card on a 1080×1920 frame, eased push-in, as long as its voiceover + 1.6 s (TikTok / Reels slot) | `remotion/src/VerticalCard.tsx` + `clips/card-vo.json` | `out/cohorts/cohort-<id>-vertical.mp4`, `out/quotes/quote-<id>-vertical.mp4` (+ `_vo`) |
 | — | Instagram carousel slides (kit (e)), 1080×1350, cream | `remotion/src/CarouselSlide.tsx` + `remotion/carousels.json` | `out/carousels/<carousel id>-NN.png` |
 | 5 | Caption-free result screen, 1080×1920 (green-screen backdrop) | `clips/render-clip.ts --stills` | `out/stills/<cohort>-summary.png` |
 
@@ -52,7 +52,7 @@ Options:
 - `bun clips/render-clip.ts --only taurus-2028,aries-three-pass-1997` renders a subset; `--keep-frames` keeps the PNG frames in `out/frames/<id>/`; `--silent` never tries VO.
 - `BASE_URL=https://rite.mickreal.workers.dev bun clips/render-clip.ts` records the live site instead of a local server. Use it if the local server can't geocode (Nominatim blocked). It writes one real preview row per clip, tagged `ref=content-render`, and runs one preview LLM call each; locally the LLM call fails and the site's fallback text is used, which isn't on screen anyway.
 - Locally the script blanks `POSTHOG_KEY` (`--var POSTHOG_KEY:`) and the browser blocks posthog.com, so renders never show up in the funnel.
-- `VIDEOS="Aries Leo" bash remotion/render-all.sh` picks which signs get the vertical MP4; `ONLY=signs|videos|cohorts|quotes|carousels|verticals` renders one group (comma list for several).
+- `VIDEOS="Aries Leo" bash remotion/render-all.sh` picks which signs get the vertical MP4 (`VIDEOS=all` for all twelve, `SIGNS_OUT=../out/signs-2026-v2` to write them elsewhere); `ONLY=signs|videos|cohorts|quotes|carousels|verticals` renders one group (comma list for several).
 - Single renders with the CLI (from `content/remotion/`, after `bun scripts/build-data.ts`):
   `npx remotion still src/index.ts CohortCard out.png --props='{"id":"taurus-2028"}' --browser-executable=/opt/pw-browsers/chromium`
   `npx remotion render src/index.ts SignCardVertical out.mp4 --props='{"sign":"Leo"}' --browser-executable=/opt/pw-browsers/chromium`
@@ -76,7 +76,7 @@ Dates depend on "today": the clip uses the site's live clock, and the card data 
 
 ## Add a cohort (clip)
 
-1. Add an entry to `clips/cohorts.json`: `id`, `label`, `date`, `city`, `time` (null or "HH:MM"), `hook`, `lines` (3–5; a line with "rite.report" is styled as the CTA), `expect` (the passes and window the lines quote), and optionally `vo`: `{ script, hook, lines }`, the spoken words for the hook and for each caption line (same count as `lines`), spelled for TTS ("10 degrees Aries", "rite dot report"; `[pause 800]` markup is allowed).
+1. Add an entry to `clips/cohorts.json`: `id`, `label`, `date`, `city`, `time` (null or "HH:MM"), `hook`, `lines` (3–5; a line with "rite.report" is styled as the CTA), `expect` (the passes and window the lines quote), and optionally `vo`: `{ script, hook, lines }`, the spoken words for the hook and for each caption line (same count as `lines`), spelled out for the voice ("ten degrees Aries", "the thirteenth of May, twenty twenty-six", "rite dot report"; check-cohorts.ts fails on a digit; `[pause 800]` markup is allowed).
 2. If the city is new, add its coordinates to `CITIES` in `clips/check-cohorts.ts`.
 3. `bun clips/check-cohorts.ts` until it's all ticks, then `bun clips/render-clip.ts --only <id>`.
 
@@ -112,6 +112,14 @@ ELEVENLABS_API_KEY=… npm run batch                                        # th
 - **Mix:** segments are placed at their beat times on a silent bed, then two-pass `loudnorm` to −16 LUFS integrated, true peak −2 dBTP (≤ −1.5 after AAC), 48 kHz stereo, with the clip's fade-out. The render log prints the measured loudness and peak of each `_vo` file.
 - `check-cohorts.ts` checks the spoken dates and degrees too ("10 degrees Aries today" against Saturn on the posting day with `--plan`).
 
+### Card and sign verticals
+
+Card verticals (cohort and quote cards) and sign verticals take their VO from `clips/card-vo.json` (`{ "<card id>": paragraph }`, card ids `cohort-<id>`, `quote-<id>`, `sign-<slug>`), spelled out like the clip lines. `scripts/card-vo.ts` (called by `render-all.sh`) gets the take from the same provider (`VO_PROVIDER`; for `files`, `$VO_DIR/cards/<card id>.wav` or `$VO_DIR/signs/<slug>.wav`), sets the video's length to the take + 1.6 s (`CARD.voLead` + `CARD.voTail`; the `seconds` prop, applied by `calculateMetadata`), renders, and writes the silent file plus `<name>_vo.mp4` (the take at 0.5 s, −16 LUFS). Without a take the length is estimated from the text at 2.6 words a second, so a silent render is already paced for its voice. The motion (brand.tsx) scales with the length: build-up over the first part, key line glowing at 1/3 and 2/3, one branding refresh in the quiet gap.
+
+### Generating takes outside the renderer
+
+`bun scripts/vo-lines.ts --plan <plan.json>` (or `--signs`) prints one `path<TAB>text` row per take (`<cohort id>/NN` for a dial clip, 00 = hook; `cards/<card id>`; `signs/<slug>`). Generate each as `<dir>/<path>.mp3` with ElevenLabs v3 Anna, then re-render with `VO_PROVIDER=files VO_DIR=<dir>`. Examples: `scripts/vo-lines-2026-11-weeks-3-4.tsv`, `scripts/vo-lines-signs.tsv`.
+
 ## Batch export for a scheduler
 
 ```sh
@@ -119,6 +127,6 @@ bun scripts/export-batch.ts --start 2026-10-19                 # one post a day,
 bun scripts/export-batch.ts --plan scripts/plan.example.json   # explicit dates, assets and platforms
 ```
 
-A plan can also be `{ title, notes, posts }`, where a post may carry `caption`, `alt` (a list for a carousel), `slot`, `kit` and `note`, and may have no `asset` (a text post: it goes in the manifests only). A carousel id as `asset` exports every slide. `--dest <folder>` writes under `out/<folder>/` instead. Example: `scripts/plan-2026-10-weeks-1-2.json` (the kit calendar, days 1–14), whose manifest is committed at `docs/content/2026-10-weeks-1-2.md`.
+A plan can also be `{ title, notes, posts }`, where a post may carry `caption`, `alt` (a list for a carousel), `slot`, `kit` and `note`, and may have no `asset` (a text post: it goes in the manifests only). A carousel id as `asset` exports every slide. `--dest <folder>` writes under `out/<folder>/` instead. Examples: `scripts/plan-2026-10-weeks-1-2.json` (the kit calendar, days 1–14) and `scripts/plan-2026-11-weeks-3-4.json` (days 15–28), whose manifests are committed at `docs/content/2026-10-weeks-1-2.md` and `docs/content/2026-11-weeks-3-4.md`.
 
-Writes `out/export/batch-<first date>/` with one file per platform per post, named `<YYYY-MM-DD>_<platform>_<asset>.<ext>` (videos → tiktok, reels, shorts; stills → instagram, x, threads unless `platforms` says otherwise), plus `manifest.csv` (date, platform, file, caption, alt, other_version) and `manifest.md` to import into Buffer / Later / Metricool or work from by hand. Captions are a starting point: clip hooks plus "Free preview at rite.report". Edit them in the CSV. When a clip has a `_vo` render, both versions are exported (`…_<asset>_vo.mp4` and `…_<asset>.mp4`); the CSV's `file` is the VO version and `other_version` the silent one. Card verticals are 10 s (`CARD` in `timing.ts`): eased fade in, eased push-in to 1.035×, eased fade out, rendered as one composited layer so text doesn't shimmer. For the whole render → export → zip in one go, see `scripts/render-batch.ts` / `npm run batch` above.
+Writes `out/export/batch-<first date>/` with one file per platform per post, named `<YYYY-MM-DD>_<platform>_<asset>.<ext>` (videos → tiktok, reels, shorts; stills → instagram, x, threads unless `platforms` says otherwise), plus `manifest.csv` (date, platform, file, caption, alt, other_version) and `manifest.md` to import into Buffer / Later / Metricool or work from by hand. Captions are a starting point: clip hooks plus "Free preview at rite.report". Edit them in the CSV. When a clip has a `_vo` render, both versions are exported (`…_<asset>_vo.mp4` and `…_<asset>.mp4`); the CSV's `file` is the VO version and `other_version` the silent one. Card verticals last their voiceover + 1.6 s (10 s with no VO text; `CARD` in `timing.ts`): eased fade in, eased push-in to 1.035×, eased fade out, rendered as one composited layer so text doesn't shimmer. For the whole render → export → zip in one go, see `scripts/render-batch.ts` / `npm run batch` above.

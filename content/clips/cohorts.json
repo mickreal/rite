@@ -1,5 +1,5 @@
 {
-  "_note": "One entry per style-1 clip. Source: docs/launch-kit-v2.md (b) cohort hooks and (c) scripts 1-5. `vo` (optional) is the kit's spoken script: `hook` plus one entry per caption line, spelled for TTS (\"10 degrees\", \"rite dot report\"); a clip with `vo` also renders <id>_vo.mp4 when a TTS provider is available (clips/vo.ts), and its beats are timed to the spoken lines. `expect` is checked against src/compute.ts by `bun clips/check-cohorts.ts` (birth at noon local in `city`, no birth time), so the dates in `lines` match what the site shows for that birth date and city. Change a date or city, re-run the check.",
+  "_note": "One entry per style-1 clip. Source: docs/launch-kit-v2.md (b) cohort hooks and (c) scripts 1-5. `vo` (optional) is the kit's spoken script: `hook` plus one entry per caption line, spelled out for the voice: numbers and dates as words (\"ten degrees Aries\", \"the thirteenth of May, twenty twenty-six\", \"rite dot report\"; check-cohorts.ts fails on a digit); a clip with `vo` also renders <id>_vo.mp4 when a TTS provider is available (clips/vo.ts), and its beats are timed to the spoken lines. `expect` is checked against src/compute.ts by `bun clips/check-cohorts.ts` (birth at noon local in `city`, no birth time), so the dates in `lines` match what the site shows for that birth date and city. Change a date or city, re-run the check.",
   "cohorts": [
     {
       "id": "aries-early-1996",
@@ -39,10 +39,10 @@
       ],
       "vo": {
         "script": "(c) 1",
-        "hook": "Born in spring 1997? You don't get one Saturn return. You get three dates.",
+        "hook": "Born in spring nineteen ninety-seven? You don't get one Saturn return. You get three dates.",
         "lines": [
-          "Saturn was at 10 degrees Aries when you were born.",
-          "It crossed that degree on 13 May. It's crossing it again right now, going backwards.",
+          "Saturn was at ten degrees Aries when you were born.",
+          "It crossed that degree on the thirteenth of May. It's crossing it again right now, going backwards.",
           "And once more in February, going forwards. That's the one that settles.",
           "Three passes. Not a day. Not a birthday.",
           "Yours are different. Free preview at rite dot report."
@@ -74,11 +74,11 @@
       ],
       "vo": {
         "script": "(c) 2",
-        "hook": "Born in the second half of 1997? Your Saturn return hasn't happened yet. It's dated.",
+        "hook": "Born in the second half of nineteen ninety-seven? Your Saturn return hasn't happened yet. It's dated.",
         "lines": [
-          "Saturn is at 10 degrees Aries today. Yours is at 20.",
-          "It's moving backwards until 11 December. Then it turns and comes for your degree.",
-          "Exact on 29 April 2027. This is the year you set the thing up, not the year it gets tested.",
+          "Saturn is at ten degrees Aries today. Yours is at twenty.",
+          "It's moving backwards until the eleventh of December. Then it turns and comes for your degree.",
+          "Exact on the twenty-ninth of April, twenty twenty-seven. This is the year you set the thing up, not the year it gets tested.",
           "Free preview at rite dot report."
         ]
       },
@@ -130,10 +130,10 @@
       ],
       "vo": {
         "script": "(c) 5",
-        "hook": "Born in November 1998? Your Saturn return is the last thing Saturn does before it leaves Aries.",
+        "hook": "Born in November nineteen ninety-eight? Your Saturn return is the last thing Saturn does before it leaves Aries.",
         "lines": [
-          "Natal Saturn at 28 degrees Aries. Saturn's just under 10 today, going backwards.",
-          "Exact on 31 March 2028.",
+          "Natal Saturn at twenty-eight degrees Aries. Saturn's just under ten today, going backwards.",
+          "Exact on the thirty-first of March, twenty twenty-eight.",
           "Window closes twelve days later. A short, clean pass at the very end. Most of your window is approach.",
           "Free preview at rite dot report."
         ]
@@ -162,7 +162,7 @@
       ],
       "vo": {
         "script": "(c) 3",
-        "hook": "Born in 1999? Everyone's talking about Saturn returns, and yours hasn't started.",
+        "hook": "Born in nineteen ninety-nine? Everyone's talking about Saturn returns, and yours hasn't started.",
         "lines": [
           "Saturn was in Taurus when you were born. It's in Aries now.",
           "Your window opens the day Saturn enters Taurus.",
@@ -194,11 +194,11 @@
       ],
       "vo": {
         "script": "(c) 4",
-        "hook": "Born in 1967 or 68? This is your second Saturn return, and it's running on the same calendar as your kids' first.",
+        "hook": "Born in nineteen sixty-seven or sixty-eight? This is your second Saturn return, and it's running on the same calendar as your kids' first.",
         "lines": [
           "Saturn's back at the degree it held the day you were born. For the second time.",
-          "Three passes: May and October this year,",
-          "and once more in February. The first one was about what you had to prove. This one's about what outlasts you.",
+          "Three passes: the twenty-first of May and the fourth of October this year,",
+          "and once more on the eleventh of February. The first one was about what you had to prove. This one's about what outlasts you.",
           "Free preview at rite dot report. Written for second returns too."
         ]
       },
@@ -240,11 +240,219 @@
         "script": "Lisa (kit h), VO written 17 Oct 2026",
         "hook": "Lisa's Saturn return has three passes. The second one is today.",
         "lines": [
-          "Born on 27 March 1997. Saturn at 9 degrees Aries.",
-          "The first pass was 6 May. The second is today, 24 October.",
-          "And once more, on 25 January 2027.",
+          "Born on the twenty-seventh of March, nineteen ninety-seven. Saturn at nine degrees Aries.",
+          "The first pass was the sixth of May. The second is today, the twenty-fourth of October.",
+          "And once more, on the twenty-fifth of January, twenty twenty-seven.",
           "Yours are different. Free preview at rite dot report."
         ]
+      }
+    },
+    {
+      "id": "celeb-simone-1997",
+      "label": "Style 5 stand-in: Simone Biles, born 14 Mar 1997, Columbus, Ohio (kit (c) script 8 and (h); noon, no birth time). --stills gives the green-screen backdrop.",
+      "date": "1997-03-14",
+      "city": "Columbus, Ohio",
+      "time": null,
+      "hook": "Simone Biles has three Saturn return passes. The third is on New Year's week.",
+      "lines": [
+        "Born 14 Mar 1997 · Saturn at 8° Aries",
+        "23 Apr 2026 · 22 Nov 2026",
+        "And once more: 29 Dec 2026",
+        "Closest turn: 11 Dec 2026, 0.3° from hers",
+        "Yours are different. Free preview at rite.report"
+      ],
+      "expect": {
+        "sign": "Aries",
+        "returnNumber": 1,
+        "hits": [
+          "2026-04-23",
+          "2026-11-22",
+          "2026-12-29"
+        ],
+        "windowEnd": "2028-04-12"
+      },
+      "vo": {
+        "script": "(c) 8, VO written 17 Oct 2026",
+        "hook": "Simone Biles is in the middle of a three-pass Saturn return, and the third one is on New Year's week.",
+        "lines": [
+          "Born on the fourteenth of March, nineteen ninety-seven. Saturn at eight degrees Aries.",
+          "First pass, the twenty-third of April. Second pass, the twenty-second of November.",
+          "Third pass, the twenty-ninth of December.",
+          "Saturn stops on the eleventh of December, less than half a degree from her natal Saturn. That's as close as a station gets.",
+          "That's not a story about what she's going through. It's public maths, and yours is too. Free preview at rite dot report."
+        ]
+      }
+    },
+    {
+      "id": "celeb-kylie-1997",
+      "label": "Style 5 backdrop: Kylie Jenner, born 10 Aug 1997, Los Angeles (kit (c) script 9 and (h); noon, no birth time). Render with --stills.",
+      "date": "1997-08-10",
+      "city": "Los Angeles",
+      "time": null,
+      "hook": "Kylie Jenner's Saturn return has one exact pass, in April 2027.",
+      "lines": [
+        "Born 10 Aug 1997 · Saturn at 20° Aries",
+        "Exact on 28 Apr 2027",
+        "Window closes 12 Apr 2028",
+        "Yours are different. Free preview at rite.report"
+      ],
+      "expect": {
+        "sign": "Aries",
+        "returnNumber": 1,
+        "hits": [
+          "2027-04-28"
+        ],
+        "windowEnd": "2028-04-12"
+      }
+    },
+    {
+      "id": "celeb-aniston-1969",
+      "label": "Style 5 backdrop: Jennifer Aniston, born 11 Feb 1969, Los Angeles (kit (c) script 9 and (h); noon, no birth time). Render with --stills.",
+      "date": "1969-02-11",
+      "city": "Los Angeles",
+      "time": null,
+      "hook": "Jennifer Aniston's second Saturn return starts a week after Kylie Jenner's first.",
+      "lines": [
+        "Second return · 21° Aries",
+        "5 May 2027 · 15 Dec 2027",
+        "And once more: 1 Jan 2028",
+        "Free preview at rite.report. Written for second returns too"
+      ],
+      "expect": {
+        "sign": "Aries",
+        "returnNumber": 2,
+        "hits": [
+          "2027-05-05",
+          "2027-12-15",
+          "2028-01-01"
+        ],
+        "windowEnd": "2028-04-12"
+      }
+    },
+    {
+      "id": "celeb-sabrina-1999",
+      "label": "Style 5 stand-in: Sabrina Carpenter, born 11 May 1999, Quakertown (kit (h); noon, no birth time). --stills gives the green-screen backdrop.",
+      "date": "1999-05-11",
+      "city": "Quakertown",
+      "time": null,
+      "hook": "Sabrina Carpenter's Saturn return hasn't started. Her first pass is 26 Jun 2028.",
+      "lines": [
+        "Born 11 May 1999 · Saturn at 8° Taurus",
+        "Window opens 13 Apr 2028",
+        "26 Jun 2028 · 21 Oct 2028",
+        "And once more: 16 Mar 2029",
+        "Yours are different. Free preview at rite.report"
+      ],
+      "expect": {
+        "sign": "Taurus",
+        "returnNumber": 1,
+        "hits": [
+          "2028-06-26",
+          "2028-10-21",
+          "2029-03-16"
+        ],
+        "windowStart": "2028-04-13"
+      },
+      "vo": {
+        "script": "Sabrina Carpenter (kit h, calendar week 3), VO written 17 Oct 2026",
+        "hook": "Sabrina Carpenter's Saturn return hasn't started yet. It's in Taurus, and it's dated.",
+        "lines": [
+          "Born on the eleventh of May, nineteen ninety-nine. Saturn at eight degrees Taurus.",
+          "Her window opens the day Saturn enters Taurus: the thirteenth of April, twenty twenty-eight.",
+          "First pass on the twenty-sixth of June, twenty twenty-eight. Then Saturn backs up and crosses again on the twenty-first of October.",
+          "And once more on the sixteenth of March, twenty twenty-nine, going forwards.",
+          "No birth time claimed, just the date. Yours are different. Free preview at rite dot report."
+        ]
+      }
+    },
+    {
+      "id": "taurus-2028-notify",
+      "label": "Taurus, first return, Script 3 re-cut ending on Remind me (calendar week 3, Sun 8 Nov)",
+      "date": "1999-04-01",
+      "city": "London",
+      "time": null,
+      "hook": "Born in 1999? Everyone's talking about Saturn returns and yours hasn't started.",
+      "lines": [
+        "Natal: 3° Taurus",
+        "Opens 13 Apr 2028",
+        "First exact pass: 10 May 2028",
+        "Tap Remind me: one email before it opens",
+        "Free preview at rite.report"
+      ],
+      "expect": {
+        "sign": "Taurus",
+        "returnNumber": 1,
+        "hits": [
+          "2028-05-10"
+        ],
+        "windowStart": "2028-04-13"
+      },
+      "vo": {
+        "script": "(c) 3 re-cut",
+        "hook": "Born in nineteen ninety-nine? Everyone's talking about Saturn returns, and yours hasn't started.",
+        "lines": [
+          "Saturn was in Taurus when you were born. It's in Aries now.",
+          "Your window opens the day Saturn enters Taurus: the thirteenth of April, twenty twenty-eight.",
+          "First exact pass a month later, on the tenth of May.",
+          "You've got time. Use it. Tap Remind me, and it sends you one email a month before your window opens.",
+          "Free preview at rite dot report."
+        ]
+      }
+    },
+    {
+      "id": "aries-second-return-1969",
+      "label": "Aries, second return, Script 4 re-cut for 1969 (one pass 16 Apr 2027; calendar week 4, Wed 11 Nov)",
+      "date": "1969-01-01",
+      "city": "London",
+      "time": null,
+      "hook": "Born in 1969? Your second Saturn return has one exact pass, and it's next April.",
+      "lines": [
+        "Second return · 18° Aries",
+        "Exact on 16 Apr 2027",
+        "Window open until 12 Apr 2028",
+        "Free preview at rite.report. Written for second returns too"
+      ],
+      "expect": {
+        "sign": "Aries",
+        "returnNumber": 2,
+        "hits": [
+          "2027-04-16"
+        ],
+        "windowEnd": "2028-04-12"
+      },
+      "vo": {
+        "script": "(c) 4 re-cut for 1969",
+        "hook": "Born in nineteen sixty-nine? Your second Saturn return has one exact pass, and it's next April.",
+        "lines": [
+          "Saturn was at eighteen degrees Aries the day you were born. It's coming back to that degree for the second time.",
+          "Exact on the sixteenth of April, twenty twenty-seven. One clean pass, no loop.",
+          "The window stays open until the twelfth of April, twenty twenty-eight. The first one was about what you had to prove. This one's about what outlasts you.",
+          "Free preview at rite dot report. Written for second returns too."
+        ]
+      }
+    },
+    {
+      "id": "celeb-craig-1968",
+      "label": "Style 5 backdrop: Daniel Craig, born 2 Mar 1968, Chester (kit (h); noon, no birth time). Render with --stills.",
+      "date": "1968-03-02",
+      "city": "Chester, England",
+      "time": null,
+      "hook": "Daniel Craig is in his second Saturn return, in the same loop as Simone Biles.",
+      "lines": [
+        "Second return · 11° Aries",
+        "20 May 2026 · 5 Oct 2026",
+        "And once more: 11 Feb 2027",
+        "Free preview at rite.report. Written for second returns too"
+      ],
+      "expect": {
+        "sign": "Aries",
+        "returnNumber": 2,
+        "hits": [
+          "2026-05-20",
+          "2026-10-05",
+          "2027-02-11"
+        ],
+        "windowEnd": "2028-04-12"
       }
     }
   ]
