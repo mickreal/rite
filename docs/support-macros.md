@@ -88,6 +88,7 @@ Required within 5 business days (Spam Act); aim for same day.
 - **"The code says already used":** check `SELECT redeemed_purchase_id FROM gifts WHERE code=?`. If they redeemed it themselves, send `/r/<redeemed_purchase_id>`.
 - **"The code was refunded":** the buyer refunded it. Point them to the buyer.
 - **Buyer wants a refund, code unused, within 14 days:** macro 1 with the buyer's email refunds the gift and kills the code.
+- **Order bump ("a reading for someone else", bought with their own reading):** it is one payment with the reading. Macro 1 refunds both and kills the unused code. To refund **only** the bump, refund $15 on the payment in the Stripe dashboard (a partial refund, which Rite ignores on purpose), then kill the code by hand: `npx wrangler d1 execute rite --remote --command "UPDATE gifts SET redeemed_at='refunded' WHERE code='<CODE>' AND redeemed_at IS NULL"`. Find the code with `SELECT code FROM gifts WHERE stripe_session_id=(SELECT stripe_session_id FROM purchases WHERE email='<their email>' ORDER BY created_at DESC LIMIT 1)`. A code that has already been redeemed keeps its reading either way.
 
 ## 7. "Is this real / how is it calculated?"
 

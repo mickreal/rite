@@ -146,3 +146,33 @@ P.S. If you'd like to say thanks to {from}, the share card is the easy way.
 (141 words)
 
 Filled example for a reading born 1 Aug 1997: "Saturn in Aries. Your window runs May 2025 to Apr 2028. One exact pass: 29 Apr 2027."
+
+---
+
+## 6. Gift season (1 and 15 Dec)
+
+Trigger: the hourly cron (`runGiftSeason`) on 1 and 15 December of the gift season (`GIFT_SEASON_START`–`GIFT_SEASON_END`, default 15 Nov–22 Dec), from 09:00 in the buyer's birthplace zone. To every past buyer (a paid reading, amount above $0), once per address per date (`campaign_sends`). Skipped: anyone with a refunded purchase, anyone who pressed stop on any reading or preview (follow-ups or stage reminders `skipped:stop`, or a `stopped` event), and gift recipients. Carries the stop link and List-Unsubscribe like the follow-ups; stopping also stops the 15 Dec one. `{price}` is `PRICE_FULL_CENTS`. Template: `giftSeasonEmail` in `src/email.ts`.
+
+**Subject (1 Dec):** Give someone their Saturn return
+**Subject (15 Dec):** Still time to give a Saturn return
+
+```
+{first_name},
+
+You've had your Saturn return reading.   ← 15 Dec: "A last note before Christmas."
+If someone you know is nearly 30 (or nearly 60), it makes an unusual present: their own window and every pass, dated, written for their chart.
+
+Send one as a gift: {site}/gift?r=gift-email
+
+It's ${price}. The code arrives by email the moment you pay and they open it with their own birth details, so you don't need to know their birth time. It still works on Christmas morning.
+
+— Rite
+
+One of two gift emails this December, sent to people who've bought a reading. Stop these and all other reminders: {stop_url}
+```
+
+The order-bump line in the delivery email (§1 `deliveryEmail`, only when "Add a reading for someone else" was bought at checkout):
+
+```
+The reading you added for someone else: code {code}, or send them {site}/gift/{code}. They open it with their own birth details, with or without a birth time. One use, no expiry. A card to print or send: {site}/gift/card/{code}.png
+```
