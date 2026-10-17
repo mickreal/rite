@@ -9,7 +9,8 @@ import { CohortCard } from "./CohortCard";
 import { QuoteCard } from "./QuoteCard";
 import { CARD } from "../../timing";
 
-export type VerticalProps = { card: "CohortCard" | "QuoteCard"; id: string };
+/** `seconds`: the video's length (Root's calculateMetadata); render-all.sh passes VO length + 1.6 s (scripts/card-vo.ts). */
+export type VerticalProps = { card: "CohortCard" | "QuoteCard"; id: string; seconds?: number };
 const inOut = Easing.bezier(0.65, 0, 0.35, 1);
 const sine = Easing.inOut(Easing.sin);
 

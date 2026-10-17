@@ -10,6 +10,9 @@
     "cards": "bash remotion/render-all.sh",
     "export": "bun scripts/export-batch.ts",
     "batch": "TODAY=2026-10-19 bun scripts/render-batch.ts --plan scripts/plan-2026-10-weeks-1-2.json --dest 2026-10-weeks-1-2-v2",
+    "batch:w34": "TODAY=2026-11-02 bun scripts/render-batch.ts --plan scripts/plan-2026-11-weeks-3-4.json --dest 2026-11-weeks-3-4",
+    "signs": "TODAY=2026-11-02 VIDEOS=all ONLY=videos,signs SIGNS_OUT=../out/signs-2026-v2 bash remotion/render-all.sh",
+    "vo-lines": "bun scripts/vo-lines.ts",
     "fonts": "python3 fonts/make-static.py"
   }
 }

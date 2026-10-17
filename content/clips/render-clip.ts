@@ -52,7 +52,8 @@ if (only && cohorts.length !== only.length) { console.error(`Unknown cohort id i
 
 // ---------- frame layout (px in the 1080×1920 frame) ----------
 const W = 1080, H = 1920;
-const BAND = 430;          // caption band at the top; the page sits below it
+const BAND = 400;          // caption band at the top; the page sits below it (400 + the summary's own padding keeps
+                           // its last row, Remind me / Share, inside the frame through the push-in on a three-pass result)
 const ZOOM = 2.0;          // the flow is a 480px mobile column; zoom it to 960px so it reads at phone size
 const PAGE_H = H - BAND - 30;
 const SIDE = 84;           // caption side margin (TikTok's right-hand buttons sit inside ~120px; captions are centred)
@@ -68,12 +69,12 @@ const FONT_CSS = `
 const LAYOUT_CSS = `
 body{padding-top:${BAND}px;min-height:${H}px;box-sizing:border-box}
 .flow{zoom:${ZOOM};min-height:0!important}
-.step{min-height:${(PAGE_H / ZOOM).toFixed(1)}px!important;padding-top:28px!important;padding-bottom:16px!important}
+.step{min-height:${(PAGE_H / ZOOM).toFixed(1)}px!important;padding-top:12px!important;padding-bottom:16px!important}
 html{scrollbar-width:none}::-webkit-scrollbar{display:none}
 input{caret-color:transparent!important}
 input:focus::-webkit-datetime-edit-day-field,input:focus::-webkit-datetime-edit-month-field,input:focus::-webkit-datetime-edit-year-field,input:focus::-webkit-datetime-edit-hour-field,input:focus::-webkit-datetime-edit-minute-field{background-color:transparent!important;color:inherit!important}
 #__cap{position:fixed;left:0;top:0;width:${W}px;height:${BAND}px;z-index:2147483000;pointer-events:none}
-#__cap>div{position:absolute;left:${SIDE}px;right:${SIDE}px;top:70px;bottom:0;display:flex;align-items:center;justify-content:center;text-align:center;text-wrap:balance;opacity:0;will-change:opacity,transform}
+#__cap>div{position:absolute;left:${SIDE}px;right:${SIDE}px;top:70px;bottom:0;display:flex;align-items:center;justify-content:center;text-align:center;text-wrap:balance;white-space:pre-line;opacity:0;will-change:opacity,transform}
 #__cap .h{font:800 74px/1.12 'Bricolage Grotesque';color:${C.cream}}
 #__cap .l{font:700 72px/1.12 'Bricolage Grotesque';color:${C.gold}}
 #__cap .c{font:600 52px/1.25 'Hanken Grotesk';color:${C.cream}}
@@ -228,7 +229,9 @@ async function capture(browser: import("playwright").Browser, base: string, c: C
   await page.evaluate(() => document.fonts.ready);
   await settle();
   const caps = [{ text: c.hook, cls: "h" }, ...c.lines.map((l) => ({ text: l, cls: isCta(l) ? "c" : "l" }))]
-    .map((x) => ({ ...x, text: x.text.replace(/(\d{1,2}) ([A-Z][a-z]{2,8}) (\d{4})/g, "$1 $2 $3").replace(/(\d+°) ([A-Z])/g, "$1 $2") }));
+    .map((x) => ({ ...x, text: x.text.replace(/(\d{1,2}) ([A-Z][a-z]{2,8}) (\d{4})/g, "$1 $2 $3").replace(/(\d+°) ([A-Z])/g, "$1 $2").replace(/-(?=[a-z])/g, "\u2011") }))
+    // the CTA breaks between its sentences ("Yours are different." / "Free preview at rite.report"), never mid-sentence
+    .map((x) => (x.cls === "c" ? { ...x, text: x.text.replace(/\. (?=[A-Z])/g, ".\n") } : x));
   await page.evaluate((list) => (window as unknown as { __rite: { setCaptions: (l: unknown) => void } }).__rite.setCaptions(list), caps);
   const t0ms = (await page.evaluate(() => Date.now())) + 200;
   await page.clock.pauseAt(t0ms);
