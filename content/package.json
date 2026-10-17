@@ -9,6 +9,7 @@
     "data": "bun remotion/scripts/build-data.ts",
     "cards": "bash remotion/render-all.sh",
     "export": "bun scripts/export-batch.ts",
+    "batch": "TODAY=2026-10-19 bun scripts/render-batch.ts --plan scripts/plan-2026-10-weeks-1-2.json --dest 2026-10-weeks-1-2-v2",
     "fonts": "python3 fonts/make-static.py"
   }
 }
