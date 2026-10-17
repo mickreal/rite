@@ -30,7 +30,7 @@ If the Saturn sign is wrong, reply to this and I'll refund you.
 
 — Mick, Rite
 
-P.S. Saturn Season is a weekly note through your window: where Saturn is this week relative to your chart, and one thing to do with it. $7 a month or $59 a year, and it stops itself when your window closes: ${p.upsellUrl}`;
+P.S. Saturn Season is a weekly note through your window: where Saturn is this week relative to your chart, and one thing to do with it. $7 a month, or $59 a year if your window has nine months or more left, and it stops itself when your window closes: ${p.upsellUrl}`;
   return { subject, text };
 }
 
@@ -64,7 +64,7 @@ As of this week Saturn has left your natal sign. The window's closed.
 
 What you built in it is yours now. What you let go stays gone.
 
-This is the last note. There's nothing left to track, so the subscription has cancelled itself; you won't be charged again.
+This is the last note. There's nothing left to track, so the subscription has cancelled itself; you won't be charged again. If you were on the yearly plan, the full months you hadn't used are refunded to your card.
 ${p.readingUrl ? `\nYour reading stays at ${p.readingUrl} and keeps updating through the long arc${p.nextAge ? ` (the next turning point is around age ${p.nextAge})` : ""}.\n` : ""}
 See you at the next one.
 
@@ -74,6 +74,7 @@ See you at the next one.
 
 export function stageReminderEmail(p: { firstName: string | null; label: string; onDate: string; readingUrl: string; stageKey: string; subscribed?: boolean; seasonUrl?: string | null; monthlyPrice?: number }) {
   const what: Record<string, string> = {
+    approach: "Saturn enters your natal sign and your return window opens. Nothing is exact yet. The work is deciding what this return is going to test and setting it up before the first pass.",
     contact: "Saturn reaches the degree it held when you were born. This is the part people mean when they say Saturn return. The work is deciding, not waiting to see.",
     integration: "Saturn crosses your degree for the last time this return. From here what you chose becomes structure; the work is keeping the promises, small and often.",
     close: "Saturn leaves your natal sign and your return window closes. Your reading stays at the link below and keeps updating as the cycle moves on.",
@@ -84,11 +85,11 @@ export function stageReminderEmail(p: { firstName: string | null; label: string;
   const subject = `A week out: ${p.label}`;
   const text = `${p.firstName ?? "Hi"},
 
-On ${p.onDate}: ${p.label.toLowerCase()}.
+On ${p.onDate}: ${/^Saturn\b/.test(p.label) ? p.label : p.label.charAt(0).toLowerCase() + p.label.slice(1)}.
 
 ${what[p.stageKey] ?? "A new stage of your Saturn cycle opens."}
 
-Your reading has a chapter for it, with the prompts for this phase now open: ${p.readingUrl}#c7
+Your reading covers it: ${p.readingUrl}#c7. Workbook prompts for a phase open on the day that phase starts, not before.
 ${!p.subscribed && p.seasonUrl ? `
 If you'd rather hear from us every week than only at the turning points, Saturn Season is a short note each Monday until your window closes${p.monthlyPrice ? `, $${p.monthlyPrice} a month` : ""}, and it stops itself: ${p.seasonUrl}
 ` : ""}
@@ -104,7 +105,7 @@ export function day3Email(p: { firstName: string | null; readingUrl: string }) {
     subject: "Did you put the dates in your calendar?",
     text: `${p.firstName ?? "Hi"},
 
-Three days ago you opened your reading. The part people skip is the part that does the most: the dates.
+Three days ago your reading arrived. The part people skip is the part that does the most: the dates.
 
 At the top of chapter three there's a calendar button. One file per date (each exact pass, the closest turn, the day your window closes), or all of them at once: ${p.readingUrl}#c3
 
@@ -137,7 +138,9 @@ ${quote}
 
 Every Monday, 7am your time. $${p.monthlyPrice} a month${p.yearlyPrice ? ` or $${p.yearlyPrice} a year` : ""}. It stops itself the week Saturn leaves your sign, so you can't forget to cancel: ${p.seasonUrl}
 
-— Rite`,
+— Rite
+
+Sent once. Reply "stop" and we'll send nothing but what you've bought.`,
   };
 }
 
@@ -150,9 +153,9 @@ Here's the gift. Send them either of these:
 Code: ${p.code}
 Link: ${p.link}
 
-They open the link (or enter the code on the site), put in their own birth date, place and time if they know it, and the full reading is theirs. It works with or without a birth time. One use.
+They open the link, put in their own birth date, place and time if they know it, and the full reading is theirs. It works with or without a birth time. One use, no expiry.
 
-If you'd like it refunded instead, reply to this within 14 days.
+If you'd like it refunded instead, reply to this within 14 days, before the code is used.
 
 — Rite`;
   return { subject, text };

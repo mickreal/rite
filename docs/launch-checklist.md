@@ -1,0 +1,124 @@
+# Rite launch checklist
+
+Written 17 Oct 2026. It covers everything between now and public launch (L), then launch day and the first 72 hours. It works with `gtm-plan.md` §3, `season-verification.md`, `emails-review-2026-10-17.md` and `posting-schedule-30d.md`.
+
+**Where things stand.** The Worker is live at `rite.mickreal.workers.dev`, and Stripe is in **live mode**. `rite.report` is **not bought**. `wrangler.toml` already has `FROM_EMAIL = "Rite <hello@rite.report>"` and `SUPPORT_EMAIL = "hello@rite.report"`, so until the domain exists and is verified in Resend:
+- customer email doesn't arrive (Resend only delivers to the account owner's own address);
+- every "reply to this" (refunds, "stop") goes to a mailbox that doesn't exist.
+
+Every content asset already has "rite.report" burned in.
+
+**Key.** Owner **M** = Mick, **C** = Claude (a session in this repo; it never deploys and never touches live APIs). **Blocks** means public launch can't happen until the item is done. "Should" means do it before launch unless there's a reason not to.
+
+Commands run from the repo root. `wrangler.toml` and secrets are Mick's to change.
+
+---
+
+## A. Decide and buy (T−10 days or earlier)
+
+| # | Item | Owner | How to verify | Blocks |
+|---|---|---|---|---|
+| A1 | **Buy `rite.report`.** Use Cloudflare Registrar if it sells `.report`. Otherwise use any registrar and point the nameservers at Cloudflare. Turn on auto-renew. | M | The zone shows **Active** in the Cloudflare dashboard. `dig NS rite.report +short` returns Cloudflare nameservers. | **Yes** |
+| A2 | **Upgrade to Workers Paid ($5/mo).** Strongly recommended. On the free plan, KV allows **1,000 writes a day**, and Rite writes to KV for every `/api/calc` date typed into the live calculator, every geocode, every share-card PNG and every narrated chapter. A single Reddit or Hacker News spike would hit that cap, and those writes would then fail. The free plan also caps the Worker at 100k requests a day. | M | Dashboard → Workers → Plans shows Paid. | Should |
+| A3 | **Pick the launch date L.** The schedule assumes **Mon 2 Nov 2026**. Season dogfood (C6) needs three Mondays of notes before L, so Mick has to subscribe by **Sun 18 Oct** to hit L = 2 Nov. Subscribing later moves L. | M | Date is in the posting schedule. | — |
+
+## B. Domain, email, Stripe (after A1)
+
+| # | Item | Owner | How to verify | Blocks |
+|---|---|---|---|---|
+| B1 | **Attach the custom domain.** Workers → `rite` → Settings → Domains & Routes → Add → Custom domain → `rite.report`. Add `www.rite.report` as a second custom domain, or add a Redirect Rule `www` → apex (301). **Keep the `workers.dev` route enabled**: emails already sent link to it, and Stripe needs it until B5. | M | `curl -sI https://rite.report/health` → 200. `curl -s https://rite.report/health` shows Saturn's longitude. `curl -sI https://www.rite.report` → 301 to the apex. | **Yes** |
+| B2 | **Switch `SITE_URL`.** Edit `wrangler.toml` `[vars]` to `SITE_URL = "https://rite.report"`, then `npm test && npm run deploy`. Every link in email, the canonical, the sitemap, Stripe's success and cancel URLs, and the share-card footer come from this. | M | `curl -s https://rite.report/sitemap.xml \| head -3` shows `https://rite.report/`. `curl -s https://rite.report/ \| grep -o '<link rel="canonical"[^>]*>'` shows rite.report. `curl -s https://rite.report/robots.txt` names the rite.report sitemap. | **Yes** |
+| B3 | **Verify `rite.report` in Resend.** Resend → Domains → Add `rite.report`, then copy the records it shows into Cloudflare DNS (turn the proxy off on every one). Resend shows the exact values; they normally look like this:<br>• **MX** `send` → `feedback-smtp.<region>.amazonses.com`, priority 10<br>• **TXT** `send` → `v=spf1 include:amazonses.com ~all` (SPF)<br>• **TXT** `resend._domainkey` → `p=MIGf…` (DKIM, long key)<br>• **TXT** `_dmarc` → `v=DMARC1; p=none; rua=mailto:hello@rite.report` (DMARC: start at `p=none` and move to `p=quarantine` after two weeks of clean reports)<br>Then click Verify. | M | Resend shows the domain **Verified**. A test send (C1) to a Gmail address lands in the inbox, not spam. In Gmail, "Show original" shows `SPF: PASS`, `DKIM: PASS`, `DMARC: PASS`. | **Yes** |
+| B4 | **Set up an inbox for `hello@rite.report`.** Cloudflare → `rite.report` → Email → Email Routing → enable, then forward `hello@` (and catch-all, optional) to Mick's inbox. This adds its own MX and an apex SPF record (`include:_spf.mx.cloudflare.net`). Resend's records sit on `send.`, so the two don't clash. Every email says "reply to this", the refund policy runs on replies, and the day-10 email's "stop" is a reply. | M | Send to `hello@rite.report` from a different account and it arrives. Reply to a Rite email and the reply arrives too. | **Yes** |
+| B5 | **Point the Stripe webhook at the new domain.** Stripe (live) → Developers → Webhooks → the existing Rite endpoint → **edit its URL** to `https://rite.report/webhook/stripe`. Editing keeps the signing secret, so `STRIPE_WEBHOOK_SECRET` doesn't change. Check that it subscribes to all five events: `checkout.session.completed`, `customer.subscription.deleted`, `charge.refunded`, `invoice.payment_failed`, `invoice.paid`. If you add a new endpoint instead, it gets a **new** secret: `npx wrangler secret put STRIPE_WEBHOOK_SECRET`, deploy, then delete the old endpoint. | M | After the C2 purchase, the endpoint shows a 200 for `checkout.session.completed`. Running `npx wrangler d1 execute rite --remote --command "SELECT kind,COUNT(*) FROM events WHERE at > strftime('%Y-%m-%dT%H:%M:%SZ','now','-1 hour') GROUP BY kind"` shows `paid`, `generated` and `emailed`. | **Yes** |
+| B6 | **Fill in Stripe's public details.** Settings → Business → Public details: business name (MickMade, matching `legal.ts`), statement descriptor (e.g. `RITE.REPORT`), support email `hello@rite.report`, website `https://rite.report`, **Terms of service** `https://rite.report/terms`, **Privacy policy** `https://rite.report/privacy`. Settings → Branding: icon and colours (#0E1014 / #F2B544). | M | The live Checkout page footer shows the Terms and Privacy links, and both resolve. The receipt email shows the support address. | **Yes** |
+| B7 | **Make creator and pitch gift codes, then deactivate the 100% promo code.** Both `/checkout` and the gift checkout set `allow_promotion_codes: true`, so while the 100% code is live anyone who has it gets free readings and unlimited free gift codes. Make the ~22 codes for `creators.md` and the newsletter pitches first. Either buy them with the promo, or insert them directly: `npx wrangler d1 execute rite --remote --command "INSERT INTO gifts (code, created_at, buyer_email, buyer_name, amount_cents) VALUES ('CRTRAB23', datetime('now'), 'mail@mickreal.com', 'Rite', 0)"`. Codes are 8 characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`. Then Stripe → Product catalogue → Coupons → the 100% coupon → its promotion code → **Deactivate**. Keep a `max_redemptions`-capped code for future dogfooding if you want one. | M | The old code at live Checkout says "This code is invalid". `/gift/<CODE>` shows the gift banner for each creator code. | **Yes** |
+| B8 | **Purge share cards cached under the old host.** PNG share cards sit in KV for 30 days with the footer text from `SITE_URL`, so cards made before B2 still say `rite.mickreal.workers.dev`. List them with `npx wrangler kv key list --binding CACHE --remote --prefix card:png:`, then delete each with `npx wrangler kv key delete --binding CACHE --remote "<key>"`. Only Mick's test readings exist, so there are only a few keys. | M | `/card/r/<tok>.png` for a test reading shows "rite.report" in the footer. | Should |
+| B9 | **Set up Google Search Console.** Add the domain property for `rite.report` (TXT record via Cloudflare) and submit `https://rite.report/sitemap.xml`. | M | Sitemap status reads "Success". | No |
+
+## C. Verify the product end to end (after B1–B7, all in live mode)
+
+| # | Item | Owner | How to verify | Blocks |
+|---|---|---|---|---|
+| C1 | **Smoke-test every email.** For each template, force one send to a **non-Mick** Gmail and an Outlook address. Season note: `POST /admin/season/<tok>?to=…`. Stage and follow-up emails: `UPDATE … SET send_on=date('now')` on a test row and wait for the hour. Check subject, links (all `rite.report`), sign-off, and that it lands in the inbox. | M | Every email arrives and every link opens the right page. `emails-review-2026-10-17.md` lists what each one should say. | **Yes** |
+| C2 | **Full purchase by a second person.** Someone other than Mick, on their own phone and card, at the real price, starting from a TikTok-style link (`https://rite.report/?r=test`). They do the preview, then $29 checkout with a first name, then `/thanks` → `/r/<tok>`. They should get the delivery email, play narration chapter 0 and chapter 3 (ElevenLabs Anna, not the robotic fallback), download the calendar `.ics` and import it, save the share card, ask one question, and print to PDF. | M (+ a friend) | Each step works. `/admin` shows `paid`, `generated` and `emailed` for the purchase, no new `error` rows, `server_narrated` in PostHog, and the `narrated` events show `model: elevenlabs/…`, `fallback: false` (`SELECT detail FROM events WHERE kind='narrated' ORDER BY id DESC LIMIT 5`). | **Yes** |
+| C3 | **Test refunds.** Refund C2's purchase by email, the way a customer would: they reply to the delivery email, and Mick runs `curl -X POST https://rite.report/admin/refund -H "Authorization: Bearer $ADMIN_KEY" -H 'content-type: application/json' -d '{"email":"<theirs>"}'`. | M | Stripe shows the refund. `purchases.status='refunded'`, events show `refund`, PostHog shows `server_refund`, and the day-3 and day-10 follow-ups for that purchase are skipped (`followups.sent_at LIKE 'skipped:%'`). | **Yes** |
+| C4 | **Test the gift flow.** The second person buys a $29 gift with a "from" name and note. Check the gift email arrives (code and link, "One use, no expiry"). A third address opens `/gift/<CODE>`, enters its own birth details, clicks **Open my reading**, and gets a reading plus a delivery email. Reopen the code and it should say "already been used". Then refund one unredeemed gift through `/admin/refund`. | M | `gifts.redeemed_purchase_id` is set. The used code shows the message. The refunded code shows "was refunded". Note: the recipient currently gets the buyer's delivery-email copy (emails review, item 1). | **Yes** |
+| C5 | **Work through the Season checklist.** Do every box in `season-verification.md` §0–§6 in live mode, using a capped promo code or a real $7. In particular: the D1 `plan` column migration, the two `invoice.*` webhook events (B5), the welcome note within a minute, the manage page, the monthly-to-yearly switch, Stop (immediate, flash shows the refund on a yearly plan), and the `past_due` handling. | M | Every box ticked and no `season-*` errors in `/admin`. | **Yes** |
+| C6 | **Dogfood Season for three Mondays** (`gtm-plan.md` S8). Mick reads three real Monday notes on his own reading before L. | M | Three `season_sent` events. Every date in the notes appears in the reading. | Should |
+| C7 | **Check the mobile flow.** Run `/start` on iOS Safari and Android Chrome, plus `/` with reduced motion on. The 18 Oct QA did this locally; repeat it on the live domain. | M | No console errors, and the preview builds in under 10 s. | Should |
+| C8 | **Review the legal pages** (`src/views/legal.ts`; Claude drafts the edits, Mick approves). Three known problems:<br>(1) **The privacy page lists "Cloudflare Workers AI (Deepgram)" for narration.** It should say **ElevenLabs**: it receives the narration script, which includes the reading's text and first name. Workers AI is now the fallback only.<br>(2) "Reminder and Saturn Season emails each have a stop link" isn't true. Stage reminders say "Reply to stop these", and the day-3 and day-10 follow-ups aren't mentioned at all.<br>(3) Confirm the operator entity "MickMade (Australia)" (open decision in `gtm-plan.md` §4).<br>Then reread terms and refunds against what C3–C5 actually did. | C (draft), M (approve) | The pages match the product: processors, stop mechanisms, entity, and the 14-day and Season refund wording. | **Yes** (privacy accuracy) |
+| C9 | **Write a manual "stop" procedure.** Until there's a stop link: when someone replies "stop", run `UPDATE followups SET sent_at='skipped:stop' WHERE purchase_id IN (SELECT id FROM purchases WHERE email='<x>') AND sent_at IS NULL` and the same for `stage_reminders`, within 5 business days (Spam Act). | C (write it into README), M (do it) | The procedure is written down and tried once on a test purchase. | Should |
+| C10 | **Fix the server-side Season gates** (optional code). `POST /season/:tok` accepts `plan=year` when `yearlyAllowed` is false and doesn't refuse a reading whose window has closed. | C | A test posting `plan=year` for a short window redirects without opening Checkout. | No |
+
+## D. Ops (before L)
+
+| # | Item | Owner | How to verify | Blocks |
+|---|---|---|---|---|
+| D1 | **Set an ElevenLabs spend cap.** At about $1–3.60 per fully played reading, set the plan's character quota so it covers launch, turn off usage-based overage (or cap it), and if the plan allows it, set a credit limit on the API key Rite uses. If the cap is hit, narration falls back to the Workers AI voice (that play isn't cached and is retried next time), so the reading keeps working. | M | The ElevenLabs dashboard shows the cap. Note today's usage as the baseline. | **Yes** |
+| D2 | **Set an Anthropic spend cap.** Console → Limits → a monthly cap and an email alert at 50% and 80%. Each reading is one Sonnet call (two if regenerated), each preview one Haiku call, and each Season note one call. | M | The limit is visible in the console. | Should |
+| D3 | **Build the PostHog dashboards.** Four:<br>(1) **Funnel** `$pageview` (/) → `preview_submit` → `server_preview` → `checkout_click` → `server_checkout` → `server_paid` → `server_generated`.<br>(2) **Engagement** `play`, `server_narrated`, `calendar`, `ask_submit`, `share_card`, `story_submit`, per paid reading.<br>(3) **Season** `season_click` → `server_season_start`, plus `server_refund`.<br>(4) **Errors** `server_error` by day.<br>Add an alert on `server_error` > 5 in an hour if the plan allows it. Attribution by source (`?r=`) comes from `/admin/stats`, not PostHog. | C (spec), M (build) | Each dashboard shows the C2 test purchase. | Should |
+| D4 | **Check the error digest.** The hourly cron emails `ADMIN_EMAIL` (`mail@mickreal.com`) at 08:00 Brisbane **only if there were errors**. After B3 it can reach that address. Trigger one harmless error, such as an ungrounded test, or check the `/admin` "last 20 errors" panel. | M | The digest arrives on a day with errors. `/admin?key=…` loads. | Should |
+| D5 | **Take a backup before launch and make it routine.** `npx wrangler d1 export rite --remote --output=backups/rite-$(date +%F).sql` (keep `backups/` out of git: it holds emails and birth details). Store it outside the repo, encrypted. D1 also has **Time Travel** (point-in-time restore over the last 30 days): `npx wrangler d1 time-travel info rite` shows the current bookmark, and `npx wrangler d1 time-travel restore rite --timestamp=<ISO>` restores. Write down the bookmark on launch morning. | M | The export file opens and has rows in `purchases`. Time Travel prints a bookmark. | Should |
+| D6 | **Rehearse a rollback.** `npx wrangler deployments list` and note the last known-good version id. To roll back: `npx wrangler rollback <version-id>` (or no id, which goes to the previous version). A rollback covers code and `[vars]` but **not** D1 data, KV or secrets. A schema change has to be undone by hand. | M | Do one rollback and roll forward again before L, then confirm `/health` both times. | Should |
+| D7 | **Monitoring tools at hand.** `npx wrangler tail rite --format pretty` (live logs), `/admin?key=…&days=7`, the Stripe dashboard (webhook attempts), Resend → Logs (bounces), PostHog. Bookmark them all. | M | Each one opens. | No |
+| D8 | **Write support macros.** Saved replies for: refund (14 days, no questions), wrong sign or date (fix and refund), "where's my reading" (`/admin/fulfil {"session_id"}` if the webhook was lost), stop emails (C9), and deleting my data (privacy: by hand within a few days). | C (draft), M (save) | Saved in the mail client. | No |
+| D9 | **Accounts ready.** TikTok, Instagram, X, Threads and Pinterest (optional) under one handle, with the bio link `https://rite.report/?r=<platform>`. Mick's Reddit account has real karma. Set up the scheduler from `posting-schedule-30d.md` and connect it. | M | Each bio link opens with the right `?r=` and shows in `/admin/stats` by source. | **Yes** (for posting) |
+
+## E. Content refresh after the domain switch
+
+Everything already burns in **rite.report**. Buying exactly that domain makes the existing renders correct, so the refresh is about **dates and voice**, not the URL:
+
+| # | Item | Owner | How to verify | Blocks |
+|---|---|---|---|---|
+| E1 | **Re-date the weeks 1–2 batch to L.** Copy `content/scripts/plan-2026-10-weeks-1-2.json` to a launch plan, shift every post date to L+0…L+13 (`posting-schedule-30d.md` has the mapping), and re-run `TODAY=<L> bun scripts/render-batch.ts --plan <new plan> --dest launch-weeks-1-2`. The date check runs each clip against its new posting day and fails on stale "today" lines. | C | `check-cohorts.ts` passes for every post on its new date. | **Yes** (for posting) |
+| E2 | **Re-render the time-sensitive assets for their real date.** The Tue 20 Oct clip says "Today: 10° Aries" (Saturn is 9° from 21 Oct), and the Lisa clip says "today, 24 Oct 2026" (that has passed, so rewrite it around her third pass, 25 Jan 2027). Anything with a current degree or "right now" gets checked against `compute()` on its posting day. | C | The burned-in degree equals `Math.floor` of Saturn's longitude in sign on the posting day. | **Yes** (for those slots) |
+| E3 | **Render voiceover.** `ELEVENLABS_API_KEY=… npm run batch` in `content/` (provider `elevenlabs`, voice Anna). VO lines with "right now", "today" or a degree go through the same date check (E2). Script 3's "You have eighteen months" is about 17 from 2 Nov, so say "about a year and a half". | C (render), M (key) | Each `_vo` file is at −16 LUFS, and the spoken dates match the captions. | No (silent versions exist) |
+| E4 | **Re-render if the domain changes.** If the domain bought is **not** `rite.report`, everything needs re-rendering: `SITE=<domain> bun remotion/scripts/build-data.ts` for cards and carousels, the `lines` in `content/clips/cohorts.json` for clips, the captions in the plan JSON, the creator DMs (`creators.md`), the pitches (`launch-kit-v2.md` §g), `FROM_EMAIL`/`SUPPORT_EMAIL` and the `geo.ts` user-agent. | C + M | `grep -r rite.report content/ docs/ src/` shows only intended hits. | Only if the domain differs |
+| E5 | **Update the site's own references after B2.** The README's `/admin/tts` curl example uses `rite.report` (correct once live). `content/README.md` and `clips/vo.ts` default `RITE_TTS_URL` to `rite.mickreal.workers.dev`; that still works, but switch it to `rite.report` for tidiness. | C | No functional change. | No |
+
+---
+
+## Launch day runbook (L = Mon 2 Nov 2026, Brisbane time, AEST UTC+10)
+
+US Eastern is UTC−5 after 1 Nov, so 10:00 Brisbane is 19:00 ET Sunday (US evening) and 22:00 Brisbane is 07:00 ET Monday.
+
+| Time (Brisbane) | Do | Check |
+|---|---|---|
+| 07:00 | Coffee. Open `/admin?key=…&days=1`, Stripe, Resend logs, PostHog, `wrangler tail`. | Overnight errors: zero, or understood. Monday 07:00 Season notes went out (`season_sent`). |
+| 07:15 | D1 export (D5) and note the Time Travel bookmark. Note the current deployment id (D6). | The backup file has rows. |
+| 07:30 | Check the promo code is still deactivated (B7). Check the ElevenLabs and Anthropic quotas (D1, D2). | Quota headroom covers more than 100 readings. |
+| 07:45 | Last smoke test: preview on mobile, `/health`, `/sitemap.xml`, a gift link, and `/season`. | All 200 on rite.report. |
+| 08:00 | Error digest time. If one arrives, read it before posting anything. | — |
+| 09:00 | **Post L+0 TikTok and Reels** (scheduled, or post by hand if the scheduler hasn't published by 09:05). Post X/Threads L+0. Post the Instagram carousel. | Each post is live. Bio links resolve with `?r=`. |
+| 09:30 | Share in Mick's own network: personal Instagram story, friends' group chats, LinkedIn if relevant, with `?r=friends`. | `/admin/stats` starts showing `visit` and `preview` by ref. |
+| 10:00–12:00 | US Sunday evening peak. Reply to every comment within the hour, without arguing astrology. Watch the funnel. | Preview → result works. No `error` spike. Resend shows no bounces. |
+| 12:00 | Checkpoint 1. Look at the purchases so far: each has `generated` and `emailed`, and none is stuck in `writing` for more than 4 minutes. Spot-read one live reading for quality. | If any is stuck, `POST /admin/fulfil {"session_id"}` and investigate. |
+| 13:00–17:00 | Ordinary work, with `/admin` refreshed hourly. Answer support mail within 2 hours. | — |
+| 17:00 | Checkpoint 2. Check KV and Workers usage (dashboard → Workers → Metrics; KV → Metrics). | On the free plan, KV writes under 600 by now. If not, upgrade (A2) right away. |
+| 20:00 | Mick's evening. Look at PostHog funnel drop-off; note the worst step. | — |
+| 22:00–23:00 | US Monday morning. Reply to comments that came in overnight. | — |
+| 23:00 | Close-out. Write a log line in `docs/launch-log.md` (visits, previews, paid, refunds, errors, best post). Decide whether anything changes tomorrow. | — |
+
+**Rollback triggers (act at once):** a webhook 4xx or 5xx on a real payment. Readings stuck in `failed` or `writing` for more than 10 minutes. Wrong dates on any page. Email bounces above 5%. Narration falling back for everyone (`narrated` events with `fallback: true`, or `error` rows with `where: tts`).
+
+For a code regression: `npx wrangler rollback <known-good id>`, then check `/health` and run one preview. For a data problem: stop the cron by commenting `[triggers]` out and deploying (Mick only), then fix by hand. Never rewrite D1 under live traffic without the D5 export.
+
+**Product Hunt / Show HN day (L+8, Tue 10 Nov).** PH launches at 00:01 PT, which is **18:01 Mon 9 Nov Brisbane**. Post at 18:05, then answer comments until about 23:00. Post Show HN at about **23:00 Mon Brisbane (08:00 ET Tue)** and stay on it for 2 hours. Run 07:00 checks the next morning as above. Do a D1 export before both.
+
+## First 72 hours: what to watch
+
+Check every 2 hours while awake on L+0 and L+1, then 3× a day.
+
+1. **Payments → readings.** Each `paid` has `generated` within 3 minutes and `emailed` right after. Query: `SELECT p.id, p.status, p.created_at FROM purchases p WHERE p.created_at > strftime('%Y-%m-%dT%H:%M:%SZ','now','-1 day') AND p.status != 'generated'`.
+2. **The Stripe webhook.** Developers → Webhooks → failed deliveries = 0. Retry any failure, and use `/admin/fulfil` if needed.
+3. **Email.** Resend → Logs: bounce and complaint rates. Is `hello@` receiving and getting answered? Replies within 2 hours; refunds handled the same day.
+4. **Errors.** The `/admin` last-20-errors panel, PostHog `server_error`, `wrangler tail`. Watch especially `report-dates-ungrounded`, `report-llm`, `season-*`, and anything from geocoding (Nominatim 429s mean rate limiting; KV caches places for 90 days).
+5. **Narration.** `server_narrated` count versus `play`. ElevenLabs usage against quota every morning. Fallback plays show up as `narrated` events with `fallback: true`, alongside an `error` with `where: tts`.
+6. **Platform limits.** Workers requests and CPU errors (1102). KV writes per day (free cap 1,000). D1 rows read and written. Anthropic usage.
+7. **Funnel.** Visits → previews → checkout clicks → paid, by `?r=` source (`/admin/stats`). Note the worst step on day 1 and review it at L+3.
+8. **Quality.** Read 3 live readings and 1 Season note per day: voice, dates and house wording. Log anything off.
+9. **Refunds and complaints.** Any refund reason is a signal. Wrong-sign reports get checked within the day (refund at any time, per `/refunds`).
+10. **Social.** Comment replies within the hour on L+0, and within 4 hours after that. Watch Reddit removals and mod messages. Never repost a removed post.
+11. **Daily backup.** A D1 export each morning for the first week.
+12. **L+3 review (Thu 5 Nov).** The funnel, the best and worst posts, support load and spend so far. Decide whether week 2 runs as planned.
