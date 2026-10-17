@@ -1,5 +1,5 @@
 // Transactional email via Resend.
-interface Env { RESEND_API_KEY: string; FROM_EMAIL: string; SUPPORT_EMAIL: string; SITE_URL: string }
+interface Env { RESEND_API_KEY: string; FROM_EMAIL: string; SUPPORT_EMAIL: string; SITE_URL: string; DB?: D1Database }
 
 export async function sendEmail(env: Env, to: string, subject: string, text: string, html?: string): Promise<boolean> {
   if (!env.RESEND_API_KEY) { console.warn("RESEND_API_KEY missing; email not sent", { to, subject }); return false; }
@@ -8,7 +8,13 @@ export async function sendEmail(env: Env, to: string, subject: string, text: str
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
     body: JSON.stringify({ from: env.FROM_EMAIL, to: [to], reply_to: env.SUPPORT_EMAIL, subject, text, html }),
   });
-  if (!res.ok) { console.error("resend", res.status, await res.text()); return false; }
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("resend", res.status, body);
+    // Visible in /admin and the daily error digest (an unverified sending domain fails every send silently otherwise).
+    try { await env.DB?.prepare("INSERT INTO events (at, kind, ref, detail) VALUES (?,?,?,?)").bind(new Date().toISOString(), "error", null, JSON.stringify({ where: "email", status: res.status, subject: subject.slice(0, 80), body: body.slice(0, 400) })).run(); } catch { /* never block */ }
+    return false;
+  }
   return true;
 }
 
