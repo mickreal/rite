@@ -66,3 +66,21 @@ describe("stop links", () => {
     expect(h.emails()).toHaveLength(0);
   });
 });
+
+describe("Season notes are kept for /admin, delivered or not", () => {
+  it("a note whose email fails is still readable at /admin/season/:tok/notes", async () => {
+    const { nextNoteDate } = await import("../src/season");
+    const hh = new Harness({ ADMIN_KEY: "admin_key_for_tests_123" } as never); vi.stubGlobal("fetch", hh.fetch);
+    hh.seedPreview(); hh.seedPurchase(); hh.seedSubscription({ id: "sub_n1", purchaseId: TOK });
+    hh.resend = () => new Response(JSON.stringify({ message: "domain not verified" }), { status: 403 });
+    vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(nextNoteDate("Australia/Melbourne", new Date()));
+    await hh.scheduled();
+    expect(hh.db.row("SELECT last_sent_at FROM subscriptions")!.last_sent_at).toBeNull();
+    expect((await hh.request(`/admin/season/${TOK}/notes`)).status).toBe(404); // ADMIN_KEY only
+    const r = await hh.request(`/admin/season/${TOK}/notes?key=admin_key_for_tests_123`);
+    const t = await r.text();
+    expect(t).toContain("NOT delivered");
+    expect(t).toMatch(/Subject: Saturn Season starts: /);
+    expect(t).toContain("Change plan or stop these:");
+  });
+});

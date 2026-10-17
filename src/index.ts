@@ -472,6 +472,15 @@ app.post("/admin/season/:tok", async (c) => {
   return c.json({ ok: result === "sent" || result === "complete", result, to: to ?? r.email });
 });
 
+app.get("/admin/season/:tok/notes", async (c) => {
+  // Every Season note built for a purchase, newest first, as plain text (kept whether or not the email was delivered).
+  if (!c.env.ADMIN_KEY || !adminAuthorized(c.env.ADMIN_KEY, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
+  const rows = await c.env.DB.prepare("SELECT at, detail FROM events WHERE kind='season_note' AND ref=? ORDER BY id DESC LIMIT 20").bind(c.req.param("tok")).all<{ at: string; detail: string }>();
+  const text = rows.results.map((r) => { const d = JSON.parse(r.detail) as { subject: string; text: string; delivered: boolean; forced: boolean };
+    return `${r.at.slice(0, 16).replace("T", " ")} UTC · ${d.delivered ? "delivered" : "NOT delivered"}${d.forced ? " · forced" : ""}\nSubject: ${d.subject}\n\n${d.text}`; }).join("\n\n" + "—".repeat(40) + "\n\n");
+  return c.text(text || "No Season notes for this purchase yet.", 200, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
+});
+
 app.post("/admin/fulfil", async (c) => {
   if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
   const { session_id } = await c.req.json<{ session_id: string }>();
@@ -1090,6 +1099,9 @@ async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: s
     manageUrl: `${env.SITE_URL}/season/manage/${r.purchase_id}`, welcome: !r.last_sent_at && !to,
   });
   const ok = await sendEmail(env, dest, m.subject, m.text);
+  // Keep every note's text, delivered or not: support can see what someone was sent, and Season can be dogfooded before
+  // email delivers (GET /admin/season/:tok/notes).
+  await log(env, "season_note", r.purchase_id, { subject: m.subject, text: m.text, delivered: ok, forced: !!to });
   if (ok && !to) {
     await env.DB.prepare("UPDATE subscriptions SET last_sent_at=? WHERE id=?").bind(now(), r.sub_id).run();
     await log(env, "season_sent", r.purchase_id);
