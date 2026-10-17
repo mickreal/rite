@@ -7,6 +7,7 @@ import { saturnLongitude } from "../astro/saturn";
 import { ORDINAL } from "../content/notes";
 import { yearlyAllowed } from "../season";
 import { NARRATION_VERSION } from "../tts";
+import { natalLabelPos, textWidth } from "./chart";
 
 export interface ReportJson {
   cover_line: string; saturn_p1: string; saturn_p2: string; house_h3: string; house_p: string;
@@ -69,6 +70,9 @@ const WHEEL_POS: Array<[number, number]> = [[250, 88], [367, 141], [406, 250], [
 export function readingPage(opts: { siteUrl: string; token: string; c: Computed; cy: Cycle; r: ReportJson; firstName: string | null; birthLabel: string; placeLabel: string; askLeft: number; asks: Array<{ q: string; a: string }>; subscribed: boolean; today?: Date }) {
   const { c, cy, r } = opts; const w = c.window; const today = opts.today ?? new Date();
   const Cw = 2 * Math.PI * 200;
+  // Natal label placed clear of the curve, the pass rings and the Approach / Contact labels.
+  const natalText = `your natal Saturn, ${Math.floor(c.degree)}° ${c.sign}`;
+  const natal = natalLabelPos(cy.chart, c.natalLon, w.hits, natalText, { boxes: [{ x0: 48, x1: 48 + textWidth("Approach", 13), y0: 26, y1: 40 }, { x0: cy.chart.contactX0 + 8, x1: cy.chart.contactX0 + 8 + textWidth("Contact", 13), y0: 26, y1: 40 }] });
   const stage = cy.stage; const seg = [[345, 30], [15, 65], [80, 20], [100, 70], [170, 20], [190, 70], [260, 20], [280, 65]][stage.idx];
   const now = today.getTime(), open = Date.parse(w.windowStart), close = Date.parse(w.windowEnd);
   const frac = Math.max(0, Math.min(1, (now - open) / (close - open)));
@@ -183,7 +187,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
       <rect x="40" y="16" width="${(cy.chart.contactX0 - 40).toFixed(1)}" height="244" fill="rgba(237,230,214,.025)"/>
       <rect x="${cy.chart.contactX0.toFixed(1)}" y="16" width="${(cy.chart.contactX1 - cy.chart.contactX0 + 6).toFixed(1)}" height="244" fill="rgba(242,181,68,.07)"/>
       <line x1="40" y1="${cy.chart.y0.toFixed(1)}" x2="960" y2="${cy.chart.y0.toFixed(1)}" stroke="rgba(237,230,214,.4)" stroke-dasharray="4 6"/>
-      <text x="958" y="${(cy.chart.y0 - 10).toFixed(1)}" text-anchor="end" fill="#A7A196" font-size="13" font-family="Hanken Grotesk, sans-serif">your natal Saturn, ${Math.floor(c.degree)}° ${c.sign}</text>
+      <text x="${natal.x.toFixed(1)}" y="${natal.y.toFixed(1)}" text-anchor="${natal.anchor}" fill="#A7A196" font-size="13" font-family="Hanken Grotesk, sans-serif">${natalText}</text>
       <text x="48" y="36" fill="#8A857B" font-size="13" font-family="Hanken Grotesk, sans-serif">Approach</text>
       <text x="${(cy.chart.contactX0 + 8).toFixed(1)}" y="36" fill="#F2B544" font-size="13" font-family="Hanken Grotesk, sans-serif">Contact</text>
       ${cy.chart.todayX > 0 ? html`<line x1="${cy.chart.todayX.toFixed(1)}" y1="16" x2="${cy.chart.todayX.toFixed(1)}" y2="260" stroke="#EDE6D6" stroke-width="1.2" stroke-dasharray="2 4"/><text x="${cy.chart.todayX.toFixed(1)}" y="278" text-anchor="middle" fill="#EDE6D6" font-size="12" font-family="Hanken Grotesk, sans-serif">today</text>` : ""}

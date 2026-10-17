@@ -4,6 +4,7 @@ import type { Computed } from "../compute";
 import { fmtDay, fmtMonth } from "../compute";
 import { windowChart, fmtMonYrL, untilText } from "../astro/cycle";
 import { windowOpenNotify } from "../season";
+import { windowBand, natalLabelPos } from "./chart";
 
 const CSS = `
 .pass{flex:1 1 220px;text-align:left;background:#14171D;border:1px solid rgba(237,230,214,.1);border-radius:22px;padding:20px 22px;color:#EDE6D6;cursor:pointer;display:flex;flex-direction:column;gap:6px;font-family:'Hanken Grotesk',sans-serif;transition:border-color .25s,transform .25s cubic-bezier(.2,.8,.2,1)}
@@ -35,6 +36,11 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
     return `Your ${ord} return opened in ${fmtMonYrL(open)} and runs into ${fmtMonth(w.windowEnd)}. You are ${where}${nextHit ? `, and the next exact pass is ${untilText(today, Date.parse(nextHit))}` : `; the last exact pass is behind you`}.`;
   })();
   const chart = windowChart(c.natalLon, w, today);
+  // Shaded return window, opens to closes, as in the design's result artboard.
+  const band = windowBand(chart, w);
+  const closesX = Math.min(Math.max(band.x1, 64), 936);
+  const natalText = `your natal Saturn, ${Math.floor(c.degree)}° ${c.sign}`;
+  const natal = natalLabelPos(chart, c.natalLon, w.hits, natalText, { boxes: chart.todayX > 0 ? [{ x0: chart.todayX - 32, x1: chart.todayX + 32, y0: 2, y1: 26 }] : [] });
   const P = w.hits.length === 1 ? PASS1 : PASS3;
   const passes = w.hits.map((h, i) => ({ label: w.hits.length === 1 ? "Exact pass" : `Pass ${["one", "two", "three"][i]}`, month: fmtMonYrL(Date.parse(h)), name: P[Math.min(i, P.length - 1)][0], body: P[Math.min(i, P.length - 1)][1], x: chart.x(Date.parse(h)) }));
   const price = opts.hasTime ? 29 : 19;
@@ -52,11 +58,12 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
 <section class="wrap" style="padding-bottom:32px">
   <div style="background:#14171D;border-radius:32px;padding:clamp(20px,3vw,40px);overflow-x:auto">
     <svg viewBox="0 0 1000 300" style="width:100%;min-width:640px;display:block" role="img" aria-label="Saturn's path across your natal degree">
-      <rect x="${chart.contactX0.toFixed(1)}" y="16" width="${(chart.contactX1 - chart.contactX0 + 8).toFixed(1)}" height="244" rx="8" fill="rgba(242,181,68,.06)"/>
+      <rect data-band data-start="${w.windowStart}" data-end="${w.windowEnd}" x="${band.x0.toFixed(1)}" y="16" width="${band.width.toFixed(1)}" height="244" rx="14" fill="rgba(242,181,68,.05)"/>
       <line x1="40" y1="${chart.y0.toFixed(1)}" x2="960" y2="${chart.y0.toFixed(1)}" stroke="rgba(237,230,214,.4)" stroke-dasharray="4 6"/>
-      <text x="958" y="${(chart.y0 - 10).toFixed(1)}" text-anchor="end" fill="#A7A196" font-size="13" font-family="Hanken Grotesk, sans-serif">your natal Saturn, ${Math.floor(c.degree)}° ${c.sign}</text>
+      <text x="${natal.x.toFixed(1)}" y="${natal.y.toFixed(1)}" text-anchor="${natal.anchor}" fill="#A7A196" font-size="13" font-family="Hanken Grotesk, sans-serif">${natalText}</text>
       <line x1="40" y1="260" x2="960" y2="260" stroke="rgba(237,230,214,.15)"/>
-      ${chart.yearTicks.map((t) => html`<text x="${t.x.toFixed(1)}" y="288" text-anchor="middle" fill="#8A857B" font-size="13" font-family="Hanken Grotesk, sans-serif">${t.label}</text>`)}
+      ${chart.yearTicks.filter((t) => Math.abs(t.x - closesX) > 44).map((t) => html`<text x="${t.x.toFixed(1)}" y="288" text-anchor="middle" fill="#8A857B" font-size="13" font-family="Hanken Grotesk, sans-serif">${t.label}</text>`)}
+      <text x="${closesX.toFixed(1)}" y="288" text-anchor="middle" fill="#A7A196" font-size="13" font-family="Hanken Grotesk, sans-serif">closes</text>
       ${chart.todayX > 0 ? html`<line x1="${chart.todayX.toFixed(1)}" y1="16" x2="${chart.todayX.toFixed(1)}" y2="260" stroke="#EDE6D6" stroke-width="1.5" stroke-dasharray="2 4"/><rect x="${(chart.todayX - 32).toFixed(1)}" y="2" width="64" height="24" rx="12" fill="#EDE6D6"/><text x="${chart.todayX.toFixed(1)}" y="18" text-anchor="middle" fill="#0E1014" font-size="12" font-weight="600" font-family="Hanken Grotesk, sans-serif">Today</text>` : ""}
       <path class="draw" pathLength="1000" d="${chart.path}" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
       ${passes.map((p, i) => html`<g class="mk" style="animation-delay:${(1.6 + i * 0.5).toFixed(1)}s"><circle class="pulse pp" data-i="${i}" cx="${p.x.toFixed(1)}" cy="${chart.y0.toFixed(1)}" r="10" fill="#F2B544" style="opacity:${i === 0 ? 1 : 0}"/><circle cx="${p.x.toFixed(1)}" cy="${chart.y0.toFixed(1)}" r="8" fill="#0E1014" stroke="#F2B544" stroke-width="3"/></g>`)}
