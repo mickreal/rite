@@ -185,3 +185,10 @@ export function lastMondayLocal(tz: string, now = new Date()): string {
   const back = (dow + 6) % 7;
   return ymd(new Date(Date.parse(date + "T00:00:00Z") - back * DAY));
 }
+
+/** Saturn Season is only sold when it has something to say: from 60 days before the window opens until it closes. */
+export const SEASON_LEAD_DAYS = 60;
+export function seasonAvailable(windowStart: string, windowEnd: string, today = new Date()): boolean {
+  const t = today.getTime();
+  return t >= Date.parse(windowStart) - SEASON_LEAD_DAYS * 86400000 && t < Date.parse(windowEnd);
+}

@@ -166,3 +166,15 @@ describe("next note after the welcome note", () => {
     expect(nextNoteAfterLast("Australia/Melbourne", from, "2026-10-11T20:00:00Z").toISOString()).toBe("2026-10-18T20:00:00.000Z");
   });
 });
+
+import { seasonAvailable } from "../src/season";
+describe("seasonAvailable", () => {
+  const ws = "2041-06-01", we = "2044-10-30";
+  it("is off long before the window, on from 60 days before, off once it closes", () => {
+    expect(seasonAvailable(ws, we, new Date("2026-10-17"))).toBe(false);
+    expect(seasonAvailable(ws, we, new Date("2041-03-01"))).toBe(false);
+    expect(seasonAvailable(ws, we, new Date("2041-04-15"))).toBe(true);
+    expect(seasonAvailable(ws, we, new Date("2043-01-01"))).toBe(true);
+    expect(seasonAvailable(ws, we, new Date("2044-10-31"))).toBe(false);
+  });
+});

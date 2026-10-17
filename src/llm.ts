@@ -4,23 +4,25 @@ import { previewSystem, reportSystem, seasonSystem, type SeasonInputs } from "./
 interface Env { ANTHROPIC_API_KEY: string; MODEL_REPORT: string; MODEL_PREVIEW: string }
 
 async function complete(env: Env, model: string, system: string, user: string, maxTokens: number): Promise<string> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model, max_tokens: maxTokens,
-      system,
-      messages: [{ role: "user", content: user }],
-    }),
-  });
-  if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
-  const raw = await res.text();
-  const text = extractText(raw);
-  if (!text) throw new Error(`Anthropic: no text in response: ${raw.slice(0, 1500)}`);
+  // Haiku can think by default and occasionally spends the whole budget on it, returning only an empty thinking block
+  // (the Ask and preview "no text in response" errors). Haiku accepts {type:"disabled"}; Sonnet 5.5 rejects it (it wants
+  // "between_tools") and doesn't think by default, so only Haiku gets the parameter. If a reply still has no text, one
+  // retry with twice the budget.
+  const call = async (budget: number) => {
+    const body: Record<string, unknown> = { model, max_tokens: budget, system, messages: [{ role: "user", content: user }] };
+    if (/haiku/i.test(model)) body.thinking = { type: "disabled" };
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
+    return res.text();
+  };
+  let raw = await call(maxTokens);
+  let text = extractText(raw);
+  if (!text) { raw = await call(maxTokens * 2); text = extractText(raw); }
+  if (!text) throw new Error(`Anthropic: no text in response: ${raw.slice(0, 600)}`);
   return text;
 }
 

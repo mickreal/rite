@@ -27,7 +27,7 @@ import { voicePage } from "./views/voice";
 import { resultPage } from "./views/result";
 import { seasonManagePage, type SeasonManageData } from "./views/season";
 import { seasonLandingPage } from "./views/season-landing";
-import { nextNoteDate, nextNoteAfterLast, yearlyAllowed, unusedMonths, yearlyRefundCents, comingUpText, windowOpenSendOn, noteFacts, seasonFallbackBody, sampleNote, lastMondayLocal, type SeasonPlan } from "./season";
+import { seasonAvailable, nextNoteDate, nextNoteAfterLast, yearlyAllowed, unusedMonths, yearlyRefundCents, comingUpText, windowOpenSendOn, noteFacts, seasonFallbackBody, sampleNote, lastMondayLocal, type SeasonPlan } from "./season";
 import { SIGN_NOTES } from "./content/notes";
 import { localHour, localToUtc } from "./geo";
 import { adminAuthorized, adminStats, adminExtras, adminDays } from "./admin";
@@ -752,7 +752,11 @@ app.post("/season/:tok", async (c) => {
   const pu = await getPurchase(c.env, c.req.param("tok")); if (!pu) return c.notFound();
   const s = stripe(c.env);
   const form = await c.req.parseBody().catch(() => ({} as Record<string, unknown>));
-  const plan: SeasonPlan = String(form.plan ?? "") === "year" ? "year" : "month";
+  let plan: SeasonPlan = String(form.plan ?? "") === "year" ? "year" : "month";
+  const pv = await getPreview(c.env, pu.preview_id); if (!pv) return c.notFound();
+  const w = recompute(pv).window;
+  if (!seasonAvailable(w.windowStart, w.windowEnd)) return c.redirect(`/r/${pu.id}#season`, 303); // nothing to send yet / window closed
+  if (plan === "year" && !yearlyAllowed(w.windowEnd)) plan = "month";
   const prices = await ensureSeasonPrices(c.env);
   const session = await s.checkout.sessions.create({
     mode: "subscription",
