@@ -10,7 +10,7 @@
 // Several pause tokens in a row: explicit [pause N] values add up and override the paragraph default.
 import { spliceMp3 } from "./mp3";
 
-export const NARRATION_VERSION = "v2"; // bump to stop serving cached audio made by an older pipeline or script
+export const NARRATION_VERSION = "v3"; // bump to stop serving cached audio made by an older pipeline or script
 
 export const PARAGRAPH_MS = 700;
 export const DEFAULT_PAUSE_MS = 500;
@@ -33,14 +33,37 @@ export const TTS_MODELS: ModelInfo[] = [
   { id: "@cf/myshell-ai/melotts", label: "MeloTTS (MyShell)", defaultVoice: "en", note: "$0.000205 / audio minute; one voice per language",
     voices: ["en"] },
 ];
+// ElevenLabs (the brand voice, chosen 17 Oct 2026: Anna, used for the reels too). Only offered when ELEVENLABS_API_KEY is set;
+// voices are names here, mapped to ElevenLabs voice ids below.
+export const ELEVEN_VOICES: Record<string, string> = {
+  anna: "raT7q57pHznZDO2jDPDe",   // Anna – Friendly, warm & natural (Australian)
+  lily: "0QT4OrDTvpDlUPmFsUWN",   // Lily – Australian female in her 40s
+  bruce: "8HOgpuH7Mid4fwQK1Jln",  // Bruce – mature Australian narrator
+  sarah: "EXAVITQu4vr4xnSDxMaL",  // Sarah – mature, reassuring (American)
+  george: "JBFqnCBsd6RMkjVDRZzb", // George – warm storyteller (British)
+};
+TTS_MODELS.unshift(
+  { id: "elevenlabs/eleven_v3", label: "ElevenLabs v3", defaultVoice: "anna", perKChars: 0.1, note: "≈ $0.10–0.18 / 1k chars (plan-dependent)", voices: Object.keys(ELEVEN_VOICES) },
+  { id: "elevenlabs/eleven_flash_v2_5", label: "ElevenLabs Flash v2.5", defaultVoice: "anna", perKChars: 0.05, note: "≈ $0.05–0.09 / 1k chars", voices: Object.keys(ELEVEN_VOICES) },
+);
 export const DEFAULT_MODEL = "@cf/deepgram/aura-1";
+export const DEFAULT_ELEVEN_MODEL = "elevenlabs/eleven_v3";
+export const isEleven = (model: string) => model.startsWith("elevenlabs/");
+/** Used when ElevenLabs fails, so a reader still hears something (not cached, so the next play retries ElevenLabs). */
+export const FALLBACK: TtsConfig = { model: DEFAULT_MODEL, voice: "luna" };
 
 export interface TtsConfig { model: string; voice: string }
+type TtsEnv = { TTS_MODEL?: string; TTS_VOICE?: string; ELEVENLABS_API_KEY?: string };
 
-/** Pick a model and voice: requested values if valid, else TTS_MODEL / TTS_VOICE, else the defaults. Invalid voice → model default. */
-export function ttsConfig(env: { TTS_MODEL?: string; TTS_VOICE?: string }, want: { model?: unknown; voice?: unknown } = {}): TtsConfig {
-  const find = (m: unknown) => TTS_MODELS.find((x) => x.id === m);
-  const info = find(want.model) ?? find(env.TTS_MODEL) ?? find(DEFAULT_MODEL)!;
+/** Models usable on this deployment (ElevenLabs only with a key). */
+export const availableModels = (env: TtsEnv) => TTS_MODELS.filter((m) => !isEleven(m.id) || !!env.ELEVENLABS_API_KEY);
+
+/** Pick a model and voice: requested values if valid, else TTS_MODEL / TTS_VOICE, else the defaults (ElevenLabs v3 + Anna when a
+ * key is set, else Aura 1 + luna). Invalid voice → model default. */
+export function ttsConfig(env: TtsEnv, want: { model?: unknown; voice?: unknown } = {}): TtsConfig {
+  const models = availableModels(env);
+  const find = (m: unknown) => models.find((x) => x.id === m);
+  const info = find(want.model) ?? find(env.TTS_MODEL) ?? find(env.ELEVENLABS_API_KEY ? DEFAULT_ELEVEN_MODEL : DEFAULT_MODEL) ?? find(DEFAULT_MODEL)!;
   const voice = [want.voice, env.TTS_VOICE].find((v): v is string => typeof v === "string" && info.voices.includes(v)) ?? info.defaultVoice;
   return { model: info.id, voice };
 }
@@ -153,7 +176,17 @@ export async function toBytes(res: unknown): Promise<Uint8Array> {
 export interface Synth { bytes: Uint8Array; chunks: number; chars: number; spliced: boolean; durationMs: number; silenceMs: number }
 
 /** Script (with markup) → one MP3. Up to `concurrency` TTS calls in flight; order is preserved. */
-export async function synthesize(ai: Ai, script: string, cfg: TtsConfig, opts: { concurrency?: number; maxChunks?: number } = {}): Promise<Synth> {
+async function elevenTts(key: string, model: string, voice: string, text: string): Promise<Uint8Array> {
+  const id = ELEVEN_VOICES[voice] ?? ELEVEN_VOICES.anna;
+  const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${id}?output_format=mp3_44100_128`, {
+    method: "POST", headers: { "content-type": "application/json", "xi-api-key": key, accept: "audio/mpeg" },
+    body: JSON.stringify({ text, model_id: model.slice("elevenlabs/".length), voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
+  });
+  if (!r.ok) throw new Error(`ElevenLabs ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  return new Uint8Array(await r.arrayBuffer());
+}
+
+export async function synthesize(ai: Ai | undefined, script: string, cfg: TtsConfig, opts: { concurrency?: number; maxChunks?: number; elevenKey?: string } = {}): Promise<Synth> {
   const chunks = planChunks(parseScript(script), MAX_CHUNK_CHARS, opts.maxChunks ?? MAX_CHUNKS);
   if (!chunks.length) throw new Error("nothing to say");
   const audio: Uint8Array[] = new Array(chunks.length);
@@ -161,7 +194,13 @@ export async function synthesize(ai: Ai, script: string, cfg: TtsConfig, opts: {
   const worker = async () => {
     while (next < chunks.length) {
       const i = next++;
-      audio[i] = await toBytes(await ai.run(cfg.model as never, modelInput(cfg.model, cfg.voice, chunks[i].text) as never));
+      if (isEleven(cfg.model)) {
+        if (!opts.elevenKey) throw new Error("ELEVENLABS_API_KEY is not set");
+        audio[i] = await elevenTts(opts.elevenKey, cfg.model, cfg.voice, chunks[i].text);
+      } else {
+        if (!ai) throw new Error("no AI binding on this deployment");
+        audio[i] = await toBytes(await ai.run(cfg.model as never, modelInput(cfg.model, cfg.voice, chunks[i].text) as never));
+      }
     }
   };
   await Promise.all(Array.from({ length: Math.min(opts.concurrency ?? 3, chunks.length) }, worker));

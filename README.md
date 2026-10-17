@@ -144,6 +144,8 @@ Every number comes from code. The model only writes prose and is told it may not
 
 ## Narration
 
+**Voice (17 Oct 2026).** One brand voice everywhere: ElevenLabs v3, voice Anna (warm & natural, Australian), for the reading narration, the audition page and the reels. It is used whenever the `ELEVENLABS_API_KEY` secret is set (key permission: Text to Speech; Voices read optional); without it the narration falls back to Workers AI (Aura 1, luna). If ElevenLabs fails on a play, that play gets the Workers AI voice and is not cached, so the next play retries ElevenLabs. Cost ≈ $1–3.60 per fully played reading, charged only on first play of each chapter (then cached in KV for a year).
+
 **Pipeline.** Script with pause markup → split at pause points into chunks (≤ 1,800 chars each, ≤ 24 per chapter) → one Workers AI call per chunk (3 in flight) → MP3 frames spliced with real silence between chunks (`src/mp3.ts`) → cached in KV for a year under `audio:<NARRATION_VERSION>:<model>:<voice>:<purchase>:<chapter>`. Bump `NARRATION_VERSION` in `src/tts.ts` whenever the script or pipeline changes; changing `TTS_MODEL` / `TTS_VOICE` changes the key by itself. The player also requests `?v=<NARRATION_VERSION>` so browsers don't replay their own day-long cached copy.
 
 **Config.** `TTS_MODEL` (default `@cf/deepgram/aura-1`) and `TTS_VOICE` (default `luna`) as `[vars]`; unset means the defaults in code. An unknown model falls back to the default; a voice the model doesn't have falls back to that model's default.

@@ -22,7 +22,7 @@ import { giftPage } from "./views/gift";
 import { writingPage } from "./views/writing";
 import { legalPage } from "./views/legal";
 import { narrationText, CHAPTERS } from "./narration";
-import { synthesize, ttsConfig, audioCacheKey, MAX_ADMIN_CHARS } from "./tts";
+import { synthesize, ttsConfig, audioCacheKey, MAX_ADMIN_CHARS, isEleven, FALLBACK, availableModels } from "./tts";
 import { voicePage } from "./views/voice";
 import { resultPage } from "./views/result";
 import { seasonManagePage, type SeasonManageData } from "./views/season";
@@ -42,7 +42,7 @@ export interface Env {
   MODEL_REPORT: string; MODEL_PREVIEW: string;
   FROM_EMAIL: string; SUPPORT_EMAIL: string;
   STRIPE_SECRET_KEY: string; STRIPE_WEBHOOK_SECRET: string; ADMIN_KEY?: string; ANTHROPIC_API_KEY: string; RESEND_API_KEY: string;
-  AI?: Ai; TTS_MODEL?: string; TTS_VOICE?: string; ADMIN_EMAIL?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string;
+  AI?: Ai; TTS_MODEL?: string; TTS_VOICE?: string; ELEVENLABS_API_KEY?: string; ADMIN_EMAIL?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -579,7 +579,7 @@ app.get("/r/:tok/audio/:ch{[0-9]+\\.mp3}", async (c) => {
   if (!pu) return c.notFound();
   const r = parseReport(pu.report_md);
   if (!r) return c.text("Reading not written yet", 409);
-  if (!c.env.AI) return c.text("Narration isn't available on this deployment", 503);
+  if (!c.env.AI && !c.env.ELEVENLABS_API_KEY) return c.text("Narration isn't available on this deployment", 503);
   const cfg = ttsConfig(c.env);
   const key = audioCacheKey(pu.id, ch, cfg);
   const hit = await c.env.CACHE.get(key, "arrayBuffer");
@@ -588,13 +588,19 @@ app.get("/r/:tok/audio/:ch{[0-9]+\\.mp3}", async (c) => {
   if (!p) return c.notFound();
   const comp = recompute(p); const cy = cycle(comp);
   const script = narrationText(ch, comp, cy, r, pu.first_name);
-  let out;
-  try { out = await synthesize(c.env.AI, script, cfg); }
-  catch (e) { await log(c.env, "error", pu.id, { where: "tts", ch, model: cfg.model, e: String(e) }); return c.text("Narration failed just now; try again in a moment.", 502); }
+  let out; let used = cfg;
+  try { out = await synthesize(c.env.AI, script, cfg, { elevenKey: c.env.ELEVENLABS_API_KEY, concurrency: isEleven(cfg.model) ? 2 : 3 }); }
+  catch (e) {
+    await log(c.env, "error", pu.id, { where: "tts", ch, model: cfg.model, e: String(e) });
+    if (!isEleven(cfg.model) || !c.env.AI) return c.text("Narration failed just now; try again in a moment.", 502);
+    // ElevenLabs is down or out of credit: play the Workers AI voice now, don't cache it, so the next play retries ElevenLabs
+    try { used = FALLBACK; out = await synthesize(c.env.AI, script, FALLBACK); }
+    catch (e2) { await log(c.env, "error", pu.id, { where: "tts-fallback", ch, e: String(e2) }); return c.text("Narration failed just now; try again in a moment.", 502); }
+  }
   const buf = out.bytes.slice().buffer as ArrayBuffer;
-  c.executionCtx.waitUntil(c.env.CACHE.put(key, buf, { expirationTtl: 86400 * 365 }));
-  await log(c.env, "narrated", pu.id, { ch, chars: out.chars, chunks: out.chunks, spliced: out.spliced, model: cfg.model, voice: cfg.voice });
-  return c.body(buf, 200, { "content-type": "audio/mpeg", "cache-control": "private, max-age=86400", "x-cache": "miss" });
+  if (used === cfg) c.executionCtx.waitUntil(c.env.CACHE.put(key, buf, { expirationTtl: 86400 * 365 }));
+  await log(c.env, "narrated", pu.id, { ch, chars: out.chars, chunks: out.chunks, spliced: out.spliced, model: used.model, voice: used.voice, fallback: used !== cfg });
+  return c.body(buf, 200, { "content-type": "audio/mpeg", "cache-control": used === cfg ? "private, max-age=86400" : "no-store", "x-cache": "miss" });
 });
 
 app.get("/r/:tok/calendar.ics", async (c) => {
@@ -962,7 +968,7 @@ const ADMIN_HDRS = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofo
 const adminKeyOk = (env: Env, auth: string | undefined, key: string | undefined) => !!env.ADMIN_KEY && adminAuthorized(env.ADMIN_KEY, auth, key);
 app.get("/admin/voice", (c) => {
   if (!adminKeyOk(c.env, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
-  return c.html(voicePage({ key: c.req.query("key"), current: ttsConfig(c.env), ai: !!c.env.AI }), 200, ADMIN_HDRS);
+  return c.html(voicePage({ key: c.req.query("key"), current: ttsConfig(c.env), ai: !!c.env.AI, models: availableModels(c.env) }), 200, ADMIN_HDRS);
 });
 app.post("/admin/tts", async (c) => {
   if (!adminKeyOk(c.env, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
@@ -970,10 +976,10 @@ app.post("/admin/tts", async (c) => {
   const text = typeof b?.text === "string" ? b.text.trim() : "";
   if (!text) return c.json({ error: "text is required" }, 400, ADMIN_HDRS);
   if (text.length > MAX_ADMIN_CHARS) return c.json({ error: `text is over ${MAX_ADMIN_CHARS} characters` }, 413, ADMIN_HDRS);
-  if (!c.env.AI) return c.json({ error: "no AI binding on this deployment (deploy, or wrangler dev --remote)" }, 503, ADMIN_HDRS);
   const cfg = ttsConfig(c.env, { model: b?.model, voice: b?.voice });
+  if (!isEleven(cfg.model) && !c.env.AI) return c.json({ error: "no AI binding on this deployment (deploy, or wrangler dev --remote)" }, 503, ADMIN_HDRS);
   try {
-    const out = await synthesize(c.env.AI, text, cfg);
+    const out = await synthesize(c.env.AI, text, cfg, { elevenKey: c.env.ELEVENLABS_API_KEY, concurrency: isEleven(cfg.model) ? 2 : 3 });
     return c.body(out.bytes.slice().buffer as ArrayBuffer, 200, { ...ADMIN_HDRS, "content-type": "audio/mpeg", "x-tts-model": cfg.model, "x-tts-voice": cfg.voice,
       "x-tts-chunks": String(out.chunks), "x-tts-spliced": String(out.spliced), "x-tts-duration-ms": String(out.durationMs) });
   } catch (e) { return c.json({ error: String(e) }, 502, ADMIN_HDRS); }

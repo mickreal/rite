@@ -221,7 +221,7 @@ describe("/admin/voice and /admin/tts", () => {
     const h = await r.text();
     expect(h).toContain("<textarea");
     expect(h).toContain("[pause 1000]");
-    for (const m of TTS_MODELS) expect(h).toContain(m.id);
+    for (const m of TTS_MODELS) if (m.id.startsWith("elevenlabs/")) expect(h).not.toContain(m.id); else expect(h).toContain(m.id); // no ELEVENLABS_API_KEY here
     expect(h).toContain('"thalia"');
     expect(h).not.toContain("posthog");
   });
@@ -236,5 +236,26 @@ describe("/admin/voice and /admin/tts", () => {
     expect((await post(`/admin/tts?key=${KEY}`, { text: " " })).status).toBe(400);
     expect((await post(`/admin/tts?key=${KEY}`, { text: "x".repeat(9000) })).status).toBe(413);
     expect((await post(`/admin/tts?key=${KEY}`, { text: "Hi." }, {}, env({ AI: undefined }))).status).toBe(503);
+  });
+
+  it("with ELEVENLABS_API_KEY: ElevenLabs v3 + Anna is the default, and /admin/tts calls ElevenLabs", async () => {
+    expect(ttsConfig({})).toEqual({ model: DEFAULT_MODEL, voice: "luna" });
+    expect(ttsConfig({ ELEVENLABS_API_KEY: "xi" })).toEqual({ model: "elevenlabs/eleven_v3", voice: "anna" });
+    expect(ttsConfig({}, { model: "elevenlabs/eleven_v3" }).model).toBe(DEFAULT_MODEL); // not offered without a key
+    const seen: Request[] = [];
+    vi.stubGlobal("fetch", async (input: RequestInfo, init?: RequestInit) => { const r = new Request(input, init); seen.push(r); return new Response(A, { status: 200, headers: { "content-type": "audio/mpeg" } }); });
+    try {
+      const e = env({ ELEVENLABS_API_KEY: "xi_test" });
+      const r = await post("/admin/tts", { text: "One. [pause 600] Two." }, { authorization: `Bearer ${KEY}` }, e);
+      expect(r.status).toBe(200);
+      expect(r.headers.get("x-tts-model")).toBe("elevenlabs/eleven_v3");
+      expect(r.headers.get("x-tts-voice")).toBe("anna");
+      expect(seen).toHaveLength(2);
+      expect(seen[0].url).toContain("api.elevenlabs.io/v1/text-to-speech/raT7q57pHznZDO2jDPDe");
+      expect(seen[0].headers.get("xi-api-key")).toBe("xi_test");
+      expect(((await seen[0].json()) as { model_id: string }).model_id).toBe("eleven_v3");
+      const page = await (await call(`/admin/voice?key=${KEY}`, {}, e)).text();
+      expect(page).toContain("elevenlabs/eleven_v3");
+    } finally { vi.unstubAllGlobals(); }
   });
 });

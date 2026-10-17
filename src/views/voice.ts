@@ -36,16 +36,17 @@ const CSS = `
 .vox .ghostbtn{min-height:48px;border-radius:999px;border:1px solid rgba(237,230,214,.22);background:transparent;color:#EDE6D6;padding:0 18px;font:500 15px 'Hanken Grotesk',sans-serif;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
 `;
 
-export function voicePage(d: { key?: string | null; current: TtsConfig; ai: boolean }) {
+export function voicePage(d: { key?: string | null; current: TtsConfig; ai: boolean; models?: typeof TTS_MODELS }) {
+  const MODELS = d.models ?? TTS_MODELS;
   const back = `/admin${d.key ? `?key=${encodeURIComponent(d.key)}` : ""}`;
   const body = html`<main class="vox">
 <div class="bar" style="justify-content:space-between"><h1>Voice</h1><a class="ghostbtn" href="${back}">Back to admin</a></div>
-<p class="muted" style="margin:-8px 0 0">Live narration uses <code>${d.current.model}</code> · <code>${d.current.voice}</code> (set <code>TTS_MODEL</code> / <code>TTS_VOICE</code> to change it).${d.ai ? "" : html` <b style="color:#E08A7A">No AI binding on this deployment, so Play will fail.</b>`}</p>
+<p class="muted" style="margin:-8px 0 0">Live narration uses <code>${d.current.model}</code> · <code>${d.current.voice}</code> (ElevenLabs v3 + Anna whenever <code>ELEVENLABS_API_KEY</code> is set; <code>TTS_MODEL</code> / <code>TTS_VOICE</code> override it).${d.ai || d.current.model.startsWith("elevenlabs/") ? "" : html` <b style="color:#E08A7A">No AI binding on this deployment, so Play will fail.</b>`}</p>
 <section class="card">
 <form id="vf" style="display:flex;flex-direction:column;gap:14px">
 <label>Script <textarea id="vt" spellcheck="false" maxlength="${MAX_ADMIN_CHARS}">${SAMPLE_SCRIPT}</textarea></label>
 <div class="row">
-<label>Model <select id="vm">${TTS_MODELS.map((m) => html`<option value="${m.id}" ${m.id === d.current.model ? html`selected` : ""}>${m.label} · ${m.note}</option>`)}</select></label>
+<label>Model <select id="vm">${MODELS.map((m) => html`<option value="${m.id}" ${m.id === d.current.model ? html`selected` : ""}>${m.label} · ${m.note}</option>`)}</select></label>
 <label>Voice <select id="vv"></select></label>
 </div>
 <div class="bar"><button class="solid" id="vp" type="submit">Play</button><a class="ghostbtn" id="vd" download="rite-voice.mp3" style="display:none">Download MP3</a><span class="status" id="vs" role="status" aria-live="polite"></span></div>
@@ -61,7 +62,7 @@ export function voicePage(d: { key?: string | null; current: TtsConfig; ai: bool
 <li>Same endpoint for VO: <code>POST /admin/tts</code> with JSON <code>{"text", "model", "voice"}</code> and <code>Authorization: Bearer &lt;ADMIN_KEY&gt;</code> returns <code>audio/mpeg</code>.</li>
 </ul></section>
 </main>`;
-  const models = JSON.stringify(TTS_MODELS.map((m) => ({ id: m.id, voices: m.voices, def: m.defaultVoice }))).replace(/</g, "\\u003c");
+  const models = JSON.stringify(MODELS.map((m) => ({ id: m.id, voices: m.voices, def: m.defaultVoice }))).replace(/</g, "\\u003c");
   const script = `(function(){var M=${models},CUR=${JSON.stringify(d.current).replace(/</g, "\\u003c")},KEY=new URLSearchParams(location.search).get('key')||'';
 var $=function(i){return document.getElementById(i)},vm=$('vm'),vv=$('vv'),vs=$('vs'),va=$('va'),vd=$('vd'),vp=$('vp'),url=null;
 function fill(){var m=M.find(function(x){return x.id===vm.value})||M[0];vv.innerHTML='';m.voices.forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v+(v===m.def?' (default)':'');if(v===(vm.value===CUR.model?CUR.voice:m.def))o.selected=true;vv.appendChild(o)})}
