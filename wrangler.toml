@@ -16,11 +16,13 @@ TTS_VOICE = "luna"
 ADMIN_EMAIL = "mail@mickreal.com"
 POSTHOG_KEY = "phc_ybwtQEUxfgYeRSpCMHFL5uJX5GBHUv4JDzxx7HUPvh3T"
 POSTHOG_HOST = "https://us.i.posthog.com"
+# POSTHOG_PROJECT_ID = "12345"   # optional, with the POSTHOG_PERSONAL_API_KEY secret: visits in the Monday KPI email
 FROM_EMAIL = "Rite <hello@rite.report>"
 SUPPORT_EMAIL = "hello@rite.report"
 
 # Secrets (set with `wrangler secret put NAME`):
 #   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, ANTHROPIC_API_KEY, RESEND_API_KEY
+#   optional: POSTHOG_PERSONAL_API_KEY (Monday KPI email visits)
 
 [[d1_databases]]
 binding = "DB"

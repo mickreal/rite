@@ -338,7 +338,13 @@ describe("charge.refunded", () => {
     expect((await h.webhook(stripeEvent("charge.refunded"))).status).toBe(200);
     expect(h.db.row("SELECT status FROM purchases WHERE id = ?", TOK)!.status).toBe("refunded");
     expect(h.db.row("SELECT status FROM purchases WHERE id = ?", "tok_test_purchase_000000000000002")!.status).toBe("generated");
-    expect(h.calls).toHaveLength(0);
+    // a dashboard refund gets an events row (the KPI email counts it); the only outbound call is PostHog's server_refund
+    expect(h.events("refund")).toEqual([{ kind: "refund", ref: TOK, detail: expect.objectContaining({ via: "stripe", gift: false }) }]);
+    expect(h.posthog()).toEqual(["server_refund"]);
+    expect(h.calls).toHaveLength(1);
+    // a redelivery (or the echo of POST /admin/refund) changes no row and logs nothing more
+    await h.webhook(stripeEvent("charge.refunded"));
+    expect(h.events("refund")).toHaveLength(1);
   });
 
   it("voids an unredeemed gift code, so it can no longer be redeemed", async () => {

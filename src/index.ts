@@ -33,6 +33,7 @@ import { SIGN_NOTES } from "./content/notes";
 import { localHour, localToUtc } from "./geo";
 import { adminAuthorized, adminStats, adminExtras, adminDays } from "./admin";
 import { adminPage } from "./views/admin";
+import { buildKpiReport, kpiSendHour, posthogVisits } from "./kpi";
 
 export interface Env {
   DB: D1Database;
@@ -44,6 +45,7 @@ export interface Env {
   FROM_EMAIL: string; SUPPORT_EMAIL: string;
   STRIPE_SECRET_KEY: string; STRIPE_WEBHOOK_SECRET: string; ADMIN_KEY?: string; ANTHROPIC_API_KEY: string; RESEND_API_KEY: string;
   AI?: Ai; TTS_MODEL?: string; TTS_VOICE?: string; ELEVENLABS_API_KEY?: string; ADMIN_EMAIL?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string;
+  POSTHOG_PERSONAL_API_KEY?: string; POSTHOG_PROJECT_ID?: string; // optional: visits in the Monday KPI email (HogQL query API)
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -942,9 +944,12 @@ app.post("/webhook/stripe", async (c) => {
       const gi = await c.env.DB.prepare("SELECT code FROM gifts WHERE stripe_payment_intent=?").bind(pi).first<{ code: string }>();
       if (pu || gi) {
         if (ch.refunded) {
-          await c.env.DB.prepare("UPDATE purchases SET status='refunded' WHERE stripe_payment_intent=?").bind(pi).run();
+          const rp = await c.env.DB.prepare("UPDATE purchases SET status='refunded' WHERE stripe_payment_intent=? AND status != 'refunded'").bind(pi).run();
           // a refunded, unredeemed gift code stops working (same marker as /admin/refund); a redeemed one keeps its reading
-          await c.env.DB.prepare("UPDATE gifts SET redeemed_at='refunded' WHERE stripe_payment_intent=? AND redeemed_at IS NULL").bind(pi).run();
+          const rg = await c.env.DB.prepare("UPDATE gifts SET redeemed_at='refunded' WHERE stripe_payment_intent=? AND redeemed_at IS NULL").bind(pi).run();
+          // refunds made in the Stripe dashboard get an events row too (the KPI email counts them); POST /admin/refund has
+          // already logged and updated its own, so its echo changes no row and logs nothing
+          if (rp.meta.changes || rg.meta.changes) await log(c.env, "refund", pu?.id ?? gi?.code ?? null, { via: "stripe", gift: !pu, amount: ch.amount_refunded });
         } else await log(c.env, "partial_refund_ignored", pu?.id ?? gi?.code ?? null, { pi, amount_refunded: ch.amount_refunded });
       } else {
         // Not a reading or gift: maybe a Saturn Season invoice. Any refund on one stops the subscription (no more charges or
@@ -1012,6 +1017,17 @@ app.get("/admin", async (c) => {
   const [stats, extras] = await Promise.all([adminStats(c.env.DB, adminDays(c.req.query("days"))), adminExtras(c.env.DB)]);
   return c.html(adminPage({ stats, extras, currency: c.env.CURRENCY, key: c.req.query("key"), generatedAt: now() }), 200,
     { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
+});
+
+// Monday KPI email as text, any time (ADMIN_KEY only, like GET /admin), and a forced send (bearer, like the other POSTs).
+app.get("/admin/kpi", async (c) => {
+  if (!c.env.ADMIN_KEY || !adminAuthorized(c.env.ADMIN_KEY, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
+  const r = await buildKpiReport(c.env.DB, new Date(), kpiOpts(c.env));
+  return c.text(r.text, 200, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
+});
+app.post("/admin/kpi/send", async (c) => {
+  if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
+  return c.json(await runKpiEmail(c.env, new Date(), true));
 });
 
 // Voice audition (GET /admin/voice) and the TTS endpoint behind it, which is also the content engine's VO endpoint
@@ -1153,6 +1169,25 @@ async function runCleanup(env: Env) {
   if (r.meta.changes) await log(env, "cleanup", null, { previews: r.meta.changes });
 }
 
+const kpiOpts = (env: Env) => ({ siteUrl: env.SITE_URL, visits: posthogVisits({ key: env.POSTHOG_PERSONAL_API_KEY, project: env.POSTHOG_PROJECT_ID, host: env.POSTHOG_HOST }) });
+
+/** Monday KPI email (build 6): Mondays 07:00–07:59 Brisbane, once a week (a non-forced `kpi_sent` row in the last 6 days skips it). */
+async function runKpiEmail(env: Env, nowD = new Date(), force = false): Promise<{ sent: boolean; reason?: string; headline?: string }> {
+  if (!force) {
+    if (!kpiSendHour(nowD)) return { sent: false, reason: "not Monday 07:00 Brisbane" };
+    const since = new Date(nowD.getTime() - 6 * 86400000).toISOString();
+    const done = await env.DB.prepare("SELECT 1 FROM events WHERE kind='kpi_sent' AND at > ? AND NOT (json_valid(detail) AND COALESCE(json_extract(detail,'$.forced'),0) = 1) LIMIT 1").bind(since).first();
+    if (done) return { sent: false, reason: "already sent this week" };
+  }
+  try {
+    const r = await buildKpiReport(env.DB, nowD, kpiOpts(env));
+    const ok = await sendEmail(env, env.ADMIN_EMAIL || env.SUPPORT_EMAIL, r.subject, r.text);
+    if (!ok) { await log(env, "error", null, { where: "kpi-email", e: "send failed" }); return { sent: false, reason: "send failed", headline: r.headline }; }
+    await log(env, "kpi_sent", null, { forced: force, headline: r.headline.slice(0, 200) });
+    return { sent: true, headline: r.headline };
+  } catch (e) { await log(env, "error", null, { where: "kpi-email", e: String(e) }); return { sent: false, reason: "error" }; }
+}
+
 async function runErrorDigest(env: Env) {
   const today = new Date();
   if (localHour("Australia/Brisbane", today) !== 8) return;
@@ -1279,5 +1314,5 @@ You asked for one email a week before each pass. Stop them: ${stopUrl(env.SITE_U
 
 export default {
   fetch: app.fetch,
-  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runFollowups(env), runErrorDigest(env), runCleanup(env)])); },
+  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runFollowups(env), runErrorDigest(env), runKpiEmail(env), runCleanup(env)])); },
 };
