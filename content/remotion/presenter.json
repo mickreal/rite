@@ -1,0 +1,36 @@
+{
+  "_": "Presenter reels (kit style 3 made with an AI presenter): short Anna to-camera parts where a person lands the line, cards for the data. Times are seconds in the VO take (word timings from ElevenLabs Scribe). Media files are not in git: render-presenter.sh serves content/out/presenter/<id>/ to the renderer.",
+  "reels": [
+    {
+      "id": "script-6",
+      "kit": "launch-kit-v2 (c) 6, 'It's not a day, it's a season'",
+      "audio": "vo.mp3",
+      "voSeconds": 46.08,
+      "tail": 1.4,
+      "segments": [
+        { "kind": "presenter", "from": 0, "to": 10.0, "src": "anna-hook.mp4",
+          "captions": [
+            { "at": 0.0, "to": 3.36, "text": "Your Saturn return is not a birthday. Nobody's is." },
+            { "at": 3.47, "to": 7.0, "text": "Saturn takes about 29½ years to go round." },
+            { "at": 7.09, "to": 10.0, "text": "It comes back to the degree it held when you were born…" }
+          ] },
+        { "kind": "window", "from": 10.0, "to": 22.45,
+          "sign": "Aries", "range": "25 May 2025 – 12 Apr 2028",
+          "cues": { "years": 11.08, "inside": 13.69, "one": 15.72, "three": 17.97, "date": 20.54 } },
+        { "kind": "phases", "from": 22.45, "to": 35.1,
+          "phases": [
+            { "name": "Approach", "line": "Pressure, no verdict.", "at": 24.15, "lineAt": 25.17 },
+            { "name": "Contact", "line": "The dated pass or passes.", "at": 28.5, "lineAt": 28.5 },
+            { "name": "Integration", "line": "What you chose becomes structure.", "at": 31.43, "lineAt": 32.91 }
+          ] },
+        { "kind": "line", "from": 35.1, "to": 41.8,
+          "words": [
+            { "at": 35.23, "text": "If someone tells you it hits at 29," },
+            { "at": 38.16, "text": "ask them which day.", "key": true },
+            { "at": 39.71, "text": "If they can't say, they're guessing." }
+          ] },
+        { "kind": "cta", "from": 41.8, "to": null, "lead": "Free preview at", "site": "rite.report", "tail": "gives you the day.", "tailAt": 44.96 }
+      ]
+    }
+  ]
+}

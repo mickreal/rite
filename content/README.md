@@ -13,6 +13,7 @@ the root `tsconfig.json` and `vitest.config.ts` only see `src/` and `test/`, and
 | 2/6 | Cohort or quote card on a 1080×1920 frame, eased push-in, as long as its voiceover + 1.6 s (TikTok / Reels slot) | `remotion/src/VerticalCard.tsx` + `clips/card-vo.json` | `out/cohorts/cohort-<id>-vertical.mp4`, `out/quotes/quote-<id>-vertical.mp4` (+ `_vo`) |
 | — | Instagram carousel slides (kit (e)), 1080×1350, cream | `remotion/src/CarouselSlide.tsx` + `remotion/carousels.json` | `out/carousels/<carousel id>-NN.png` |
 | 5 | Caption-free result screen, 1080×1920 (green-screen backdrop) | `clips/render-clip.ts --stills` | `out/stills/<cohort>-summary.png` |
+| 3 | Presenter reel: short to-camera parts by Anna (AI presenter, labelled) cut with animated cards, on one VO take | `remotion/src/PresenterReel.tsx` + `remotion/presenter.json` | `out/presenter/<id>.mp4` |
 
 `out/` is git-ignored. `samples/` has four stills and one clip so you can see the look on GitHub.
 
@@ -119,6 +120,19 @@ Card verticals (cohort and quote cards) and sign verticals take their VO from `c
 ### Generating takes outside the renderer
 
 `bun scripts/vo-lines.ts --plan <plan.json>` (or `--signs`) prints one `path<TAB>text` row per take (`<cohort id>/NN` for a dial clip, 00 = hook; `cards/<card id>`; `signs/<slug>`). Generate each as `<dir>/<path>.mp3` with ElevenLabs v3 Anna, then re-render with `VO_PROVIDER=files VO_DIR=<dir>`. Examples: `scripts/vo-lines-2026-11-weeks-3-4.tsv`, `scripts/vo-lines-signs.tsv`.
+
+## Presenter reels (Anna, AI presenter)
+
+Anna is the face for the voice of Rite: an AI presenter generated in ElevenLabs (still: Seedream 5 Pro; talking head: Creatify Aurora, 720p; voice: Anna, `eleven_v3`). She is always labelled "AI presenter" on screen and is never presented as a customer, a reader or Mick. Everything lives in one ElevenLabs flow ("Anna presenter"): the approved vertical still, the VO takes and the lip-sync nodes.
+
+**Use her sparingly.** A talking head costs about $0.17 a second of finished video (≈8.5k credits per 10 s; a 46 s clip is ≈$8), against $0 for cards. So she gets the lines a person lands better than a graphic: the hook, an opinion or challenge ("ask them which day"), sometimes the CTA. Dates, windows, passes and phases stay on cards, where the numbers are exact and legible. Aim for 10–15 s of Anna in a reel, and test any new set-up with a 10 s clip before a long one.
+
+To make one:
+
+1. Write the reel's VO as one take (ElevenLabs v3, Anna) and get word timings (Scribe, free in the flow).
+2. Choose which spans are Anna; cut those spans from the take (at a pause), lip-sync each onto the still in the flow (Aurora, 720p, one generation), download the MP4s.
+3. Add the reel to `remotion/presenter.json`: segments (`presenter`, `window`, `phases`, `line`, `cta`) with their `from`/`to` and the word-timed cues. Put the take (`vo.mp3`) and the presenter clips in `out/presenter/<id>/`.
+4. `bash remotion/render-presenter.sh <id>` → `out/presenter/<id>.mp4` (CRF 17, 30 fps, −16 LUFS). Segments crossfade over 0.45 s, ending on their cue; the presenter part gets a slow 3 % push-in and burned-in captions.
 
 ## Batch export for a scheduler
 
