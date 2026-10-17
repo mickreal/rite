@@ -8,22 +8,38 @@ export const stopUrl = (siteUrl: string, tok: string) => `${siteUrl}/stop/${tok}
  * `opts.unsubscribe`: the stop URL, sent as List-Unsubscribe plus List-Unsubscribe-Post (RFC 8058) so mail apps show
  * their own one-click unsubscribe; the POST lands on /stop/:tok, which does the same as the page's button.
  */
-export async function sendEmail(env: Env, to: string, subject: string, text: string, html?: string, opts: { unsubscribe?: string } = {}): Promise<boolean> {
-  if (!env.RESEND_API_KEY) { console.warn("RESEND_API_KEY missing; email not sent", { to, subject }); return false; }
+export interface SendOpts {
+  unsubscribe?: string;
+  /** Extra headers (e.g. In-Reply-To / References for a threaded support reply), merged after the unsubscribe ones. */
+  headers?: Record<string, string>;
+  /** Overrides FROM_EMAIL (support replies come from SUPPORT_EMAIL). */
+  from?: string;
+}
+
+export async function sendEmail(env: Env, to: string, subject: string, text: string, html?: string, opts: SendOpts = {}): Promise<boolean> {
+  return (await sendEmailResult(env, to, subject, text, html, opts)).ok;
+}
+
+/** sendEmail, plus Resend's id for the sent email (the support inbox stores it). */
+export async function sendEmailResult(env: Env, to: string, subject: string, text: string, html?: string, opts: SendOpts = {}): Promise<{ ok: boolean; id: string | null }> {
+  if (!env.RESEND_API_KEY) { console.warn("RESEND_API_KEY missing; email not sent", { to, subject }); return { ok: false, id: null }; }
+  const headers = { ...(opts.unsubscribe ? { "List-Unsubscribe": `<${opts.unsubscribe}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : {}), ...(opts.headers ?? {}) };
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ from: env.FROM_EMAIL, to: [to], reply_to: env.SUPPORT_EMAIL, subject, text, html,
-      ...(opts.unsubscribe ? { headers: { "List-Unsubscribe": `<${opts.unsubscribe}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } } : {}) }),
+    body: JSON.stringify({ from: opts.from ?? env.FROM_EMAIL, to: [to], reply_to: env.SUPPORT_EMAIL, subject, text, html,
+      ...(Object.keys(headers).length ? { headers } : {}) }),
   });
   if (!res.ok) {
     const body = await res.text();
     console.error("resend", res.status, body);
     // Visible in /admin and the daily error digest (an unverified sending domain fails every send silently otherwise).
     try { await env.DB?.prepare("INSERT INTO events (at, kind, ref, detail) VALUES (?,?,?,?)").bind(new Date().toISOString(), "error", null, JSON.stringify({ where: "email", status: res.status, subject: subject.slice(0, 80), body: body.slice(0, 400) })).run(); } catch { /* never block */ }
-    return false;
+    return { ok: false, id: null };
   }
-  return true;
+  let id: string | null = null;
+  try { id = ((await res.json()) as { id?: string }).id ?? null; } catch { /* the send still happened */ }
+  return { ok: true, id };
 }
 
 export function deliveryEmail(p: {

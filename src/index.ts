@@ -34,6 +34,8 @@ import { localHour, localToUtc } from "./geo";
 import { adminAuthorized, adminStats, adminExtras, adminDays, adminMoney } from "./admin";
 import { adminPage } from "./views/admin";
 import { buildKpiReport, kpiSendHour, posthogVisits } from "./kpi";
+import { handleSupportEmail, type InboxDeps } from "./inbox";
+import { inboxPage, type InboxRow } from "./views/inbox";
 import { taxOn, sessionTax, localPrices, currencyOptions, priceKeySuffix, bumpCents, armFor, armCents, priceTestStop, priceTestWinner, perPreview, giftSeasonOn, giftEmailDates, TAX_CODE, GIFT_EMAIL_HOUR, dollars, type PriceProduct, type PriceTestState, type ArmStats } from "./commerce";
 
 export interface Env {
@@ -51,6 +53,9 @@ export interface Env {
   STRIPE_TAX?: string; LOCAL_PRICES?: string; PRICE_BUMP_CENTS?: string;
   PRICE_TEST?: string; PRICE_TEST_B_FULL_CENTS?: string; PRICE_TEST_B_NOTIME_CENTS?: string;
   GIFT_SEASON_START?: string; GIFT_SEASON_END?: string;
+  // build 3, the support inbox (src/inbox.ts): master switch ("on" acts, anything else only drafts for Mick), daily refund caps,
+  // and an optional R2 bucket for the D1 export taken before an automated data deletion (without it, deletions go to Mick)
+  INBOX_AUTO?: string; INBOX_REFUNDS_PER_DAY?: string; INBOX_REFUND_CENTS_PER_DAY?: string; SUPPORT_EXPORTS?: R2Bucket;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -342,14 +347,21 @@ app.get("/stop/:tok", async (c) => {
   const seasonUrl = kind === "reading" ? await stopSeasonUrl(c.env, tok) : null;
   return c.html(stopPage({ siteUrl: c.env.SITE_URL, tok, kind, done: c.req.query("done") === "1", seasonUrl }), 200, { "cache-control": "no-store", "x-robots-tag": "noindex" });
 });
+/** What POST /stop/:tok does for a purchase (stage reminders and follow-ups) or a preview (free pass reminders). */
+async function stopReading(env: Env, tok: string, via?: string) {
+  await env.DB.batch([
+    env.DB.prepare("UPDATE stage_reminders SET sent_at='skipped:stop' WHERE purchase_id=? AND sent_at IS NULL").bind(tok),
+    env.DB.prepare("UPDATE followups SET sent_at='skipped:stop' WHERE purchase_id=? AND sent_at IS NULL").bind(tok),
+  ]);
+  await log(env, "stopped", tok, via ? { kind: "reading", via } : { kind: "reading" });
+}
+async function stopPreview(env: Env, pid: string, via?: string) {
+  await env.DB.prepare("UPDATE reminders SET sent_at='skipped:stop' WHERE preview_id=? AND sent_at IS NULL").bind(pid).run();
+  await log(env, "stopped", pid, via ? { kind: "preview", via } : { kind: "preview" });
+}
 app.post("/stop/:tok", async (c) => {
   const tok = c.req.param("tok"); const kind = await stopTarget(c.env, tok); if (!kind) return c.notFound();
-  if (kind === "reading") await c.env.DB.batch([
-    c.env.DB.prepare("UPDATE stage_reminders SET sent_at='skipped:stop' WHERE purchase_id=? AND sent_at IS NULL").bind(tok),
-    c.env.DB.prepare("UPDATE followups SET sent_at='skipped:stop' WHERE purchase_id=? AND sent_at IS NULL").bind(tok),
-  ]);
-  else await c.env.DB.prepare("UPDATE reminders SET sent_at='skipped:stop' WHERE preview_id=? AND sent_at IS NULL").bind(tok).run();
-  await log(c.env, "stopped", tok, { kind });
+  if (kind === "reading") await stopReading(c.env, tok); else await stopPreview(c.env, tok);
   const body = await c.req.text().catch(() => "");
   if (/List-Unsubscribe=One-Click/i.test(body)) return c.text("Stopped.", 200);
   return c.redirect(`/stop/${tok}?done=1`, 303);
@@ -1134,10 +1146,8 @@ app.post("/admin/refund", async (c) => {
     // Stop Saturn Season now and refund the unused full months of a yearly plan (monthly: stops, nothing to refund).
     const sub = await c.env.DB.prepare("SELECT s.id, s.plan, s.purchase_id FROM subscriptions s JOIN purchases p ON p.id = s.purchase_id WHERE p.email=? AND s.status IN ('active','past_due') ORDER BY s.created_at DESC LIMIT 1").bind(email).first<{ id: string; plan: string | null; purchase_id: string }>();
     if (!sub) return c.json({ refunded: false, season: true });
-    const { canceled, cents } = await closeSeasonSubscription(c.env, { sub_id: sub.id, plan: sub.plan, purchase_id: sub.purchase_id }, new Date());
+    const { canceled, cents } = await cancelSeason(c.env, sub, "admin");
     if (!canceled) return c.json({ refunded: false, season: true, canceled: false, error: "stripe cancel failed (see /admin errors)" }, 502);
-    await c.env.DB.prepare("UPDATE subscriptions SET status='canceled' WHERE id=?").bind(sub.id).run();
-    await log(c.env, "season_cancel", sub.purchase_id, { via: "admin", refunded_cents: cents });
     return c.json({ refunded: cents > 0, season: true, canceled: true, cents });
   }
   const pu = await c.env.DB.prepare("SELECT id, stripe_payment_intent FROM purchases WHERE email=? AND status IN ('paid','writing','generated','failed') ORDER BY created_at DESC LIMIT 1").bind(email).first<{ id: string; stripe_payment_intent: string }>();
@@ -1145,18 +1155,46 @@ app.post("/admin/refund", async (c) => {
     // maybe a gift buyer
     const g = await c.env.DB.prepare("SELECT code, stripe_payment_intent FROM gifts WHERE buyer_email=? AND redeemed_at IS NULL AND stripe_payment_intent IS NOT NULL ORDER BY created_at DESC LIMIT 1").bind(email).first<{ code: string; stripe_payment_intent: string }>();
     if (!g) return c.json({ refunded: false });
-    await stripe(c.env).refunds.create({ payment_intent: g.stripe_payment_intent });
-    await c.env.DB.prepare("UPDATE gifts SET redeemed_at='refunded' WHERE code=?").bind(g.code).run();
-    await log(c.env, "refund", g.code, { gift: true });
+    await refundGift(c.env, g);
     return c.json({ refunded: true, gift: true });
   }
-  await stripe(c.env).refunds.create({ payment_intent: pu.stripe_payment_intent });
-  await c.env.DB.prepare("UPDATE purchases SET status='refunded' WHERE id=?").bind(pu.id).run();
-  // the order-bump gift on the same payment is refunded with it (unless already redeemed); charge.refunded does the same
-  await c.env.DB.prepare("UPDATE gifts SET redeemed_at='refunded' WHERE stripe_payment_intent=? AND redeemed_at IS NULL").bind(pu.stripe_payment_intent).run();
-  await log(c.env, "refund", pu.id);
-
+  await refundPurchase(c.env, pu);
   return c.json({ refunded: true });
+});
+
+/** The refund behind POST /admin/refund (and the support inbox): full refund in Stripe, purchase refunded, its bump code voided. */
+async function refundPurchase(env: Env, pu: { id: string; stripe_payment_intent: string }) {
+  await stripe(env).refunds.create({ payment_intent: pu.stripe_payment_intent });
+  await env.DB.prepare("UPDATE purchases SET status='refunded' WHERE id=?").bind(pu.id).run();
+  // the order-bump gift on the same payment is refunded with it (unless already redeemed); charge.refunded does the same
+  await env.DB.prepare("UPDATE gifts SET redeemed_at='refunded' WHERE stripe_payment_intent=? AND redeemed_at IS NULL").bind(pu.stripe_payment_intent).run();
+  await log(env, "refund", pu.id);
+}
+async function refundGift(env: Env, g: { code: string; stripe_payment_intent: string }) {
+  await stripe(env).refunds.create({ payment_intent: g.stripe_payment_intent });
+  await env.DB.prepare("UPDATE gifts SET redeemed_at='refunded' WHERE code=?").bind(g.code).run();
+  await log(env, "refund", g.code, { gift: true });
+}
+/** Stop Saturn Season now (closeSeasonSubscription: cancel, and refund unused full months of a yearly plan), as /admin/refund {season}. */
+async function cancelSeason(env: Env, sub: { id: string; plan: string | null; purchase_id: string }, via: string) {
+  const r = await closeSeasonSubscription(env, { sub_id: sub.id, plan: sub.plan, purchase_id: sub.purchase_id }, new Date());
+  if (!r.canceled) return r;
+  await env.DB.prepare("UPDATE subscriptions SET status='canceled' WHERE id=?").bind(sub.id).run();
+  await log(env, "season_cancel", sub.purchase_id, { via, refunded_cents: r.cents });
+  return r;
+}
+
+// ---------- support inbox (build 3, src/inbox.ts) ----------
+const inboxDeps: InboxDeps = { log, refundPurchase, refundGift, cancelSeason, stopReading, stopPreview, kickGenerate };
+
+// Recent support messages, newest first: what came in, how it was labelled and what was done (ADMIN_KEY, like GET /admin).
+app.get("/admin/inbox", async (c) => {
+  if (!c.env.ADMIN_KEY || !adminAuthorized(c.env.ADMIN_KEY, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
+  let rows: InboxRow[] = [];
+  let missing = false;
+  try { rows = (await c.env.DB.prepare("SELECT id, received_at, from_addr, subject, body_text, class, confidence, status, action, outcome, auth_pass, auth_detail, has_attachment, draft FROM support_messages ORDER BY received_at DESC LIMIT 100").all<InboxRow>()).results; }
+  catch { missing = true; } // migration 006 not applied yet
+  return c.html(inboxPage({ rows, auto: (c.env.INBOX_AUTO ?? "off").trim().toLowerCase() === "on", missing, key: c.req.query("key"), generatedAt: now() }), 200, ADMIN_HDRS);
 });
 
 // ---------- health + stats ----------
@@ -1561,5 +1599,10 @@ You asked for one email a week before each pass. Stop them: ${stopUrl(env.SITE_U
 
 export default {
   fetch: app.fetch,
+  /** Cloudflare Email Routing → hello@ (launch checklist B4). Never rejects: anything not handled goes to ADMIN_EMAIL. */
+  email: async (message: ForwardableEmailMessage, env: Env, ctx: ExecutionContext) => {
+    const raw = new Uint8Array(await new Response(message.raw).arrayBuffer());
+    await handleSupportEmail(env, { raw, envelopeFrom: message.from, forward: (to, headers) => message.forward(to, headers) }, ctx, inboxDeps);
+  },
   scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runFollowups(env), runErrorDigest(env), runKpiEmail(env), runCleanup(env), runPriceTest(env), runGiftSeason(env)])); },
 };

@@ -74,6 +74,7 @@ interface Week {
   previews: number; paid: number; readingCents: number; zeroReadings: number; giftsBought: number; giftCents: number; giftsRedeemed: number;
   seasonStarts: number; seasonCancels: number; refunds: number; refundCents: number; seasonRefunds: number; seasonRefundCents: number;
   followupsSent: number; followupsSkipped: number; stops: number; errors: number; narrated: number; narrationFallbacks: number;
+  support: number; supportAuto: number; supportToMick: number;
 }
 const n0 = (v: unknown) => Number(v ?? 0) || 0;
 
@@ -88,7 +89,7 @@ async function revenueBetween(db: D1Database, from: string, to: string) {
 async function week(db: D1Database, from: string, to: string): Promise<Week> {
   const b = (sql: string) => db.prepare(sql).bind(from, to);
   const E = "at >= ? AND at < ?";
-  const [pv, rev, zero, gb, gr, kinds, refunds, sref, narr] = await Promise.all([
+  const [pv, rev, zero, gb, gr, kinds, refunds, sref, narr, sup] = await Promise.all([
     b("SELECT COUNT(*) n FROM previews WHERE created_at >= ? AND created_at < ?").first<{ n: number }>(),
     revenueBetween(db, from, to),
     b(`SELECT COUNT(*) n FROM purchases WHERE status IN ${LIVE} AND amount_cents = 0 AND created_at >= ? AND created_at < ?`).first<{ n: number }>(),
@@ -99,6 +100,8 @@ async function week(db: D1Database, from: string, to: string): Promise<Week> {
     b(`SELECT COUNT(*) n, COALESCE(SUM(COALESCE(p.amount_cents, g.amount_cents, 0)),0) c FROM (SELECT DISTINCT ref FROM events WHERE kind='refund' AND ${E} AND ref IS NOT NULL) r LEFT JOIN purchases p ON p.id = r.ref LEFT JOIN gifts g ON g.code = r.ref`).first<{ n: number; c: number }>(),
     b(`SELECT COUNT(*) n, COALESCE(SUM(json_extract(detail,'$.amount')),0) c FROM events WHERE kind='season_refund' AND ${E} AND json_valid(detail) AND json_extract(detail,'$.amount') > 0`).first<{ n: number; c: number }>(),
     b(`SELECT COUNT(*) n, COALESCE(SUM(CASE WHEN json_valid(detail) AND json_extract(detail,'$.fallback') = 1 THEN 1 ELSE 0 END),0) f FROM events WHERE kind='narrated' AND ${E}`).first<{ n: number; f: number }>(),
+    // support inbox (build 3): one support_auto row per email; to_mick = forwarded, action 'ignore' = an auto-reply or bounce
+    b(`SELECT COUNT(*) n, COALESCE(SUM(CASE WHEN json_extract(detail,'$.to_mick') = 1 THEN 1 ELSE 0 END),0) f, COALESCE(SUM(CASE WHEN json_extract(detail,'$.action') = 'ignore' THEN 1 ELSE 0 END),0) i FROM events WHERE kind='support_auto' AND ${E} AND json_valid(detail)`).first<{ n: number; f: number; i: number }>(),
   ]);
   const k = Object.fromEntries(kinds.results.map((r) => [r.kind, r]));
   return {
@@ -106,6 +109,7 @@ async function week(db: D1Database, from: string, to: string): Promise<Week> {
     seasonStarts: n0(k.season_start?.refs), seasonCancels: n0(k.season_cancel?.refs), refunds: n0(refunds?.n), refundCents: n0(refunds?.c),
     seasonRefunds: n0(sref?.n), seasonRefundCents: n0(sref?.c), followupsSent: n0(k.followup_sent?.n), followupsSkipped: n0(k.followup_skipped?.n),
     stops: n0(k.stopped?.n), errors: n0(k.error?.n), narrated: n0(narr?.n), narrationFallbacks: n0(narr?.f),
+    support: n0(sup?.n), supportAuto: n0(sup?.n) - n0(sup?.f) - n0(sup?.i), supportToMick: n0(sup?.f),
   };
 }
 
@@ -226,6 +230,7 @@ export async function buildKpiReport(db: D1Database, now: Date, opts: KpiOpts = 
   L.push("", "OPERATIONS");
   L.push(`  Follow-ups: ${cur.followupsSent} sent, ${cur.followupsSkipped} skipped · stops: ${cur.stops}`);
   L.push(`  Narration: ${cur.narrated} narrated, ${cur.narrationFallbacks} on the fallback voice`);
+  if (cur.support || prev.support) L.push(`  Support inbox: ${cur.support} emails (${(cur.support / 7).toFixed(1)} a day), ${cur.supportAuto} handled automatically, ${cur.supportToMick} to you (prev week ${prev.support}, ${prev.supportAuto}, ${prev.supportToMick})`);
   const errs = await db.prepare("SELECT COALESCE(CASE WHEN json_valid(detail) THEN json_extract(detail,'$.where') END,'(no where)') w, COUNT(*) n FROM events WHERE kind='error' AND at >= ? AND at < ? GROUP BY 1 ORDER BY n DESC, w LIMIT 5").bind(curFrom, curTo).all<{ w: string; n: number }>();
   L.push(`  Errors: ${cur.errors} vs ${prev.errors}${errs.results.length ? ` · ${errs.results.map((r) => `${r.w} ${r.n}`).join(", ")}` : ""}`);
   L.push("", "BY SOURCE (ref, last 7 days)");
