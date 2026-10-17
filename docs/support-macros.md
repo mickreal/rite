@@ -2,6 +2,10 @@
 
 Saved replies for `hello@rite.report`, each with the admin step behind it. Policy is `/refunds` and `/privacy`; these match them as of 17 Oct 2026. Sign every reply "Mick, Rite" (the delivery email is from Mick).
 
+**Replies are sent from `/admin/inbox`** (build 3b), not from your own mail app, so they come from `hello@`, thread under the customer's message, and are kept with the thread. When something needs you, a short note arrives at `ADMIN_EMAIL` (with the original forwarded beside it) linking to the thread: open it, the assistant's draft (one of the replies below) is already in the box; edit the `{…}` parts (it won't send with one left in) and press Send. Sending takes the thread over: the assistant won't act on that thread again, even with `INBOX_AUTO` on, and the customer's next message comes straight to you. "I've got this" takes it over without replying; "Hand back to assistant" undoes it; Close / Reopen file it. Do the admin step (the curl below) before you send a reply that says it's done.
+
+Sign in once per device at `/admin/login` with `ADMIN_KEY` (a signed, HttpOnly cookie for 30 days; `?key=` still works). **Optional extra layer, free:** Cloudflare Zero Trust → Access → Applications → Add → Self-hosted, domain `rite.report`, path `admin` (it covers `/admin` and everything under it), policy "Allow" with an Include rule "Emails: <your address>" (one-time PIN login). Access then asks for a code by email before any `/admin` page loads, in front of the key. Leave `/webhook/*` and `/internal/*` outside it. Curl calls to `/admin/*` would then need an Access service token, so add a second policy "Service Auth" with a service token if you keep using them.
+
 Admin calls use `ADMIN_KEY` (`.dev.vars`), never pasted into a reply:
 
 ```sh

@@ -4,10 +4,13 @@
 // refund within 14 days, stop emails, explain the method, delete data after a second "yes, delete") or sent to Mick
 // with the classification, the customer's history and a drafted reply. INBOX_AUTO (default "off") is the master switch:
 // off, every message goes to Mick with what it would have done, and nothing reaches the customer or moves money.
+// Build 3b: threads Mick has taken over (he replied from /admin/inbox, or pressed "I've got this") are never acted on
+// again, whatever INBOX_AUTO says; the assistant's replies are stored (support_replies) so the thread page shows them.
 import type { Env } from "./index";
 import { parseMail, addressOf, messageIds, stripQuoted, type ParsedMail } from "./mime";
 import { classifySupport, parseJsonReply } from "./llm";
 import { sendEmail, sendEmailResult } from "./email";
+import { ensureThread, threadState, afterInbound, claimNotify, storeAssistantReply } from "./support-store";
 
 export const CLASSES = ["where_is_reading", "refund", "stop", "wrong_details", "delete_data", "how_it_works", "gift_issue", "other"] as const;
 export type SupportClass = (typeof CLASSES)[number];
@@ -112,9 +115,9 @@ export async function classify(env: Env, subject: string, body: string): Promise
 interface PurchaseLite { id: string; preview_id: string; created_at: string; first_name: string | null; status: string; amount_cents: number; tier: string; stripe_payment_intent: string | null; delivered_at: string | null }
 interface SubLite { id: string; plan: string | null; status: string; purchase_id: string }
 interface GiftLite { code: string; created_at: string; buyer_name: string | null; amount_cents: number; stripe_payment_intent: string | null; redeemed_at: string | null; redeemed_purchase_id: string | null }
-interface Customer { purchases: PurchaseLite[]; subs: SubLite[]; gifts: GiftLite[]; reminderPreviews: string[]; events: Array<{ at: string; kind: string; ref: string | null }>; earlier: number }
+export interface Customer { purchases: PurchaseLite[]; subs: SubLite[]; gifts: GiftLite[]; reminderPreviews: string[]; events: Array<{ at: string; kind: string; ref: string | null }>; earlier: number }
 
-async function customer(env: Env, email: string): Promise<Customer> {
+export async function customer(env: Env, email: string): Promise<Customer> {
   const db = env.DB;
   const [pu, subs, gifts, rem, earlier] = await Promise.all([
     db.prepare("SELECT id, preview_id, created_at, first_name, status, amount_cents, tier, stripe_payment_intent, delivered_at FROM purchases WHERE lower(email)=? ORDER BY created_at DESC LIMIT 20").bind(email).all<PurchaseLite>(),
@@ -135,7 +138,7 @@ const ageDays = (iso: string) => (Date.now() - Date.parse(iso)) / DAY;
 const short = (id: string) => `${id.slice(0, 8)}…`;
 const day = (iso: string) => iso.slice(0, 10);
 
-function history(c: Customer): string {
+export function history(c: Customer): string {
   const L: string[] = [];
   L.push(`  Purchases: ${c.purchases.length ? c.purchases.map((p) => `${short(p.id)} ${day(p.created_at)} ${p.status} ${money(p.amount_cents)} ${p.tier} (${Math.floor(ageDays(p.created_at))}d ago)`).join("; ") : "none"}`);
   L.push(`  Season: ${c.subs.length ? c.subs.map((s) => `${s.status} ${s.plan ?? "?"} on ${short(s.purchase_id)}`).join("; ") : "none"}`);
@@ -167,7 +170,8 @@ type Plan =
   | { auto: true; action: string; what: string; draft: string; run: () => Promise<RunResult> }
   | { auto: false; reason: string; what?: string; draft: string };
 
-const REASONS: Record<string, string> = {
+export const REASONS: Record<string, string> = {
+  taken_over: "you've taken this thread over, so the assistant only drafts",
   auth_fail: "the message didn't pass SPF/DKIM (possible spoof), so nothing was done",
   attachment: "it has an attachment",
   third_message: "it's the sender's third or later message in this thread",
@@ -316,6 +320,8 @@ async function deleteCustomer(env: Env, deps: InboxDeps, email: string, cust: Cu
   }
   stmts.push(db.prepare("UPDATE support_messages SET from_addr='deleted', subject=NULL, body_text=NULL, draft=NULL WHERE from_addr=? AND id != ?").bind(email, msgId));
   await db.batch(stmts);
+  try { await db.prepare("UPDATE support_replies SET to_addr='deleted', subject=NULL, body_text=NULL WHERE to_addr=?").bind(email).run(); }
+  catch { /* migration 007 not applied: no stored replies to redact */ }
   // narration audio (audio:<ver>:<model>:<voice>:<purchase id>:<chapter>) and share cards (card:png:<preview id>)
   try {
     let cursor: string | undefined;
@@ -354,10 +360,14 @@ export async function handleSupportEmail(env: Env, input: InboundEmail, exec: { 
   const body = m.text.slice(0, 20000);
   await env.DB.prepare("INSERT INTO support_messages (id, received_at, from_addr, subject, body_text, message_id, in_reply_to, thread_key, auth_pass, auth_detail, has_attachment, status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
     .bind(id, now(), from, subject, body, messageId, inReplyTo, threadKey, auth.pass ? 1 : 0, auth.detail, m.hasAttachment ? 1 : 0, "received").run();
+  const tk = threadKey;
+  await ensureThread(env.DB, tk);
+  const mickOwns = (await threadState(env.DB, tk))?.owner === "mick";
   const finish = async (status: string, f: { cls?: string | null; confidence?: number | null; action: string; outcome: string; draft?: string | null; replyId?: string | null; toMick?: boolean; cents?: number }) => {
     await env.DB.prepare("UPDATE support_messages SET status=?, class=?, confidence=?, action=?, outcome=?, draft=?, reply_message_id=? WHERE id=?")
       .bind(status, f.cls ?? null, f.confidence ?? null, f.action, f.outcome, f.draft ?? null, f.replyId ?? null, id).run();
     if (status === "deleted") await env.DB.prepare("UPDATE support_messages SET from_addr='deleted', subject=NULL, body_text=NULL, draft=NULL WHERE id=?").bind(id).run();
+    try { await afterInbound(env.DB, tk, status, !!f.toMick, mickOwns); } catch { /* thread state is best-effort */ }
     await deps.log(env, "support_auto", id, { class: f.cls ?? null, confidence: f.confidence ?? null, action: f.action, outcome: f.outcome, auto: autoOn ? "on" : "off", to_mick: !!f.toMick, ...(f.cents !== undefined ? { cents: f.cents } : {}) });
     return { id, status, action: f.action, outcome: f.outcome };
   };
@@ -375,11 +385,11 @@ export async function handleSupportEmail(env: Env, input: InboundEmail, exec: { 
 
     let plan = await decide({ env, deps, exec, from, cls: c.cls, season: c.season, cust, confirmDelete, msgId: id });
     // the guards that always send it to Mick, whatever the class
-    const guard = !auth.pass ? "auth_fail" : m.hasAttachment ? "attachment" : threadCount >= 3 ? "third_message" : c.confidence < MIN_CONFIDENCE ? "low_confidence" : null;
+    const guard = mickOwns ? "taken_over" : !auth.pass ? "auth_fail" : m.hasAttachment ? "attachment" : threadCount >= 3 ? "third_message" : c.confidence < MIN_CONFIDENCE ? "low_confidence" : null;
     if (guard) plan = { auto: false, reason: guard, what: plan.what, draft: plan.draft };
 
     const toMick = async (reason: string, action: string, draft: string, what?: string) => {
-      await forwardToMick(env, deps, input, { id, from, subject, body, cls: c.cls, confidence: c.confidence, auth, hasAttachment: m.hasAttachment, threadCount, reason, what, autoOn, draft, cust });
+      await forwardToMick(env, deps, input, { id, threadKey: tk, from, subject, body, cls: c.cls, confidence: c.confidence, auth, hasAttachment: m.hasAttachment, threadCount, reason, what, autoOn, draft, cust });
       return finish("forwarded", { cls: c.cls, confidence: c.confidence, action, outcome: reason, draft, toMick: true });
     };
     if (!plan.auto) return await toMick(plan.reason, "forward", plan.draft, plan.what);
@@ -390,39 +400,54 @@ export async function handleSupportEmail(env: Env, input: InboundEmail, exec: { 
     catch (e) { await deps.log(env, "error", id, { where: "inbox-action", action: plan.action, e: String(e).slice(0, 300) }); return await toMick("action_failed", plan.action, plan.draft, plan.what); }
     const reply = r.reply ?? plan.draft;
     const threading: Record<string, string> = messageId ? { "In-Reply-To": messageId, References: [...messageIds(m.header("references")), messageId].join(" ") } : {};
-    const sent = await sendEmailResult(env, from, /^re:/i.test(subject) ? subject : `Re: ${subject || "your email"}`, reply, undefined, { from: `Rite <${addressOf(env.SUPPORT_EMAIL) ?? env.SUPPORT_EMAIL}>`, headers: threading });
+    const replySubject = /^re:/i.test(subject) ? subject : `Re: ${subject || "your email"}`;
+    const sent = await sendEmailResult(env, from, replySubject, reply, undefined, { from: `Rite <${addressOf(env.SUPPORT_EMAIL) ?? env.SUPPORT_EMAIL}>`, headers: threading });
+    const gone = r.status === "deleted"; // the address was just deleted: keep no copy of it
+    await storeAssistantReply(env.DB, { thread_key: tk, to_addr: gone ? "deleted" : from, subject: gone ? null : replySubject, body_text: gone ? null : reply,
+      in_reply_to: messageId, references_hdr: threading.References ?? null, ok: sent.ok, resend_id: sent.id });
     if (!sent.ok) {
-      await forwardToMick(env, deps, input, { id, from, subject, body, cls: c.cls, confidence: c.confidence, auth, hasAttachment: m.hasAttachment, threadCount, reason: "reply_failed", what: `${plan.what} (done: ${r.outcome})`, autoOn, draft: reply, cust });
+      await forwardToMick(env, deps, input, { id, threadKey: tk, from, subject, body, cls: c.cls, confidence: c.confidence, auth, hasAttachment: m.hasAttachment, threadCount, reason: "reply_failed", what: `${plan.what} (done: ${r.outcome})`, autoOn, draft: reply, cust });
       // outcome stays the action's own (e.g. "refunded") so the daily caps still count it
       return await finish(r.status ?? "handled", { cls: c.cls, confidence: c.confidence, action: plan.action, outcome: r.outcome, draft: reply, toMick: true, cents: r.cents });
     }
     return await finish(r.status ?? "handled", { cls: c.cls, confidence: c.confidence, action: plan.action, outcome: r.outcome, draft: reply, replyId: sent.id, cents: r.cents });
   } catch (e) {
     await deps.log(env, "error", id, { where: "inbox", e: String(e).slice(0, 300) });
-    try { await forwardToMick(env, deps, input, { id, from, subject, body, cls: null, confidence: null, auth, hasAttachment: m.hasAttachment, threadCount: 0, reason: "error", autoOn, draft: "", cust: null }); } catch { /* logged above */ }
+    try { await forwardToMick(env, deps, input, { id, threadKey: tk, from, subject, body, cls: null, confidence: null, auth, hasAttachment: m.hasAttachment, threadCount: 0, reason: "error", autoOn, draft: "", cust: null }); } catch { /* logged above */ }
     return finish("forwarded", { action: "forward", outcome: "error", toMick: true });
   }
 }
 
 interface ForwardInfo {
-  id: string; from: string; subject: string; body: string; cls: string | null; confidence: number | null; auth: { pass: boolean; detail: string };
+  id: string; threadKey: string; from: string; subject: string; body: string; cls: string | null; confidence: number | null; auth: { pass: boolean; detail: string };
   hasAttachment: boolean; threadCount: number; reason: string; what?: string; autoOn: boolean; draft: string; cust: Customer | null;
 }
 
-/** The original to ADMIN_EMAIL (Email Routing forward, which needs a verified destination), plus a summary via Resend. */
+/** base64url of the thread key: the id in /admin/inbox/t/:id (thread keys are Message-IDs, with <, > and @ in them). */
+export function threadUrlKey(key: string): string {
+  const b = new TextEncoder().encode(key);
+  return btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/**
+ * The original to ADMIN_EMAIL (Email Routing forward, which needs a verified destination), plus a short note via Resend
+ * with a link to the thread page, where the history, the conversation and the reply box are. At most once per customer
+ * message (claimNotify), so a retry or an error path never sends a second note.
+ */
 async function forwardToMick(env: Env, deps: InboxDeps, input: InboundEmail, f: ForwardInfo) {
   if (!env.ADMIN_EMAIL) { await deps.log(env, "error", f.id, { where: "inbox-forward", e: "ADMIN_EMAIL not set" }); return; }
+  if (!(await claimNotify(env.DB, f.threadKey, f.id))) return;
   try { await input.forward(env.ADMIN_EMAIL, new Headers({ "X-Rite-Inbox": `${f.cls ?? "unclassified"}; ${f.reason}` })); }
   catch (e) { await deps.log(env, "error", f.id, { where: "inbox-forward", e: String(e).slice(0, 200) }); }
   const L: string[] = [];
   L.push(`To you because ${REASONS[f.reason] ?? f.reason}.`);
   if (f.reason === "auto_off" && f.what) L.push(`With INBOX_AUTO on it would: ${f.what}, then send the draft below.`);
   else if (f.what) L.push(`Otherwise it would: ${f.what}.`);
-  L.push("", `From: ${f.from}`, `Subject: ${f.subject || "(none)"}`,
+  L.push("", `Open the thread and reply: ${env.SITE_URL}/admin/inbox/t/${threadUrlKey(f.threadKey)}`, "",
+    `From: ${f.from}`, `Subject: ${f.subject || "(none)"}`,
     `Class: ${f.cls ?? "?"}${f.confidence !== null ? ` (${f.confidence.toFixed(2)})` : ""} · SPF/DKIM: ${f.auth.pass ? "pass" : "FAIL"} · attachment: ${f.hasAttachment ? "yes" : "no"} · message ${f.threadCount || "?"} from them in this thread`);
-  if (!f.auth.pass) L.push(`Auth results: ${f.auth.detail}`);
-  if (f.cust) L.push("", "CUSTOMER", history(f.cust));
-  if (f.draft) L.push("", "DRAFT REPLY (send from hello@, edit the {…} parts)", "----", f.draft, "----");
-  L.push("", "MESSAGE", f.body.slice(0, 6000) || "(empty)", "", `${env.SITE_URL}/admin/inbox`);
+  const snip = (stripQuoted(f.body) || f.body).replace(/\s+/g, " ").trim();
+  L.push(`"${snip.length > 280 ? snip.slice(0, 279) + "…" : snip || "(empty)"}"`);
+  if (f.draft) L.push("", "Draft (prefilled on the thread page; edit the {…} parts):", f.draft);
   await sendEmail(env, env.ADMIN_EMAIL, `[Rite inbox] ${f.cls ?? "?"}: ${f.reason} · ${f.from}`.slice(0, 160), L.join("\n"));
 }

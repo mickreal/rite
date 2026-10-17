@@ -85,3 +85,63 @@ export async function adminMoney(db: D1Database, nowMs = Date.now()): Promise<Ad
   ]);
   return { tax_30d: (tp?.cents ?? 0) + (tg?.cents ?? 0), bumps_30d: { n: bumps?.n ?? 0, cents: bumps?.cents ?? 0 }, arms: arms.results ?? [], price_test_done: done ?? null };
 }
+
+// ---------- admin session (build 3b): a signed cookie so the key isn't in every URL ----------
+// Cookie value: v1.<expiry, unix seconds>.<HMAC-SHA256(ADMIN_KEY, "rite-admin-session.v1.<expiry>"), base64url>. Changing
+// ADMIN_KEY signs every session out. The CSRF token for the admin forms is an HMAC of the session (or "key" when the
+// page was opened with ?key=), so it's per-session and needs no storage.
+export const SESSION_COOKIE = "rite_admin";
+export const SESSION_DAYS = 30;
+
+const b64u = (b: ArrayBuffer | Uint8Array) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+async function hmac(secret: string, msg: string): Promise<string> {
+  const k = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return b64u(await crypto.subtle.sign("HMAC", k, enc.encode(msg)));
+}
+
+export async function makeSession(secret: string, nowMs = Date.now()): Promise<string> {
+  const exp = Math.floor(nowMs / 1000) + SESSION_DAYS * 86400;
+  return `v1.${exp}.${await hmac(secret, `rite-admin-session.v1.${exp}`)}`;
+}
+
+export async function sessionValid(secret: string | undefined, value: string | null | undefined, nowMs = Date.now()): Promise<boolean> {
+  if (!secret || secret.length <= 10 || !value) return false;
+  const m = /^v1\.(\d{1,12})\.([A-Za-z0-9_-]{20,})$/.exec(value);
+  if (!m || Number(m[1]) * 1000 <= nowMs) return false;
+  return safeEqual(m[2]!, await hmac(secret, `rite-admin-session.v1.${m[1]}`));
+}
+
+export function cookieValue(header: string | null | undefined, name: string): string | null {
+  for (const part of (header ?? "").split(";")) {
+    const i = part.indexOf("=");
+    if (i > 0 && part.slice(0, i).trim() === name) return part.slice(i + 1).trim();
+  }
+  return null;
+}
+
+/** HttpOnly, Secure, SameSite=Strict, scoped to /admin. maxAge 0 clears it. */
+export const sessionCookie = (value: string, maxAge = SESSION_DAYS * 86400) =>
+  `${SESSION_COOKIE}=${value}; Path=/admin; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Strict`;
+
+export async function csrfToken(secret: string, sessionId: string): Promise<string> {
+  return (await hmac(secret, `rite-admin-csrf.${sessionId}`)).slice(0, 32);
+}
+
+/**
+ * The browser says this POST came from our own pages: Sec-Fetch-Site same-origin, or (older browsers) an Origin equal to
+ * ours. A request with neither header (curl, very old browsers) passes here and relies on the CSRF token alone.
+ */
+export function sameOrigin(req: Request): boolean {
+  const site = req.headers.get("sec-fetch-site");
+  if (site) return site === "same-origin";
+  const origin = req.headers.get("origin");
+  if (origin && origin !== "null") return origin === new URL(req.url).origin;
+  return origin !== "null";
+}
+
+/** Where /admin/login may send you afterwards: an /admin path on this site, nothing else. */
+export function safeNext(next: string | null | undefined): string {
+  const n = (next ?? "").trim();
+  if (!/^\/admin(\/|\?|$)/.test(n) || /[\\\s]/.test(n) || n.startsWith("//") || n.startsWith("/admin/login")) return "/admin/inbox";
+  return n;
+}
