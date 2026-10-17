@@ -13,7 +13,7 @@
     "",
     "**Not rendered (need a person on camera):** Thu 22 Script 6, Mon 26 Script 7, Tue 27 Script 6 re-cut, Fri 30 the closest-turn piece (style 3 talking heads); Sat 31 the \"one line to carry\" quote card (needs a real reader's line with permission; none in hand). Sat 24 Lisa (style 5 green-screen) needs a creator: the backdrop screenshot and a captioned dial clip of her dates are provided as a stand-in.",
     "",
-    "**Time-sensitive captions:** Tue 20 clip says \"Today: 10° Aries\" (true to 20 Oct; Saturn is 9.99° on 21 Oct, so the site shows 9° from then): post it on the 20th, not later. Sat 24 Lisa clip says her second pass is \"today, 24 Oct 2026\": post on 24 Oct only. Cards say \"open now\" (true until 12 Apr 2028).",
+    "**Time-sensitive captions:** Tue 20 clip says \"Today: 10° Aries\" (true to 20 Oct; Saturn is 9.99° on 21 Oct, so the site shows 9° from then): post it on the 20th, not later. Sat 24 Lisa clip (rewritten 17 Oct) names 25 Jan 2027 as her last pass: fine to post any day before it. Cards say \"open now\" (true until 12 Apr 2028).",
     "",
     "Text-only posts (X / Threads, Reddit) are listed with no file; their copy is the kit's, verbatim. Reddit bodies are long: copy them from the kit (f) and read each subreddit's rules that day."
   ],
@@ -65,9 +65,9 @@
     { "date": "2026-10-23", "slot": "X / Threads: Post 2 (myth-busting)", "kit": "(d) post 2", "platforms": ["x", "threads"],
       "caption": "\"Your Saturn return hits at 29\" is like saying summer hits on a Tuesday. It's a two-to-three-year season with one or three exact passes. Ask for the day. If someone can't give it, they're guessing." },
 
-    { "date": "2026-10-24", "day": "Day 6", "slot": "TikTok + Reels: Style 5 quick cut, Lisa (BLACKPINK), pass today", "kit": "(i) week 1; dates from (h) celebrity table", "asset": "celeb-lisa-1997", "platforms": ["tiktok", "reels"],
-      "caption": "Lisa's Saturn return has three passes: 6 May 2026, today (24 Oct 2026) and 25 Jan 2027. Computed at noon in Buriram, no birth time claimed. The dates are public maths, and yours are too. Free preview at rite.report",
-      "alt": "Screen recording of the Rite site: a birth date of 27 March 1997 and Buriram are entered, the dial places Saturn at 9 degrees Aries, and the result shows three exact passes in May 2026, October 2026 and January 2027. Captions: Lisa's Saturn return has three passes, the second is today, 24 Oct 2026; 6 May 2026, 24 Oct 2026; and once more: 25 Jan 2027.",
+    { "date": "2026-10-24", "day": "Day 6", "slot": "TikTok + Reels: Style 5 quick cut, Lisa (BLACKPINK), last pass ahead", "kit": "(i) week 1; dates from (h) celebrity table", "asset": "celeb-lisa-1997", "platforms": ["tiktok", "reels"],
+      "caption": "Lisa's Saturn return has three passes: 6 May and 24 Oct 2026 are behind her, and the last is 25 Jan 2027. Computed at noon in Buriram, no birth time claimed. The dates are public maths, and yours are too. Free preview at rite.report",
+      "alt": "Screen recording of the Rite site: a birth date of 27 March 1997 and Buriram are entered, the dial places Saturn at 9 degrees Aries, and the result shows three exact passes in May 2026, October 2026 and January 2027. Captions: Lisa's Saturn return has three passes, two are behind her and the last is 25 Jan 2027; 6 May 2026, 24 Oct 2026; and once more: 25 Jan 2027.",
       "note": "Calendar wants a creator's green-screen reaction (style 5), which needs a person. Provided instead: this captioned dial clip of her dates (post as-is), and the caption-free result screen below as the green-screen backdrop. Post on 24 Oct only (the hook says \"today\"). Don't say what she's going through." },
     { "date": "2026-10-24", "slot": "Style 5 backdrop (for a creator, not for posting)", "kit": "(c) style 5 format", "asset": "celeb-lisa-1997-summary", "platforms": ["backdrop"],
       "caption": "Not a post: 1080×1920 screenshot of the result screen for 27 Mar 1997, Buriram, for a green-screen reaction.",
