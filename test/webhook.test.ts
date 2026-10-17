@@ -375,15 +375,18 @@ describe("charge.refunded", () => {
 });
 
 describe("schema and migrations", () => {
-  it("an old database (before subscriptions.plan) plus migrations/ has the same columns as schema.sql", () => {
+  it("an old database (before subscriptions.plan, the tax / price-test columns and campaign_sends) plus migrations/ has the same columns as schema.sql", () => {
     const cols = (d: FakeD1, t: string) => d.rows(`PRAGMA table_info(${t})`).map((r) => r.name).sort();
     const fresh = new FakeD1();
     const old = new FakeD1(false);
     const schema: string = readFileSync("schema.sql", "utf8");
-    const before = schema.replace(/,\s*\n\s*plan TEXT[^\n]*\n(\s*--[^\n]*\n)*/, "\n");
-    expect(before).not.toMatch(/\bplan TEXT/);
+    // drop each later column (the last in its table, with its comment lines) and the campaign_sends table
+    let before = schema;
+    for (const col of ["plan TEXT", "price_arm TEXT", "tax_cents INTEGER"]) before = before.replace(new RegExp(`,([ \\t]*--[^\\n]*)?\\n\\s*${col}[^\\n]*\\n(\\s*--[^\\n]*\\n)*`, "g"), "$1\n");
+    before = before.replace(/CREATE TABLE IF NOT EXISTS campaign_sends \([\s\S]*?\n\);\n/, "");
+    expect(before).not.toMatch(/\bplan TEXT|price_arm|tax_cents|campaign_sends \(/);
     old.db.exec(before);
     for (const f of migrationFiles()) old.db.exec(readFileSync(f, "utf8"));
-    for (const t of ["previews", "purchases", "subscriptions", "events", "gifts", "followups", "stories"]) expect(cols(old, t)).toEqual(cols(fresh, t));
+    for (const t of ["previews", "purchases", "subscriptions", "events", "gifts", "followups", "stories", "campaign_sends"]) expect(cols(old, t)).toEqual(cols(fresh, t));
   });
 });

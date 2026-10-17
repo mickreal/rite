@@ -12,7 +12,9 @@
     "db:schema:local": "wrangler d1 execute rite --local --file=schema.sql",
     "secrets:push": "bash scripts/push-secrets.sh",
     "db:migrate:plan": "wrangler d1 execute rite --remote --file=migrations/001-subscriptions-plan.sql",
-    "db:migrate:plan:local": "wrangler d1 execute rite --local --file=migrations/001-subscriptions-plan.sql"
+    "db:migrate:plan:local": "wrangler d1 execute rite --local --file=migrations/001-subscriptions-plan.sql",
+    "db:migrate:b12": "for f in migrations/002-*.sql migrations/003-*.sql migrations/004-*.sql migrations/005-*.sql; do wrangler d1 execute rite --remote --file=$f; done",
+    "db:migrate:b12:local": "for f in migrations/002-*.sql migrations/003-*.sql migrations/004-*.sql migrations/005-*.sql; do wrangler d1 execute rite --local --file=$f; done"
   },
   "keywords": [],
   "author": "",

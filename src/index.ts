@@ -9,11 +9,11 @@ import { signPage, type SignPageData } from "./views/sign";
 import { whenPage, comparePage, type Cohort } from "./views/guides";
 import { SIGNS, type Sign } from "./astro/saturn";
 import { writePreview, writeReport, writeSeason, datesAreGrounded, parseJsonReply, answerQuestion } from "./llm";
-import { sendEmail, stopUrl, deliveryEmail, giftDeliveryEmail, seasonEmail, seasonCompleteEmail, stageReminderEmail, giftEmail, day3Email, day10Email } from "./email";
+import { sendEmail, stopUrl, deliveryEmail, giftDeliveryEmail, seasonEmail, seasonCompleteEmail, stageReminderEmail, giftEmail, day3Email, day10Email, giftSeasonEmail } from "./email";
 import { stopPage } from "./views/stop";
 import { followupSchedule, followupDue, followupSkip, stageSeasonLine, type FollowupKind } from "./followups";
 import { readingPage, type ReportJson } from "./views/reading";
-import { shareCardSvg, ogSvg } from "./card";
+import { shareCardSvg, ogSvg, giftCardSvg } from "./card";
 import { svgToPng } from "./png";
 import { saturnLongitude, signOf, degreeInSign, orb, isRetrograde, nextStation, type Phase } from "./astro/saturn";
 import { smallChart, fmtMonYr, fmtMonYrL, untilText } from "./astro/cycle";
@@ -28,11 +28,12 @@ import { voicePage } from "./views/voice";
 import { resultPage } from "./views/result";
 import { seasonManagePage, type SeasonManageData } from "./views/season";
 import { seasonLandingPage } from "./views/season-landing";
-import { seasonAvailable, nextNoteDate, nextNoteAfterLast, yearlyAllowed, unusedMonths, yearlyRefundCents, comingUpText, windowOpenSendOn, noteFacts, seasonFallbackBody, sampleNote, lastMondayLocal, type SeasonPlan } from "./season";
+import { seasonAvailable, nextNoteDate, nextNoteAfterLast, yearlyAllowed, unusedMonths, yearlyRefundCents, comingUpText, windowOpenSendOn, noteFacts, seasonFallbackBody, sampleNote, lastMondayLocal, localParts, type SeasonPlan } from "./season";
 import { SIGN_NOTES } from "./content/notes";
 import { localHour, localToUtc } from "./geo";
-import { adminAuthorized, adminStats, adminExtras, adminDays } from "./admin";
+import { adminAuthorized, adminStats, adminExtras, adminDays, adminMoney } from "./admin";
 import { adminPage } from "./views/admin";
+import { taxOn, sessionTax, localPrices, currencyOptions, priceKeySuffix, bumpCents, armFor, armCents, priceTestStop, priceTestWinner, perPreview, giftSeasonOn, giftEmailDates, TAX_CODE, GIFT_EMAIL_HOUR, dollars, type PriceProduct, type PriceTestState, type ArmStats } from "./commerce";
 
 export interface Env {
   DB: D1Database;
@@ -44,6 +45,10 @@ export interface Env {
   FROM_EMAIL: string; SUPPORT_EMAIL: string;
   STRIPE_SECRET_KEY: string; STRIPE_WEBHOOK_SECRET: string; ADMIN_KEY?: string; ANTHROPIC_API_KEY: string; RESEND_API_KEY: string;
   AI?: Ai; TTS_MODEL?: string; TTS_VOICE?: string; ELEVENLABS_API_KEY?: string; ADMIN_EMAIL?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string;
+  // builds 1 + 2 (docs/automation-builds.md); wrangler.toml has the defaults and what each does
+  STRIPE_TAX?: string; LOCAL_PRICES?: string; PRICE_BUMP_CENTS?: string;
+  PRICE_TEST?: string; PRICE_TEST_B_FULL_CENTS?: string; PRICE_TEST_B_NOTIME_CENTS?: string;
+  GIFT_SEASON_START?: string; GIFT_SEASON_END?: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -90,6 +95,7 @@ interface PreviewRow {
   id: string; birth_date: string; birth_time: string | null; place_label: string; lat: number; lon: number; tz: string;
   natal_lon: number; natal_sign: string; natal_degree: number; natal_house: number | null; return_number: number;
   window_start: string; window_end: string; peak_start: string; peak_end: string; hits: string; phase: string; preview_text: string | null; ref: string | null;
+  price_arm?: string | null;
 }
 interface PurchaseRow { id: string; preview_id: string; email: string; first_name: string | null; tier: string; report_md: string | null; status: string; amount_cents: number; stripe_session_id: string | null; delivered_at: string | null }
 
@@ -114,8 +120,11 @@ async function getPurchase(env: Env, tok: string) {
 // ---------- pages ----------
 app.get("/", async (c) => {
   await log(c.env, "visit", c.req.query("r") ?? null);
-  return c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? c.req.query("ref") ?? undefined, season: seasonTeaser(c.env) }));
+  return c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? c.req.query("ref") ?? undefined, season: seasonTeaser(c.env), prices: readingPrices(c.env, null), banner: giftSeasonOn(c.env) }));
 });
+
+/** The reading prices (cents) a preview's arm sees; null (no preview yet, e.g. the landing) is arm A, the configured price. */
+const readingPrices = (env: Env, arm: string | null | undefined) => ({ full: armCents(env, arm, "full"), notime: armCents(env, arm, "notime") });
 
 /** The landing's Saturn Season teaser: prices from config, and Saturn's position this week (one table lookup). */
 function seasonTeaser(env: Env) {
@@ -256,6 +265,7 @@ app.post("/preview", async (c) => {
   }
 
   const pid = id(12);
+  const arm = await priceArm(c.env, pid);
   let text = "";
   try {
     text = await writePreview(c.env, reportInputs(comp, null));
@@ -264,11 +274,11 @@ app.post("/preview", async (c) => {
     text = `Saturn in ${comp.sign}: ${SIGN_NOTES[comp.sign].hook} ${phaseSentence(comp)} The full report dates your exact passes and tells you what to build before each one.`;
   }
 
-  await c.env.DB.prepare(`INSERT INTO previews (id, created_at, birth_date, birth_time, place_label, lat, lon, tz, birth_utc, natal_lon, natal_sign, natal_degree, natal_house, return_number, window_start, window_end, peak_start, peak_end, hits, phase, preview_text, ref)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+  await c.env.DB.prepare(`INSERT INTO previews (id, created_at, birth_date, birth_time, place_label, lat, lon, tz, birth_utc, natal_lon, natal_sign, natal_degree, natal_house, return_number, window_start, window_end, peak_start, peak_end, hits, phase, preview_text, ref, price_arm)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .bind(pid, now(), date, time, place.label, place.lat, place.lon, place.tz, comp.birthUtc, comp.natalLon, comp.sign, comp.degree, comp.house, comp.returnNumber,
-      comp.window.windowStart, comp.window.windowEnd, comp.window.peakStart, comp.window.peakEnd, JSON.stringify(comp.window.hits), comp.phase, text, ref).run();
-  await log(c.env, "preview", pid, { sign: comp.sign, phase: comp.phase, ref });
+      comp.window.windowStart, comp.window.windowEnd, comp.window.peakStart, comp.window.peakEnd, JSON.stringify(comp.window.hits), comp.phase, text, ref, arm).run();
+  await log(c.env, "preview", pid, { sign: comp.sign, phase: comp.phase, ref, ...(arm ? { arm } : {}) });
 
   return c.redirect(gift ? `/p/${pid}?gift=${gift}` : `/p/${pid}`);
 });
@@ -281,7 +291,9 @@ app.get("/p/:id", async (c) => {
   const gq = c.req.query("gift");
   const gift = gq ? await getGift(c.env, gq) : null;
   const giftState = gq ? (gift ? (gift.redeemed_at ? "used" : "ok") : "bad") : null;
-  return c.html(resultPage({ siteUrl: c.env.SITE_URL, id: p.id, c: comp, text: p.preview_text ?? "", placeLabel: p.place_label, birthLabel, hasTime: !!p.birth_time, reminded: c.req.query("reminded") === "window" ? "window" : c.req.query("reminded") === "1", gift: giftState ? { code: gift?.code ?? gq!, state: giftState as "ok" | "used" | "bad", from: gift?.buyer_name ?? null, message: gift?.message ?? null } : null }));
+  return c.html(resultPage({ siteUrl: c.env.SITE_URL, id: p.id, c: comp, text: p.preview_text ?? "", placeLabel: p.place_label, birthLabel, hasTime: !!p.birth_time, reminded: c.req.query("reminded") === "window" ? "window" : c.req.query("reminded") === "1", gift: giftState ? { code: gift?.code ?? gq!, state: giftState as "ok" | "used" | "bad", from: gift?.buyer_name ?? null, message: gift?.message ?? null } : null,
+    prices: readingPrices(c.env, p.price_arm), banner: giftSeasonOn(c.env) && giftState !== "ok" }));
+
 });
 
 // ---------- pass reminders (free): one email a week before each pass ----------
@@ -387,26 +399,85 @@ app.post("/checkout", async (c) => {
   const p = await getPreview(c.env, String(form.preview ?? ""));
   if (!p) return c.redirect("/");
   const tier = p.birth_time ? "full" : "notime";
-  const amount = parseInt(tier === "full" ? c.env.PRICE_FULL_CENTS : c.env.PRICE_NOTIME_CENTS, 10);
+  // The price this preview was shown: its price-test arm, stored at preview time, whatever PRICE_TEST says now.
+  const arm = p.price_arm === "A" || p.price_arm === "B" ? p.price_arm : null;
+  const amount = armCents(c.env, arm, tier);
   const s = stripe(c.env);
+  const line = await readingLine(c.env, {
+    product: arm === "B" ? (tier === "full" ? "full_b" : "notime_b") : tier, cents: amount,
+    name: `Rite — Your Saturn Return (${tier === "full" ? "with birth time" : "no birth time"})`, description: `Saturn in ${p.natal_sign} · ${fmtMonth(p.window_start)} – ${fmtMonth(p.window_end)}`,
+  });
+  // Order bump: "Add a reading for someone else" as a Checkout optional item (needs a real Price). If the Price can't be
+  // made (Stripe down, bad config), the reading still sells without it.
+  let bumpPrice: string | null = null;
+  const bump = bumpCents(c.env);
+  if (bump) {
+    try { bumpPrice = await ensurePrice(c.env, { product: "bump", cents: bump, name: BUMP_NAME, description: BUMP_DESCRIPTION }); }
+    catch (e) { await log(c.env, "error", p.id, { where: "bump-price", e: String(e) }); }
+  }
   const session = await s.checkout.sessions.create({
     mode: "payment",
-    line_items: [{ quantity: 1, price_data: { currency: c.env.CURRENCY, unit_amount: amount, product_data: { name: `Rite — Your Saturn Return (${tier === "full" ? "with birth time" : "no birth time"})`, description: `Saturn in ${p.natal_sign} · ${fmtMonth(p.window_start)} – ${fmtMonth(p.window_end)}` } } }],
+    line_items: [line],
+    ...(bumpPrice ? { optional_items: [{ price: bumpPrice, quantity: 1 }] } : {}),
+    ...sessionTax(c.env),
     custom_fields: [{ key: "first_name", label: { type: "custom", custom: "First name (for the report)" }, type: "text", optional: true }],
-    metadata: { preview_id: p.id, tier },
+    metadata: { preview_id: p.id, tier, ...(arm ? { arm } : {}), ...(bumpPrice ? { bump_price: bumpPrice } : {}) },
     success_url: `${c.env.SITE_URL}/thanks?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${c.env.SITE_URL}/p/${p.id}`,
     allow_promotion_codes: true,
   });
-  await log(c.env, "checkout", p.id, { tier, amount, ref: p.ref, sign: p.natal_sign });
+  await log(c.env, "checkout", p.id, { tier, amount, ref: p.ref, sign: p.natal_sign, ...(arm ? { arm } : {}), bump: !!bumpPrice, tax: taxOn(c.env) });
   return c.redirect(session.url!, 303);
 });
+
+const BUMP_NAME = "Rite — A reading for someone else (gift code)";
+const BUMP_DESCRIPTION = "A gift code for a second reading. They open it with their own birth details; with or without a birth time. One use, no expiry.";
+
+/**
+ * One reading or gift line item. Without LOCAL_PRICES it is inline price_data, as before (plus tax_behavior and the tax
+ * code when STRIPE_TAX is on). With LOCAL_PRICES it is a real Price carrying currency_options, because Checkout's
+ * price_data can't: then the product description is the generic one, not the per-preview line.
+ */
+async function readingLine(env: Env, o: { product: PriceProduct; cents: number; name: string; description: string }): Promise<Stripe.Checkout.SessionCreateParams.LineItem> {
+  if (localPrices(env, env.CURRENCY)) return { quantity: 1, price: await ensurePrice(env, { product: o.product, cents: o.cents, name: o.name, description: o.product === "gift" ? o.description : undefined }) };
+  const tax = taxOn(env);
+  return { quantity: 1, price_data: { currency: env.CURRENCY, unit_amount: o.cents, ...(tax ? { tax_behavior: "inclusive" as const } : {}),
+    product_data: { name: o.name, description: o.description, ...(tax ? { tax_code: TAX_CODE } : {}) } } };
+}
+
+const liveMode = (env: Env) => ((env.STRIPE_SECRET_KEY || "").startsWith("sk_live_") ? "live" : "test");
+
+/**
+ * A one-time Stripe Price (reading, gift, order bump), created once and cached in KV, found again by lookup_key if the cache is lost.
+ * The lookup key carries the amount, currency, mode and the tax / local-price variant (commerce.ts priceKeySuffix), so a
+ * config change makes a new Price and never edits one (Stripe can't change tax_behavior on an existing Price).
+ */
+async function ensurePrice(env: Env, o: { product: PriceProduct; cents: number; name: string; description?: string; tax?: boolean }): Promise<string> {
+  const tax = o.tax ?? taxOn(env);
+  const opts = currencyOptions(localPrices(env, env.CURRENCY), o.product, tax);
+  const key = `rite_${o.product}_${o.cents}_${env.CURRENCY}_${liveMode(env)}${priceKeySuffix(tax, opts)}`;
+  const kv = `stripe:price:${key}`;
+  const cached = await env.CACHE.get(kv);
+  if (cached) return cached;
+  const s = stripe(env);
+  const found = await s.prices.list({ lookup_keys: [key], active: true, limit: 1 });
+  let priceId = found.data[0]?.id;
+  if (!priceId) {
+    const product = await s.products.create({ name: o.name, ...(o.description ? { description: o.description } : {}), ...(tax ? { tax_code: TAX_CODE } : {}) });
+    priceId = (await s.prices.create({ product: product.id, currency: env.CURRENCY, unit_amount: o.cents, lookup_key: key, nickname: o.name,
+      ...(tax ? { tax_behavior: "inclusive" as const } : {}), ...(opts ? { currency_options: opts } : {}) })).id;
+    await log(env, "stripe_price", key, { price: priceId });
+  }
+  await env.CACHE.put(kv, priceId);
+  return priceId;
+}
 
 async function giftCheckout(env: Env, redirect: (url: string, status: 302 | 303) => Response) {
   const amount = parseInt(env.PRICE_FULL_CENTS, 10);
   const session = await stripe(env).checkout.sessions.create({
     mode: "payment",
-    line_items: [{ quantity: 1, price_data: { currency: env.CURRENCY, unit_amount: amount, product_data: { name: "Rite — Saturn Return reading, as a gift", description: "A code they redeem with their own birth details. Works with or without a birth time." } } }],
+    line_items: [await readingLine(env, { product: "gift", cents: amount, name: "Rite — Saturn Return reading, as a gift", description: "A code they redeem with their own birth details. Works with or without a birth time." })],
+    ...sessionTax(env),
     custom_fields: [
       { key: "from_name", label: { type: "custom", custom: "Your name, as they'll see it" }, type: "text", optional: true },
       { key: "message", label: { type: "custom", custom: "A note for them (optional)" }, type: "text", optional: true },
@@ -416,11 +487,26 @@ async function giftCheckout(env: Env, redirect: (url: string, status: 302 | 303)
     cancel_url: `${env.SITE_URL}/gift`,
     allow_promotion_codes: true,
   });
-  await log(env, "checkout", null, { gift: true, amount });
+  await log(env, "checkout", null, { gift: true, amount, tax: taxOn(env) });
   return redirect(session.url!, 303);
 }
 
 app.get("/gift", (c) => c.html(giftPage({ siteUrl: c.env.SITE_URL, price: Math.round(parseInt(c.env.PRICE_FULL_CENTS, 10) / 100) })));
+// Gift card PNG (1080×1350) for a code: printable or sendable. Rendered like the share card (src/png.ts) and kept in KV for
+// 30 days; the code is the secret, as it is for /gift/:code. A refunded code gets no card.
+app.get("/gift/card/:code{[^/]+\\.png}", async (c) => {
+  const g = await getGift(c.env, c.req.param("code").replace(/\.png$/, ""));
+  if (!g) return c.notFound();
+  if (g.redeemed_at === "refunded" || (g.redeemed_at && !g.redeemed_purchase_id)) return c.text("That gift code was refunded.", 410);
+  const key = `gift:png:${g.code}`;
+  let png = await c.env.CACHE.get(key, "arrayBuffer");
+  if (!png) {
+    const out = await svgToPng(giftCardSvg({ code: g.code, from: g.buyer_name, site: c.env.SITE_URL.replace(/^https?:\/\//, "") }));
+    png = out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength) as ArrayBuffer;
+    c.executionCtx.waitUntil(c.env.CACHE.put(key, png, { expirationTtl: 30 * 86400 }));
+  }
+  return c.body(png, 200, { "content-type": "image/png", "cache-control": "private, max-age=3600", "x-robots-tag": "noindex", "content-disposition": `inline; filename="rite-gift-${g.code}.png"` });
+});
 app.get("/gift/thanks/:code", async (c) => {
   const g = await getGift(c.env, c.req.param("code"));
   if (!g) return c.notFound();
@@ -497,10 +583,12 @@ app.get("/thanks", async (c) => {
   if (!sid) return c.redirect("/");
   // The webhook usually lands first; poll briefly for the purchase (or gift) row.
   for (let i = 0; i < 6; i++) {
-    const g = await c.env.DB.prepare("SELECT code FROM gifts WHERE stripe_session_id = ?").bind(sid).first<{ code: string }>();
-    if (g) return c.redirect(`/gift/thanks/${g.code}`);
+    // purchase first: a reading bought with the order bump has a gift row on the same session too, and belongs on /r/
     const pu = await c.env.DB.prepare("SELECT id, status FROM purchases WHERE stripe_session_id = ?").bind(sid).first<{ id: string; status: string }>();
     if (pu) return c.redirect(`/r/${pu.id}`);
+    const g = await c.env.DB.prepare("SELECT code FROM gifts WHERE stripe_session_id = ?").bind(sid).first<{ code: string }>();
+    if (g) return c.redirect(`/gift/thanks/${g.code}`);
+
     await new Promise((r) => setTimeout(r, 1000));
   }
   // Fallback: fulfil directly from the session (idempotent on session id).
@@ -537,7 +625,9 @@ app.get("/r/:tok", async (c) => {
   const askRows = await c.env.DB.prepare("SELECT q, a FROM asks WHERE purchase_id = ? ORDER BY id").bind(pu.id).all<{ q: string; a: string }>();
   const asks = askRows.results ?? [];
   const sub = await c.env.DB.prepare("SELECT status FROM subscriptions WHERE purchase_id = ? AND status IN ('active','past_due')").bind(pu.id).first<{ status: string }>(); // past_due still shows the manage link
-  return c.html(readingPage({ subscribed: !!sub, siteUrl: c.env.SITE_URL, token: pu.id, c: comp, cy, r, firstName: pu.first_name, birthLabel: birthLabelOf(p), placeLabel: p.place_label, askLeft: Math.max(0, ASK_CAP - asks.length), asks }));
+  const bg = await bumpGiftOf(c.env, pu);
+  return c.html(readingPage({ subscribed: !!sub, siteUrl: c.env.SITE_URL, token: pu.id, c: comp, cy, r, firstName: pu.first_name, birthLabel: birthLabelOf(p), placeLabel: p.place_label, askLeft: Math.max(0, ASK_CAP - asks.length), asks,
+    bumpGift: bg ? { code: bg.code, used: !!bg.redeemed_purchase_id } : null, banner: giftSeasonOn(c.env) }));
 });
 
 const ASK_CAP = 5;
@@ -673,20 +763,62 @@ app.get("/r/:tok/calendar.ics", async (c) => {
   return c.body(lines.join("\r\n") + "\r\n", 200, { "content-type": "text/calendar; charset=utf-8", "content-disposition": `attachment; filename="rite-saturn-return${only ? "-" + only : ""}.ics"` });
 });
 
+/** Stripe Tax collected on a session (tax-inclusive, so it is part of amount_total); null when tax wasn't calculated. */
+const taxCents = (session: Stripe.Checkout.Session) => (typeof session.total_details?.amount_tax === "number" && (session.automatic_tax?.enabled || session.total_details.amount_tax > 0) ? session.total_details.amount_tax : null);
+const paymentIntentOf = (session: Stripe.Checkout.Session) => (typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null);
+
 async function fulfil(env: Env, session: Stripe.Checkout.Session): Promise<string | null> {
   if (session.metadata?.gift === "1") return fulfilGift(env, session);
   const existing = await env.DB.prepare("SELECT id FROM purchases WHERE stripe_session_id = ?").bind(session.id).first<{ id: string }>();
-  if (existing) return existing.id;
+  if (existing) { await fulfilBump(env, session, existing.id); return existing.id; } // a retry also finishes a bump gift that failed the first time
   const pid = session.metadata?.preview_id; const tier = session.metadata?.tier ?? "notime";
   if (!pid) return null;
   const email = session.customer_details?.email ?? session.customer_email ?? "";
   const firstName = session.custom_fields?.find((f) => f.key === "first_name")?.text?.value?.trim() || null;
   const tok = token();
-  await env.DB.prepare(`INSERT INTO purchases (id, preview_id, created_at, email, first_name, stripe_session_id, stripe_payment_intent, amount_cents, tier, status) VALUES (?,?,?,?,?,?,?,?,?,'paid')`)
-    .bind(tok, pid, now(), email, firstName, session.id, typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null, session.amount_total ?? 0, tier).run();
+  const tax = taxCents(session);
+  // amount_cents is everything paid on the session (a bumped reading includes the bump; tax-inclusive, so it includes tax_cents)
+  await env.DB.prepare(`INSERT INTO purchases (id, preview_id, created_at, email, first_name, stripe_session_id, stripe_payment_intent, amount_cents, tier, status, tax_cents) VALUES (?,?,?,?,?,?,?,?,?,'paid',?)`)
+    .bind(tok, pid, now(), email, firstName, session.id, paymentIntentOf(session), session.amount_total ?? 0, tier, tax).run();
   const pv = await getPreview(env, pid);
-  await log(env, "paid", tok, { pid, tier, amount: session.amount_total, ref: pv?.ref ?? null, sign: pv?.natal_sign ?? null, return_number: pv?.return_number ?? null });
+  await log(env, "paid", tok, { pid, tier, amount: session.amount_total, ref: pv?.ref ?? null, sign: pv?.natal_sign ?? null, return_number: pv?.return_number ?? null,
+    ...(tax != null ? { tax } : {}), ...(session.metadata?.arm ? { arm: session.metadata.arm } : {}) });
+  await fulfilBump(env, session, tok);
   return tok; // the reading is written in its own invocation (kickGenerate / first view) to stay under the per-request CPU cap
+}
+
+/**
+ * Order bump: if the session's optional item ("a reading for someone else") was bought, store a gift code for it on the
+ * same session and payment intent, so a refund of the payment voids it like any gift (charge.refunded). Idempotent on the
+ * session id; never throws (an error is logged and the next retry of fulfil, e.g. Stripe's redelivery or /thanks, tries again).
+ * No separate email: the code goes in the reading's delivery email and on the reading page.
+ */
+async function fulfilBump(env: Env, session: Stripe.Checkout.Session, tok: string): Promise<string | null> {
+  const bumpPrice = session.metadata?.bump_price;
+  if (!bumpPrice) return null;
+  try {
+    const had = await env.DB.prepare("SELECT code FROM gifts WHERE stripe_session_id = ?").bind(session.id).first<{ code: string }>();
+    if (had) return had.code;
+    const items = await stripe(env).checkout.sessions.listLineItems(session.id, { limit: 10 });
+    const li = items.data.find((x) => x.price?.id === bumpPrice);
+    if (!li) return null; // offered, not taken
+    const firstName = session.custom_fields?.find((f) => f.key === "first_name")?.text?.value?.trim() || null;
+    const code = giftCode();
+    const ins = await env.DB.prepare("INSERT OR IGNORE INTO gifts (code, created_at, buyer_email, buyer_name, message, stripe_session_id, stripe_payment_intent, amount_cents) VALUES (?,?,?,?,?,?,?,?)")
+      .bind(code, now(), session.customer_details?.email ?? session.customer_email ?? "", firstName, null, session.id, paymentIntentOf(session), li.amount_total ?? 0).run();
+    if (!ins.meta.changes) return (await env.DB.prepare("SELECT code FROM gifts WHERE stripe_session_id = ?").bind(session.id).first<{ code: string }>())?.code ?? null; // a parallel fulfil won
+    await log(env, "gift_paid", code, { amount: li.amount_total, bump: true, purchase: tok });
+    return code;
+  } catch (e) {
+    await log(env, "error", tok, { where: "bump-gift", e: String(e) });
+    return null;
+  }
+}
+
+/** The order-bump gift bought with a reading (same Checkout Session), unless it was refunded. */
+async function bumpGiftOf(env: Env, pu: Pick<PurchaseRow, "stripe_session_id">) {
+  if (!pu.stripe_session_id) return null;
+  return env.DB.prepare("SELECT code, redeemed_purchase_id FROM gifts WHERE stripe_session_id = ? AND (redeemed_at IS NULL OR redeemed_purchase_id IS NOT NULL)").bind(pu.stripe_session_id).first<{ code: string; redeemed_purchase_id: string | null }>();
 }
 
 /** Ask the worker to write a reading in a fresh invocation (own CPU budget). Fire-and-forget. */
@@ -712,11 +844,12 @@ async function fulfilGift(env: Env, session: Stripe.Checkout.Session): Promise<s
   const from = session.custom_fields?.find((f) => f.key === "from_name")?.text?.value?.trim() || null;
   const message = session.custom_fields?.find((f) => f.key === "message")?.text?.value?.trim() || null;
   const code = giftCode();
-  await env.DB.prepare("INSERT INTO gifts (code, created_at, buyer_email, buyer_name, message, stripe_session_id, stripe_payment_intent, amount_cents) VALUES (?,?,?,?,?,?,?,?)")
-    .bind(code, now(), email, from, message, session.id, typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null, session.amount_total ?? 0).run();
-  await log(env, "gift_paid", code, { amount: session.amount_total });
+  const tax = taxCents(session);
+  await env.DB.prepare("INSERT INTO gifts (code, created_at, buyer_email, buyer_name, message, stripe_session_id, stripe_payment_intent, amount_cents, tax_cents) VALUES (?,?,?,?,?,?,?,?,?)")
+    .bind(code, now(), email, from, message, session.id, paymentIntentOf(session), session.amount_total ?? 0, tax).run();
+  await log(env, "gift_paid", code, { amount: session.amount_total, ...(tax != null ? { tax } : {}) });
   if (email) {
-    const m = giftEmail({ code, link: `${env.SITE_URL}/gift/${code}`, from });
+    const m = giftEmail({ code, link: `${env.SITE_URL}/gift/${code}`, from, cardUrl: `${env.SITE_URL}/gift/card/${code}.png` });
     const ok = await sendEmail(env, email, m.subject, m.text);
     await log(env, ok ? "emailed" : "error", code, ok ? { gift: true } : { where: "gift-email" });
   }
@@ -755,9 +888,12 @@ async function generateReport(env: Env, tok: string) {
       hitSentence: hitSentence(comp), reportUrl: `${env.SITE_URL}/r/${tok}`,
     };
     const gift = await env.DB.prepare("SELECT buyer_name FROM gifts WHERE redeemed_purchase_id=?").bind(tok).first<{ buyer_name: string | null }>();
+    const bump = gift ? null : await bumpGiftOf(env, pu);
     const m = gift ? giftDeliveryEmail({ ...common, from: gift.buyer_name })
       : deliveryEmail({ ...common, upsellUrl: `${env.SITE_URL}/r/${tok}#season`, monthlyPrice: Math.round(parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100),
-        yearlyPrice: yearlyAllowed(comp.window.windowEnd, new Date()) ? Math.round(parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10) / 100) : null });
+        yearlyPrice: yearlyAllowed(comp.window.windowEnd, new Date()) ? Math.round(parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10) / 100) : null,
+        gift: bump ? { code: bump.code, link: `${env.SITE_URL}/gift/${bump.code}`, cardUrl: `${env.SITE_URL}/gift/card/${bump.code}.png` } : undefined });
+
     const ok = await sendEmail(env, pu.email, m.subject, m.text);
     if (ok) { await env.DB.prepare("UPDATE purchases SET delivered_at=? WHERE id=?").bind(now(), tok).run(); await log(env, "emailed", tok); }
   }
@@ -768,31 +904,41 @@ async function generateReport(env: Env, tok: string) {
  * The two recurring Prices for Saturn Season, created once in the Stripe account and cached in KV. Checkout used inline
  * price_data before, but a subscription item can't be switched to inline price_data later, so plan switches need real Price ids.
  * Found again by lookup_key if the KV entry is lost (e.g. a new namespace), so nothing is created twice.
+ *
+ * Two families. With STRIPE_TAX off and no LOCAL_PRICES: the original Prices (lookup keys and KV key unchanged). Otherwise
+ * the "v2" family: tax_behavior "inclusive" (Stripe can't change it on an existing Price, so these are new Prices under new
+ * lookup keys, `_v2`), plus currency_options from LOCAL_PRICES (`_l<hash>`). Subscriptions already on the original Prices
+ * stay there; a plan switch keeps a subscription in the family it is in (`tax` from its current Price).
  */
 const SEASON_PRODUCT_NAME = "Rite — Saturn Season";
 const SEASON_PRICES_KEY = "stripe:season:prices";
 type SeasonPrices = { month: string; year: string };
-async function ensureSeasonPrices(env: Env): Promise<SeasonPrices> {
-  const cached = await env.CACHE.get<SeasonPrices>(SEASON_PRICES_KEY, "json");
+async function ensureSeasonPrices(env: Env, tax = taxOn(env)): Promise<SeasonPrices> {
+  const lp = localPrices(env, env.CURRENCY);
+  const opts: Record<SeasonPlan, ReturnType<typeof currencyOptions>> = { month: currencyOptions(lp, "season_month", tax), year: currencyOptions(lp, "season_year", tax) };
+  const want: Record<SeasonPlan, number> = { month: parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10), year: parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10) };
+  const keyFor = (plan: SeasonPlan) => `rite_season_${plan}_${want[plan]}_${env.CURRENCY}_${liveMode(env)}${priceKeySuffix(tax, opts[plan])}`;
+  const variant = priceKeySuffix(tax, opts.month) + (opts.year ? priceKeySuffix(false, opts.year) : "");
+  const kvKey = variant ? `${SEASON_PRICES_KEY}:${variant}` : SEASON_PRICES_KEY;
+  const cached = await env.CACHE.get<SeasonPrices>(kvKey, "json");
   if (cached?.month && cached?.year) return cached;
   const s = stripe(env);
-  const want: Record<SeasonPlan, number> = { month: parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10), year: parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10) };
-  const live = (env.STRIPE_SECRET_KEY || "").startsWith("sk_live_") ? "live" : "test";
-  const keyFor = (plan: SeasonPlan) => `rite_season_${plan}_${want[plan]}_${env.CURRENCY}_${live}`;
   const out: Partial<SeasonPrices> = {};
   const found = await s.prices.list({ lookup_keys: [keyFor("month"), keyFor("year")], active: true, limit: 2 });
   for (const p of found.data) { if (p.lookup_key === keyFor("month")) out.month = p.id; if (p.lookup_key === keyFor("year")) out.year = p.id; }
   if (!out.month || !out.year) {
     const productId = found.data[0] ? (typeof found.data[0].product === "string" ? found.data[0].product : found.data[0].product.id)
-      : (await s.products.create({ name: SEASON_PRODUCT_NAME, description: "A note every Monday until your Saturn return window closes. Stops itself then." })).id;
+      : (await s.products.create({ name: SEASON_PRODUCT_NAME, description: "A note every Monday until your Saturn return window closes. Stops itself then.", ...(tax ? { tax_code: TAX_CODE } : {}) })).id;
     for (const plan of ["month", "year"] as SeasonPlan[]) {
       if (out[plan]) continue;
-      const p = await s.prices.create({ product: productId, currency: env.CURRENCY, unit_amount: want[plan], recurring: { interval: plan }, lookup_key: keyFor(plan), nickname: `Saturn Season ${plan}ly` });
+      const o = opts[plan];
+      const p = await s.prices.create({ product: productId, currency: env.CURRENCY, unit_amount: want[plan], recurring: { interval: plan }, lookup_key: keyFor(plan), nickname: `Saturn Season ${plan}ly`,
+        ...(tax ? { tax_behavior: "inclusive" as const } : {}), ...(o ? { currency_options: o } : {}) });
       out[plan] = p.id;
     }
   }
   const prices = out as SeasonPrices;
-  await env.CACHE.put(SEASON_PRICES_KEY, JSON.stringify(prices));
+  await env.CACHE.put(kvKey, JSON.stringify(prices));
   return prices;
 }
 
@@ -811,6 +957,7 @@ app.post("/season/:tok", async (c) => {
     customer_email: pu.email || undefined,
     line_items: [{ quantity: 1, price: prices[plan] }],
     allow_promotion_codes: true,
+    ...sessionTax(c.env),
     metadata: { purchase_id: pu.id, plan },
     subscription_data: { metadata: { purchase_id: pu.id, plan } },
     success_url: `${c.env.SITE_URL}/season/manage/${pu.id}?ok=started`,
@@ -856,10 +1003,12 @@ app.post("/season/plan/:tok", async (c) => {
   if (plan === "year" && !m.d.yearlyAllowed) return c.redirect(`/season/manage/${tok}`);
   try {
     const s = stripe(c.env);
-    const prices = await ensureSeasonPrices(c.env);
     const current = await s.subscriptions.retrieve(m.sub.id);
     const item = current.items.data[0];
     if (!item) throw new Error("subscription has no items");
+    // Stay in the subscription's own Price family: one started before Stripe Tax (tax_behavior unspecified) switches between
+    // the original Prices, one started with tax on switches between the inclusive v2 Prices, whatever STRIPE_TAX says now.
+    const prices = await ensureSeasonPrices(c.env, item.price?.tax_behavior === "inclusive");
     await s.subscriptions.update(m.sub.id, { items: [{ id: item.id, price: prices[plan] }], proration_behavior: "create_prorations", metadata: { purchase_id: tok, plan } });
     await c.env.DB.prepare("UPDATE subscriptions SET plan=? WHERE id=?").bind(plan, m.sub.id).run();
     await log(c.env, "season_plan", tok, { from: m.d.plan, to: plan });
@@ -937,7 +1086,10 @@ app.post("/webhook/stripe", async (c) => {
     const ch = event.data.object as Stripe.Charge;
     const pi = typeof ch.payment_intent === "string" ? ch.payment_intent : ch.payment_intent?.id;
     if (pi) {
-      // Readings and gifts are only ever refunded in full; a partial refund on one is logged and changes nothing.
+      // Readings and gifts are only ever refunded in full; a partial refund on one is logged and changes nothing. A reading
+      // bought with the order bump is one payment: a full refund refunds the reading and voids its unredeemed gift code; a
+      // partial refund (e.g. just the bump's amount) changes neither, so the code stays live until it is voided by hand
+      // (README "Order bump"). A redeemed bump code keeps its reading, as for any gift.
       const pu = await c.env.DB.prepare("SELECT id FROM purchases WHERE stripe_payment_intent=?").bind(pi).first<{ id: string }>();
       const gi = await c.env.DB.prepare("SELECT code FROM gifts WHERE stripe_payment_intent=?").bind(pi).first<{ code: string }>();
       if (pu || gi) {
@@ -995,7 +1147,10 @@ app.post("/admin/refund", async (c) => {
   }
   await stripe(c.env).refunds.create({ payment_intent: pu.stripe_payment_intent });
   await c.env.DB.prepare("UPDATE purchases SET status='refunded' WHERE id=?").bind(pu.id).run();
+  // the order-bump gift on the same payment is refunded with it (unless already redeemed); charge.refunded does the same
+  await c.env.DB.prepare("UPDATE gifts SET redeemed_at='refunded' WHERE stripe_payment_intent=? AND redeemed_at IS NULL").bind(pu.stripe_payment_intent).run();
   await log(c.env, "refund", pu.id);
+
   return c.json({ refunded: true });
 });
 
@@ -1009,8 +1164,8 @@ app.get("/admin/stats", async (c) => {
 // HTML view of /admin/stats + recent errors, stories and email queues. Bearer header or ?key= (same secret); 404 otherwise.
 app.get("/admin", async (c) => {
   if (!c.env.ADMIN_KEY || !adminAuthorized(c.env.ADMIN_KEY, c.req.header("authorization"), c.req.query("key"))) return c.notFound(); // ADMIN_KEY only
-  const [stats, extras] = await Promise.all([adminStats(c.env.DB, adminDays(c.req.query("days"))), adminExtras(c.env.DB)]);
-  return c.html(adminPage({ stats, extras, currency: c.env.CURRENCY, key: c.req.query("key"), generatedAt: now() }), 200,
+  const [stats, extras, money] = await Promise.all([adminStats(c.env.DB, adminDays(c.req.query("days"))), adminExtras(c.env.DB), adminMoney(c.env.DB)]);
+  return c.html(adminPage({ stats, extras, money, currency: c.env.CURRENCY, key: c.req.query("key"), generatedAt: now() }), 200,
     { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
 });
 
@@ -1143,6 +1298,98 @@ async function closeSeasonSubscription(env: Env, r: Pick<SeasonRow, "sub_id" | "
     return { canceled, cents };
   } catch (e) { await log(env, "error", r.purchase_id, { where: "season-refund", e: String(e) }); }
   return { canceled, cents: 0 };
+}
+
+// ---------- price test ----------
+/**
+ * The arm for a new preview while PRICE_TEST is "on" and the test hasn't finished: "A" or "B" by a hash of the preview id
+ * (commerce.ts armFor). null (arm A's price, nothing stored) when the test is off or done. Stops the test when it reaches
+ * 14 days or 600 previews per arm, logging price_test_done once with the winner by revenue per preview.
+ */
+async function priceArm(env: Env, pid: string): Promise<"A" | "B" | null> {
+  if (env.PRICE_TEST !== "on") return null;
+  try {
+    if (await priceTestDone(env)) return null;
+    const st = await priceTestState(env);
+    const why = priceTestStop(st);
+    if (why) { await finishPriceTest(env, st, why); return null; }
+    return armFor(pid);
+  } catch (e) { await log(env, "error", pid, { where: "price-test", e: String(e) }); return null; } // a broken test never blocks a preview
+}
+const priceTestDone = async (env: Env) => !!(await env.DB.prepare("SELECT 1 FROM events WHERE kind='price_test_done' LIMIT 1").first());
+
+/** Previews, paid purchases and revenue net of tax (cents) per arm, and when the first arm was assigned. */
+async function priceTestState(env: Env): Promise<PriceTestState> {
+  const rows = await env.DB.prepare(`SELECT pv.price_arm arm, MIN(pv.created_at) first, COUNT(DISTINCT pv.id) previews, COUNT(DISTINCT pu.id) purchases, COALESCE(SUM(pu.amount_cents - COALESCE(pu.tax_cents,0)),0) cents
+    FROM previews pv LEFT JOIN purchases pu ON pu.preview_id = pv.id AND pu.status IN ('paid','writing','generated') WHERE pv.price_arm IN ('A','B') GROUP BY pv.price_arm`).all<{ arm: string; first: string; previews: number; purchases: number; cents: number }>();
+  const zero: ArmStats = { previews: 0, purchases: 0, cents: 0 };
+  const st: PriceTestState = { first: null, A: { ...zero }, B: { ...zero } };
+  for (const r of rows.results ?? []) {
+    if (r.arm !== "A" && r.arm !== "B") continue;
+    st[r.arm] = { previews: r.previews, purchases: r.purchases, cents: r.cents };
+    if (!st.first || r.first < st.first) st.first = r.first;
+  }
+  return st;
+}
+
+async function finishPriceTest(env: Env, st: PriceTestState, reason: "days" | "previews") {
+  if (await priceTestDone(env)) return;
+  const arm = (a: ArmStats) => ({ ...a, rate: a.previews ? +(a.purchases / a.previews * 100).toFixed(2) : 0, per_preview: perPreview(a) });
+  await log(env, "price_test_done", priceTestWinner(st), { winner: priceTestWinner(st), reason, started: st.first, A: arm(st.A), B: arm(st.B),
+    prices: { A: readingPrices(env, "A"), B: readingPrices(env, "B") } });
+}
+
+/** Hourly: end the test on its 14th day even if no preview comes in to trigger it. */
+async function runPriceTest(env: Env) {
+  if (env.PRICE_TEST !== "on") return;
+  try {
+    if (await priceTestDone(env)) return;
+    const st = await priceTestState(env);
+    const why = priceTestStop(st);
+    if (why) await finishPriceTest(env, st, why);
+  } catch (e) { await log(env, "error", null, { where: "price-test-cron", e: String(e) }); }
+}
+
+// ---------- gift season email ----------
+/**
+ * 1 and 15 Dec (commerce.ts giftEmailDates), from 09:00 in each buyer's birthplace zone: one email per address per date to
+ * past buyers (a paid reading, amount > 0). Skips anyone with a refund, anyone who pressed stop on any of their readings or
+ * previews (followups / stage_reminders 'skipped:stop', or a `stopped` event), and gift recipients (they didn't buy).
+ * Each send is claimed in campaign_sends first, so overlapping runs can't double-send; a failed send drops its claim.
+ */
+async function runGiftSeason(env: Env, at = new Date()) {
+  const dates = giftEmailDates(env);
+  if (!dates.length) return;
+  const utcDay = at.toISOString().slice(0, 10);
+  // zones run up to a day either side of UTC; nothing to do unless an email day is within a day of today
+  if (!dates.some((d) => Math.abs(Date.parse(d) - Date.parse(utcDay)) <= 86400000)) return;
+  type Row = { email: string; purchase_id: string; first_name: string | null; tz: string };
+  const rows = await env.DB.prepare(`SELECT p.email, p.id purchase_id, p.first_name, pv.tz FROM purchases p JOIN previews pv ON pv.id = p.preview_id
+    WHERE p.amount_cents > 0 AND p.email != '' AND p.status IN ('paid','writing','generated','failed')
+      AND p.created_at = (SELECT MAX(p2.created_at) FROM purchases p2 WHERE p2.email = p.email AND p2.amount_cents > 0)
+      AND NOT EXISTS (SELECT 1 FROM purchases r WHERE r.email = p.email AND r.status = 'refunded')
+      AND NOT EXISTS (SELECT 1 FROM purchases x WHERE x.email = p.email AND (
+        EXISTS (SELECT 1 FROM followups f WHERE f.purchase_id = x.id AND f.sent_at = 'skipped:stop')
+        OR EXISTS (SELECT 1 FROM stage_reminders s WHERE s.purchase_id = x.id AND s.sent_at = 'skipped:stop')
+        OR EXISTS (SELECT 1 FROM events e WHERE e.kind = 'stopped' AND (e.ref = x.id OR e.ref = x.preview_id))))
+    ORDER BY p.created_at DESC, p.id DESC LIMIT 2000`).all<Row>(); // ties on created_at: the first row per address claims it
+  const giftUrl = `${env.SITE_URL}/gift?r=gift-email`;
+  for (const r of rows.results ?? []) {
+    const { date, hour } = localParts(r.tz, at);
+    const i = dates.indexOf(date);
+    if (i < 0 || hour < GIFT_EMAIL_HOUR) continue;
+    const campaign = `gift-${date}`;
+    try {
+      const claimed = now();
+      const ins = await env.DB.prepare("INSERT OR IGNORE INTO campaign_sends (campaign, email, purchase_id, sent_at) VALUES (?,?,?,?)").bind(campaign, r.email, r.purchase_id, claimed).run();
+      if (!ins.meta.changes) continue; // already sent (or being sent) to this address for this date
+      const stop = stopUrl(env.SITE_URL, r.purchase_id);
+      const m = giftSeasonEmail({ firstName: r.first_name, giftUrl, price: dollars(parseInt(env.PRICE_FULL_CENTS, 10)), stopUrl: stop, second: i > 0 });
+      const ok = await sendEmail(env, r.email, m.subject, m.text, undefined, { unsubscribe: stop });
+      if (ok) await log(env, "gift_season_sent", r.purchase_id, { campaign });
+      else await env.DB.prepare("DELETE FROM campaign_sends WHERE campaign=? AND email=? AND sent_at=?").bind(campaign, r.email, claimed).run(); // retry next hour
+    } catch (e) { await log(env, "error", r.purchase_id, { where: "gift-season", e: String(e) }); }
+  }
 }
 
 /** Daily digest of errors to the admin inbox (08:00 Brisbane), only when there is something to say. */
@@ -1279,5 +1526,5 @@ You asked for one email a week before each pass. Stop them: ${stopUrl(env.SITE_U
 
 export default {
   fetch: app.fetch,
-  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runFollowups(env), runErrorDigest(env), runCleanup(env)])); },
+  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runFollowups(env), runErrorDigest(env), runCleanup(env), runPriceTest(env), runGiftSeason(env)])); },
 };

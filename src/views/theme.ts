@@ -74,10 +74,19 @@ footer.bottom a{color:#EDE6D6;text-decoration:none;font-weight:600;font-size:18p
 @keyframes rv{from{opacity:0;transform:translateY(48px)}to{opacity:1;transform:none}}
 }
 @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}.w,.fade,.a,.f,.swap{opacity:1;transform:none}.draw{stroke-dashoffset:0}}
+/* gift season banner (views/theme.ts giftBanner): a thin card under the header, gold edge, one link */
+.gbar{max-width:1240px;margin:0 auto 8px;padding:0 clamp(16px,4vw,48px)}
+.gbar .in{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 20px;background:#14171D;border:1px solid rgba(242,181,68,.4);border-radius:22px;padding:14px 18px 14px 22px}
+.gbar b{font-family:'Bricolage Grotesque',serif;font-size:19px;font-weight:600;letter-spacing:-.01em;color:#EDE6D6}
+.gbar span{font-size:15px;color:#BDB6A8}
+@media print{.gbar{display:none!important}}
 @media print{body{background:#fff;color:#111}header.top,footer.bottom,.noprint{display:none!important}.card,.stat{background:#f4f2ec;color:#111}.muted{color:#555}a{color:#111}}
 `;
 
-export function shell(opts: { title: string; description?: string; canonical?: string; og?: string; body: unknown; extraCss?: string; script?: string; nav?: unknown; noFooter?: boolean }) {
+/** The gift-season banner (shown between GIFT_SEASON_START and GIFT_SEASON_END on /, /p/:id and /r/:tok). */
+export const giftBanner = () => html`<aside class="gbar noprint" aria-label="Gifts"><div class="in"><span><b>Give someone their Saturn return.</b> A gift code arrives by email the moment you pay, so it still works on Christmas morning.</span><a href="/gift" class="ghost" data-gift-banner>Give a reading</a></div></aside>`;
+
+export function shell(opts: { title: string; description?: string; canonical?: string; og?: string; body: unknown; extraCss?: string; script?: string; nav?: unknown; noFooter?: boolean; banner?: boolean }) {
   return html`<!doctype html>
 <html lang="en">
 <head>
@@ -101,7 +110,9 @@ ${opts.og ? html`<meta property="og:image" content="${opts.og}"><meta name="twit
   <a href="/" class="brand">${raw(MARK)} Rite</a>
   ${opts.nav ?? html`<nav class="main"><a href="/#reading">The reading</a><a href="/#price">Price</a><a href="/#faq">Questions</a><a href="/#start" class="ghost">Get my dates</a></nav>`}
 </header>
+${opts.banner ? giftBanner() : ""}
 ${opts.body}
+
 ${opts.noFooter ? "" : html`<footer class="bottom"><div class="in"><a href="/">Rite: Saturn Return</a><span style="display:flex;gap:18px;flex-wrap:wrap;align-items:center"><span>Personal guidance for the transits that have names.</span><a href="/privacy" style="font:inherit;color:#A7A196;font-weight:500">Privacy</a><a href="/terms" style="font:inherit;color:#A7A196;font-weight:500">Terms</a><a href="/refunds" style="font:inherit;color:#A7A196;font-weight:500">Refunds</a></span></div></footer>`}
 ${opts.script ? html`<script>${raw(opts.script)}</script>` : ""}
 </body>

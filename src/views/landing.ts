@@ -1,5 +1,6 @@
 import { html, raw } from "hono/html";
 import { shell, ARROW, MARK } from "./theme";
+import { dollars } from "../commerce";
 import { fmtMonYrL } from "../astro/cycle";
 import { RETURN_AGES, ageSpan } from "../content/return-ages";
 
@@ -168,7 +169,8 @@ const FAQ: Array<[string, string]> = [
   ["What if it isn't useful?", "Email us within 14 days for a full refund."],
 ];
 
-export function landingPage(opts: { siteUrl: string; ref?: string; error?: string; form?: { date?: string; place?: string; time?: string }; gift?: { code: string; from: string | null; message: string | null } | null; season?: { monthly: number; yearly: number; saturnNow: string }; variant?: "second"; second?: SecondReturn }) {
+export function landingPage(opts: { siteUrl: string; ref?: string; error?: string; form?: { date?: string; place?: string; time?: string }; gift?: { code: string; from: string | null; message: string | null } | null; season?: { monthly: number; yearly: number; saturnNow: string }; variant?: "second"; second?: SecondReturn; prices?: { full: number; notime: number }; banner?: boolean }) {
+  const full = dollars(opts.prices?.full ?? 2900), notime = dollars(opts.prices?.notime ?? 1900);
   const f = opts.form ?? {};
   const second = opts.variant === "second" && opts.second ? opts.second : null;
   const faq = second ? secondFaq(second) : FAQ;
@@ -292,10 +294,10 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
       <g class="vb psat"><g id="sat2" class="vb" style="transform:rotate(0deg);transition:transform 1.6s cubic-bezier(.3,.7,.2,1)"><circle cx="300" cy="70" r="30" fill="#B9861F" opacity=".14"/><circle cx="300" cy="70" r="15" fill="#14110A"/><ellipse cx="300" cy="70" rx="29" ry="7.5" fill="none" stroke="#B9861F" stroke-width="2.5" transform="rotate(-22 300 70)"/></g></g>
     </svg>
     <div style="flex:1 1 380px;display:flex;flex-direction:column;gap:22px;position:relative">
-      <div class="disp" style="display:flex;align-items:flex-start;font-size:clamp(104px,12vw,176px);font-weight:800;letter-spacing:-.05em;line-height:.82"><span style="font-size:.4em;font-weight:600;margin:.1em .06em 0 0">$</span><span>29</span></div>
-      <p style="margin:-6px 0 0;font-size:15px;font-style:italic;color:rgba(20,17,10,.6)">A dollar for every year Saturn takes to come back.</p>
+      <div class="disp" style="display:flex;align-items:flex-start;font-size:clamp(104px,12vw,176px);font-weight:800;letter-spacing:-.05em;line-height:.82"><span style="font-size:.4em;font-weight:600;margin:.1em .06em 0 0">$</span><span>${full}</span></div>
+      ${full === "29" ? html`<p style="margin:-6px 0 0;font-size:15px;font-style:italic;color:rgba(20,17,10,.6)">A dollar for every year Saturn takes to come back.</p>` : ""}
       <p class="disp" style="margin:8px 0 0;font-size:clamp(24px,2.2vw,30px);font-weight:600;letter-spacing:-.02em;line-height:1.15">One payment. The reading is yours.</p>
-      <p style="margin:0;font-size:17px;line-height:1.6;color:rgba(20,17,10,.7)"><span class="nw">No subscription. No trial that becomes a charge.</span><br><span class="nw">Not useful? Full refund within 14 days.</span><br><span class="nw">No birth time? $19.</span></p>
+      <p style="margin:0;font-size:17px;line-height:1.6;color:rgba(20,17,10,.7)"><span class="nw">No subscription. No trial that becomes a charge.</span><br><span class="nw">Not useful? Full refund within 14 days.</span><br><span class="nw">No birth time? $${notime}.</span></p>
       <p class="echoLine" style="margin:10px 0 0;display:flex;align-items:center;gap:12px;font-size:15px;line-height:1.45;color:rgba(20,17,10,.62)"><span class="dot" style="background:#B9861F"></span><span id="echoLine">Saturn is already on its way back to where it was when you were born.</span></p>
     </div>
     <div style="flex:1 1 360px;display:flex;flex-direction:column;gap:18px;position:relative">
@@ -410,7 +412,8 @@ document.querySelectorAll('a[href="#start"]').forEach(function(a){a.addEventList
   return shell({
     title: second ? "Your second Saturn return, dated. · Rite" : "Your Saturn return, dated. · Rite", body, extraCss: CSS, script,
     description: second ? `Born ${bornRanges(second.born)}? Your second Saturn return is open now. Your window and every exact pass, free in ten seconds.` : undefined,
-    canonical: opts.siteUrl + (second ? "/second" : "/"), og: opts.siteUrl + "/og.png",
+    canonical: opts.siteUrl + (second ? "/second" : "/"), og: opts.siteUrl + "/og.png", banner: opts.banner,
+
     nav: html`<nav class="main"><a href="#reading">The reading</a><a href="#price">Price</a><a href="#faq">Questions</a><a href="#start" class="ghost">Get my dates</a></nav>`,
   });
 }

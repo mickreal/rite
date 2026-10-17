@@ -67,7 +67,8 @@ const CSS = `
 const WHEEL_LABELS = ["Return", "Planting", "First test", "Building", "Full view", "Proving", "Letting go", "Clearing"];
 const WHEEL_POS: Array<[number, number]> = [[250, 88], [367, 141], [406, 250], [363, 363], [250, 412], [137, 363], [94, 250], [131, 143]];
 
-export function readingPage(opts: { siteUrl: string; token: string; c: Computed; cy: Cycle; r: ReportJson; firstName: string | null; birthLabel: string; placeLabel: string; askLeft: number; asks: Array<{ q: string; a: string }>; subscribed: boolean; today?: Date }) {
+export function readingPage(opts: { siteUrl: string; token: string; c: Computed; cy: Cycle; r: ReportJson; firstName: string | null; birthLabel: string; placeLabel: string; askLeft: number; asks: Array<{ q: string; a: string }>; subscribed: boolean; today?: Date;
+  /** The gift code bought with this reading (order bump), if any. */ bumpGift?: { code: string; used: boolean } | null; banner?: boolean }) {
   const { c, cy, r } = opts; const w = c.window; const today = opts.today ?? new Date();
   const Cw = 2 * Math.PI * 200;
   // Natal label placed clear of the curve, the pass rings and the Approach / Contact labels.
@@ -297,6 +298,16 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
 
 <p class="muted" style="margin:-60px 0 60px;font-size:14px">Tropical zodiac${c.house ? `, ${c.houseSystem === "whole" ? "whole-sign" : "Placidus"} houses` : ""}. Dates are UTC and exact to the day. Your reading stays at this link.</p>
 
+${opts.bumpGift ? html`<section id="gift" class="ch rv noprint" style="padding-bottom:80px">
+  <div class="card" style="display:flex;flex-direction:column;gap:12px;border:1px solid rgba(242,181,68,.35)">
+    <span class="kicker">The reading you added for someone else</span>
+    ${opts.bumpGift.used ? html`<h3>They've opened it.</h3><p style="margin:0;color:#CFC8BA;line-height:1.6;max-width:620px">Code ${opts.bumpGift.code} has been used. The reading is theirs now.</p>`
+    : html`<h3>Their code is <span style="color:#F2B544">${opts.bumpGift.code}</span></h3>
+    <p style="margin:0;color:#CFC8BA;line-height:1.6;max-width:620px">Send them the code or this link: <a href="${opts.siteUrl}/gift/${opts.bumpGift.code}" style="white-space:nowrap">${opts.siteUrl.replace(/^https?:\/\//, "")}/gift/${opts.bumpGift.code}</a>. They open it with their own birth details, with or without a birth time. One use, no expiry.</p>
+    <div><a href="/gift/card/${opts.bumpGift.code}.png" download="rite-gift-card.png" class="ghost">Download a gift card</a></div>`}
+  </div>
+</section>` : ""}
+
 <section id="season" class="ch rv noprint" style="padding-bottom:80px">
   ${!opts.subscribed && !seasonAvailable(w.windowStart, w.windowEnd, today) ? (today.getTime() >= Date.parse(w.windowEnd) ? "" : html`<div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="kicker">Saturn Season</span><h3>A weekly note, once your window opens.</h3><p style="margin:0;color:#CFC8BA;line-height:1.6;max-width:620px">Your window opens ${fmtMonYrL(Date.parse(w.windowStart))}. Saturn Season is a short note every Monday through the window itself, so there's nothing to send yet. It becomes available here two months before it opens.</p></div>`)
   : opts.subscribed ? html`<div class="card" style="display:flex;flex-direction:column;gap:10px"><span class="kicker">Saturn Season</span><h3>Your weekly note is on.</h3><p style="margin:0;color:#CFC8BA;line-height:1.6">Every Monday morning until your window closes, then it stops itself. <a href="/season/manage/${opts.token}">Manage it</a>: change plan or stop it any time.</p></div>`
@@ -372,5 +383,6 @@ $('#askForm').addEventListener('submit',function(e){e.preventDefault();var q=$('
  var el=document.createElement('div');el.className='ans swap';el.innerHTML='<b></b><span style="color:#CFC8BA;line-height:1.6"></span>';el.querySelector('b').textContent=q;el.querySelector('span').textContent=d.a;$('#askList').appendChild(el);$('#askq').value='';$('#askLeft').textContent=d.left;btn.disabled=d.left<=0}).catch(function(){btn.textContent='Ask';btn.disabled=false;var er=$('#askErr');er.textContent="Couldn't reach the server. Check your connection and try again.";er.style.display=''})});
 })();`;
 
-  return shell({ title: `Your Saturn return · Rite`, body, extraCss: CSS, script, nav, description: r.cover_line });
+  return shell({ title: `Your Saturn return · Rite`, body, extraCss: CSS, script, nav, description: r.cover_line, banner: opts.banner });
+
 }

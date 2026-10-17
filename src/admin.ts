@@ -59,3 +59,29 @@ export async function adminExtras(db: D1Database, today = new Date().toISOString
 
 /** /admin's ?days= selector: 7, 30 or 90, default 30. */
 export const adminDays = (v: string | undefined) => { const n = parseInt(v ?? "", 10); return n === 7 || n === 90 ? n : 30; };
+
+export interface AdminArm { arm: string; previews: number; purchases: number; cents: number }
+export interface AdminMoney {
+  /** Stripe Tax collected in the last 30 days (readings incl. their order bump, and gift checkouts), cents. */
+  tax_30d: number;
+  /** Order-bump gift codes sold in the last 30 days, and their revenue (cents, tax included). */
+  bumps_30d: { n: number; cents: number };
+  /** Price test, per arm (all time: the arm is only stored while a test runs). cents = revenue net of tax. */
+  arms: AdminArm[];
+  /** The price_test_done event's detail (winner, reason, per-arm numbers), once the test has stopped itself. */
+  price_test_done: { at: string; detail: string | null } | null;
+}
+
+/** /admin's money panel: tax collected, the order bump and the price test. Separate from adminStats so /admin/stats stays as it was. */
+export async function adminMoney(db: D1Database, nowMs = Date.now()): Promise<AdminMoney> {
+  const since = new Date(nowMs - 30 * 86400000).toISOString();
+  const [tp, tg, bumps, arms, done] = await Promise.all([
+    db.prepare("SELECT COALESCE(SUM(tax_cents),0) cents FROM purchases WHERE created_at > ? AND status != 'refunded'").bind(since).first<{ cents: number }>(),
+    db.prepare("SELECT COALESCE(SUM(tax_cents),0) cents FROM gifts WHERE created_at > ? AND (redeemed_at IS NULL OR redeemed_at != 'refunded')").bind(since).first<{ cents: number }>(),
+    db.prepare("SELECT COUNT(*) n, COALESCE(SUM(g.amount_cents),0) cents FROM gifts g JOIN purchases p ON p.stripe_session_id = g.stripe_session_id WHERE g.created_at > ? AND p.status != 'refunded'").bind(since).first<{ n: number; cents: number }>(),
+    db.prepare(`SELECT pv.price_arm arm, COUNT(DISTINCT pv.id) previews, COUNT(DISTINCT pu.id) purchases, COALESCE(SUM(pu.amount_cents - COALESCE(pu.tax_cents,0)),0) cents
+      FROM previews pv LEFT JOIN purchases pu ON pu.preview_id = pv.id AND pu.status IN ('paid','writing','generated') WHERE pv.price_arm IS NOT NULL GROUP BY 1 ORDER BY 1`).all<AdminArm>(),
+    db.prepare("SELECT at, detail FROM events WHERE kind='price_test_done' ORDER BY id LIMIT 1").first<{ at: string; detail: string | null }>(),
+  ]);
+  return { tax_30d: (tp?.cents ?? 0) + (tg?.cents ?? 0), bumps_30d: { n: bumps?.n ?? 0, cents: bumps?.cents ?? 0 }, arms: arms.results ?? [], price_test_done: done ?? null };
+}
