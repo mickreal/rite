@@ -134,6 +134,16 @@ To make one:
 3. Add the reel to `remotion/presenter.json`: segments (`presenter`, `window`, `phases`, `line`, `cta`) with their `from`/`to` and the word-timed cues. Put the take (`vo.mp3`) and the presenter clips in `out/presenter/<id>/`.
 4. `bash remotion/render-presenter.sh <id>` → `out/presenter/<id>.mp4` (CRF 17, 30 fps, −16 LUFS). Segments crossfade over 0.45 s, ending on their cue; the presenter part gets a slow 3 % push-in and burned-in captions.
 
+## Launch calendar on the real launch day
+
+The 28-day calendar (weeks 1–2 and 3–4) is written for day 1 = 19 Oct 2026. On domain day, move it onto launch day L (a Monday) and render it in one go:
+
+```sh
+LAUNCH=2026-11-16 ELEVENLABS_API_KEY=… npm run launch     # = scripts/launch-plan.ts --render
+```
+
+`scripts/launch-plan.ts` joins both plans, moves every post by the same number of days into `scripts/plan-launch.json`, then runs `render-batch.ts` with `TODAY=L` into `out/launch/` (+ zip). The date check fails on any clip whose "Today" degree is stale on its new day. Before rendering it prints every post whose wording is tied to the calendar ("right now", "this year", "four weeks") or names a date that was still ahead on its original day and has passed by its new one. Reread or rewrite those first. The week-4 posts are pegged to Saturn's station on 11 Dec 2026, so the later L is, the more of week 4 needs rewriting. Presenter reels are exported from `out/presenter/` like any other asset (render them first with `npm run presenter -- <id>`).
+
 ## Batch export for a scheduler
 
 ```sh

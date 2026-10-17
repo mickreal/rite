@@ -62,7 +62,7 @@ const internalOk = (env: Env, auth: string | undefined) => adminAuthorized(env.S
 const stripe = (env: Env) => new Stripe(env.STRIPE_SECRET_KEY, { httpClient: Stripe.createFetchHttpClient() });
 const FUNNEL = new Set(["preview", "checkout", "paid", "generated", "gift_paid", "gift_redeemed", "season_start", "season_sent", "ask", "narrated", "refund", "story", "error"]);
 async function log(env: Env, kind: string, ref?: string | null, detail?: unknown) {
-  try { await env.DB.prepare("INSERT INTO events (at, kind, ref, detail) VALUES (?,?,?,?)").bind(now(), kind, ref ?? null, detail ? JSON.stringify(detail).slice(0, 2000) : null).run(); } catch (e) { console.error("log", e); }
+  try { await env.DB.prepare("INSERT INTO events (at, kind, ref, detail) VALUES (?,?,?,?)").bind(now(), kind, ref ?? null, detail ? JSON.stringify(detail).slice(0, kind === "season_note" ? 16000 : 2000) : null).run(); } catch (e) { console.error("log", e); }
   if (env.POSTHOG_KEY && FUNNEL.has(kind)) {
     try {
       await fetch(`${env.POSTHOG_HOST || "https://us.i.posthog.com"}/capture/`, { method: "POST", headers: { "content-type": "application/json" },
@@ -476,7 +476,8 @@ app.get("/admin/season/:tok/notes", async (c) => {
   // Every Season note built for a purchase, newest first, as plain text (kept whether or not the email was delivered).
   if (!c.env.ADMIN_KEY || !adminAuthorized(c.env.ADMIN_KEY, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
   const rows = await c.env.DB.prepare("SELECT at, detail FROM events WHERE kind='season_note' AND ref=? ORDER BY id DESC LIMIT 20").bind(c.req.param("tok")).all<{ at: string; detail: string }>();
-  const text = rows.results.map((r) => { const d = JSON.parse(r.detail) as { subject: string; text: string; delivered: boolean; forced: boolean };
+  const text = rows.results.map((r) => { let d: { subject: string; text: string; delivered: boolean; forced: boolean };
+    try { d = JSON.parse(r.detail); } catch { return `${r.at} (unreadable row)`; }
     return `${r.at.slice(0, 16).replace("T", " ")} UTC · ${d.delivered ? "delivered" : "NOT delivered"}${d.forced ? " · forced" : ""}\nSubject: ${d.subject}\n\n${d.text}`; }).join("\n\n" + "—".repeat(40) + "\n\n");
   return c.text(text || "No Season notes for this purchase yet.", 200, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
 });

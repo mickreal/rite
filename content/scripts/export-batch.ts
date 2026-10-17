@@ -24,7 +24,7 @@ const arg = (n: string) => { const i = argv.indexOf(`--${n}`); return i >= 0 ? a
 
 // asset id → file(s) under content/out/
 const files = new Map<string, string[]>();
-for (const dir of ["clips", "signs", "cohorts", "quotes", "stills"]) {
+for (const dir of ["clips", "signs", "cohorts", "quotes", "stills", "presenter"]) {
   const d = join(OUT, dir); if (!existsSync(d)) continue;
   for (const f of readdirSync(d)) if (/\.(mp4|png)$/.test(f)) files.set(basename(f, extname(f)), [join(d, f)]);
 }

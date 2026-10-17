@@ -55,9 +55,9 @@
     { "date": "2026-10-21", "slot": "Reddit 1 (r/astrology)", "kit": "(f) Reddit 1", "platforms": ["reddit"],
       "caption": "Body: docs/launch-kit-v2.md (f) Reddit 1, no link in the post. Read r/astrology's self-promotion rules that day. If asked how it's computed, answer in a comment with rite.report/?r=reddit." },
 
-    { "date": "2026-10-22", "day": "Day 4", "slot": "TikTok + Reels: Script 6 (not a day, a season), style 3", "kit": "(c) script 6", "platforms": ["tiktok", "reels"],
+    { "date": "2026-10-22", "day": "Day 4", "slot": "TikTok + Reels: Script 6 (not a day, a season), style 3", "kit": "(c) script 6", "asset": "script-6", "platforms": ["tiktok", "reels"],
       "caption": "Your Saturn return is not a birthday. Nobody's is. Free preview at rite.report gives you the day.",
-      "note": "NOT RENDERED: talking head (style 3), needs Mick or a creator to camera. Script and the one on-screen date (Saturn in Aries: 25 May 2025 – 12 Apr 2028) are in the kit." },
+      "note": "Presenter reel (style 3 with Anna, the AI presenter, labelled on screen): Anna for the hook, cards for the window, passes and phases, rite.report end card. Rendered by `bash remotion/render-presenter.sh script-6` (media in out/presenter/script-6/). On-screen date: Saturn in Aries, 25 May 2025 – 12 Apr 2028." },
 
     { "date": "2026-10-23", "day": "Day 5", "slot": "TikTok + Reels: Script 5 (Nov 1998, last-degree pass)", "kit": "(c) script 5, style 1", "asset": "aries-last-degrees-1998", "platforms": ["tiktok", "reels"],
       "caption": "Born in November 1998? Your Saturn return is the last thing Saturn does before it leaves Aries. Free preview at rite.report",
@@ -103,7 +103,7 @@
 
     { "date": "2026-10-27", "day": "Day 9", "slot": "TikTok + Reels: Script 6 re-cut, vertical captions, style 3", "kit": "(c) script 6", "platforms": ["tiktok", "reels"],
       "caption": "Your Saturn return is not a birthday. Nobody's is. Free preview at rite.report gives you the day.",
-      "note": "NOT RENDERED: re-cut of the day-4 talking head." },
+      "note": "NOT RENDERED: re-cut of the day-4 presenter reel. Option: a second Anna clip on 'ask them which day' (about $1.15) in the line segment of presenter.json, then re-render." },
     { "date": "2026-10-27", "slot": "X / Threads: Post 9 (no predictions)", "kit": "(d) post 9", "platforms": ["x", "threads"],
       "caption": "We don't predict events. The reading tells you what Saturn in your sign asks for, where it lands if you give a birth time, and the exact dates. What you do with that is yours." },
     { "date": "2026-10-27", "slot": "Other: Product Hunt + Show HN", "kit": "(a) accuracy line; (i) week 2", "platforms": ["producthunt", "hn"],
