@@ -35,7 +35,7 @@ export function legalPage(opts: { siteUrl: string; page: "privacy" | "terms" | "
 <ul>
   <li><b>Cloudflare</b> hosts the site and stores the data above.</li>
   <li><b>Anthropic</b> (Claude) writes the prose of your reading from a set of computed inputs: your Saturn sign, degree, house, the dates, and your first name if you gave one. Anthropic does not get your email or birthplace.</li>
-  <li><b>Cloudflare Workers AI</b> (Deepgram's voice model) turns the reading's text into audio if you press play. The audio is kept so it doesn't need regenerating.</li>
+  <li><b>ElevenLabs</b> turns the reading's text into audio if you press play. It receives the narration script (which includes your first name if you gave one), not your email or birthplace. If ElevenLabs is unavailable, <b>Cloudflare Workers AI</b> (Deepgram's voice model) is used instead. The audio is kept so it doesn't need regenerating.</li>
   <li><b>Resend</b> delivers our email.</li>
   <li><b>Stripe</b> takes payment. Stripe's own privacy policy applies to the checkout page.</li>
   <li><b>Nominatim (OpenStreetMap)</b> turns the birthplace you type into coordinates. Only the place name is sent.</li>
@@ -45,7 +45,7 @@ export function legalPage(opts: { siteUrl: string; page: "privacy" | "terms" | "
 <h2>Your choices</h2>
 <ul>
   <li>Email <a href="mailto:${e}">${e}</a> and we will delete your reading, birth details and email, or send you a copy of what we hold. We do this by hand, usually within a few days.</li>
-  <li>Reminder and Saturn Season emails each have a stop link; the delivery email is sent once.</li>
+  <li>Saturn Season notes have a link to stop them. To stop reminder or follow-up emails, reply to any of them and we'll take you off; the delivery email is sent once.</li>
   <li>We don't sell data, run ads, or share your details with anyone not listed above.</li>
 </ul>
 <h2>Cookies</h2>
