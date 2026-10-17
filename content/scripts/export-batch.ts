@@ -53,7 +53,7 @@ const planPath = arg("plan");
 if (planPath) { const p = JSON.parse(readFileSync(resolve(planPath), "utf8")); plan = Array.isArray(p) ? { posts: p } : p; }
 else {
   const start = arg("start") ?? new Date().toISOString().slice(0, 10);
-  const clips = [...files.keys()].filter((k) => files.get(k)![0].includes("/clips/"));
+  const clips = [...files.keys()].filter((k) => files.get(k)![0].includes("/clips/") && !k.endsWith("_vo"));
   const cards = [...files.keys()].filter((k) => k.startsWith("cohort-") || k.startsWith("quote-") || k.endsWith("-vertical"));
   const order: string[] = []; for (let i = 0; i < Math.max(clips.length, cards.length); i++) { if (clips[i]) order.push(clips[i]); if (cards[i]) order.push(cards[i]); }
   plan = { posts: order.map((asset, i) => ({ date: new Date(Date.parse(start) + i * 86400000).toISOString().slice(0, 10), asset })) };
@@ -62,7 +62,7 @@ else {
 const destArg = arg("dest") ?? (arg("name") ? join("export", arg("name")!) : undefined);
 const dest = destArg ? (isAbsolute(destArg) ? destArg : join(OUT, destArg)) : join(OUT, "export", `batch-${plan.posts[0]?.date ?? "empty"}`);
 mkdirSync(dest, { recursive: true });
-const rows = [["date", "platform", "file", "caption", "alt"]];
+const rows = [["date", "platform", "file", "caption", "alt", "other_version"]];
 type Row = { post: Post; platform: string; names: string[]; caption: string; alt: string[] };
 const out: Row[] = [];
 let copied = 0, missing = 0;
@@ -70,15 +70,24 @@ for (const p of plan.posts) {
   const caption = p.caption ?? defaultCaption(p.asset);
   const alts = p.alt === undefined ? [] : Array.isArray(p.alt) ? p.alt : [p.alt];
   if (!p.asset) {
-    for (const platform of p.platforms ?? ["x", "threads"]) { rows.push([p.date, platform, "", caption, ""]); out.push({ post: p, platform, names: [], caption, alt: [] }); }
+    for (const platform of p.platforms ?? ["x", "threads"]) { rows.push([p.date, platform, "", caption, "", ""]); out.push({ post: p, platform, names: [], caption, alt: [] }); }
     continue;
   }
   const src = files.get(p.asset); if (!src) { console.warn(`skip ${p.date}: no rendered asset "${p.asset}"`); missing++; continue; }
   const ext = extname(src[0]);
+  // a dial clip rendered with a voiceover has a twin <asset>_vo.mp4: export both; the CSV's `file` is the VO version
+  // and `other_version` the silent one (both are captioned; music is added in the app)
+  const vo = ext === ".mp4" ? files.get(`${p.asset}_vo`)?.[0] : undefined;
   for (const platform of p.platforms ?? (ext === ".mp4" ? VIDEO : STILL)) {
     const names = src.map((s) => `${p.date}_${platform}_${basename(s, ext)}${ext}`);
     src.forEach((s, i) => { copyFileSync(s, join(dest, names[i])); copied++; });
-    names.forEach((n, i) => rows.push([p.date, platform, n, caption, alts[i] ?? alts[0] ?? ""]));
+    if (vo) {
+      const vn = `${p.date}_${platform}_${basename(vo, ext)}${ext}`; copyFileSync(vo, join(dest, vn)); copied++;
+      rows.push([p.date, platform, vn, caption, alts[0] ?? "", names[0]]);
+      out.push({ post: p, platform, names: [vn, ...names], caption, alt: alts });
+      continue;
+    }
+    names.forEach((n, i) => rows.push([p.date, platform, n, caption, alts[i] ?? alts[0] ?? "", ""]));
     out.push({ post: p, platform, names, caption, alt: alts });
   }
 }
@@ -103,7 +112,8 @@ for (const [date, rs] of byDate) {
     if (p.kit) md.push(`- **Kit:** ${p.kit}`);
     if (prs[0].names.length) {
       md.push("- **Files:**");
-      for (const r of prs) for (const n of r.names) md.push(`  - \`${n}\`${existsSync(join(dest, n)) ? ` (${mb(statSync(join(dest, n)).size)})` : ""}`);
+      const kind = (n: string) => !n.endsWith(".mp4") ? "" : n.endsWith("_vo.mp4") ? ", with voiceover" : prs[0].names.some((x) => x.endsWith("_vo.mp4")) ? ", silent" : "";
+      for (const r of prs) for (const n of r.names) md.push(`  - \`${n}\`${existsSync(join(dest, n)) ? ` (${mb(statSync(join(dest, n)).size)}${kind(n)})` : ""}`);
     } else md.push("- **Files:** none (text only)");
     md.push("- **Caption to post:**", "", prs[0].caption.split("\n").map((l) => `  > ${l}`).join("\n"), "");
     if (prs[0].alt.length === 1) md.push(`- **Alt text:** ${prs[0].alt[0]}`);

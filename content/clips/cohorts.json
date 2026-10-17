@@ -1,5 +1,5 @@
 {
-  "_note": "One entry per style-1 clip. Source: docs/launch-kit-v2.md (b) cohort hooks and (c) scripts 1-5. `expect` is checked against src/compute.ts by `bun clips/check-cohorts.ts` (birth at noon local in `city`, no birth time), so the dates in `lines` match what the site shows for that birth date and city. Change a date or city, re-run the check.",
+  "_note": "One entry per style-1 clip. Source: docs/launch-kit-v2.md (b) cohort hooks and (c) scripts 1-5. `vo` (optional) is the kit's spoken script: `hook` plus one entry per caption line, spelled for TTS (\"10 degrees\", \"rite dot report\"); a clip with `vo` also renders <id>_vo.mp4 when a TTS provider is available (clips/vo.ts), and its beats are timed to the spoken lines. `expect` is checked against src/compute.ts by `bun clips/check-cohorts.ts` (birth at noon local in `city`, no birth time), so the dates in `lines` match what the site shows for that birth date and city. Change a date or city, re-run the check.",
   "cohorts": [
     {
       "id": "aries-early-1996",
@@ -19,6 +19,7 @@
       "time": null,
       "hook": "Born in spring 1997? You don't get one Saturn return. You get three dates.",
       "lines": ["Saturn at 10° Aries when you were born", "13 May 2026 · 15 Oct 2026", "And once more: 3 Feb 2027", "One season, three dates", "Yours are different. Free preview at rite.report"],
+      "vo": {"script": "(c) 1", "hook": "Born in spring 1997? You don't get one Saturn return. You get three dates.", "lines": ["Saturn was at 10 degrees Aries when you were born.", "It crossed that degree on 13 May. It's crossing it again right now, going backwards.", "And once more in February, going forwards. That's the one that settles.", "Three passes. Not a day. Not a birthday.", "Yours are different. Free preview at rite dot report."]},
       "expect": { "sign": "Aries", "returnNumber": 1, "hits": ["2026-05-13", "2026-10-15", "2027-02-03"], "windowEnd": "2028-04-12" }
     },
     {
@@ -29,6 +30,7 @@
       "time": null,
       "hook": "Born in late 1997? Your Saturn return is dated. It's next spring.",
       "lines": ["Today: 10° Aries · You: 20° Aries", "Turns direct 11 Dec 2026", "Exact on 29 Apr 2027", "Free preview at rite.report"],
+      "vo": {"script": "(c) 2", "hook": "Born in the second half of 1997? Your Saturn return hasn't happened yet. It's dated.", "lines": ["Saturn is at 10 degrees Aries today. Yours is at 20.", "It's moving backwards until 11 December. Then it turns and comes for your degree.", "Exact on 29 April 2027. This is the year you set the thing up, not the year it gets tested.", "Free preview at rite dot report."]},
       "expect": { "sign": "Aries", "returnNumber": 1, "hits": ["2027-04-29"], "windowEnd": "2028-04-12" }
     },
     {
@@ -49,6 +51,7 @@
       "time": null,
       "hook": "Born in Nov 1998? Your pass is the last thing Saturn does in Aries.",
       "lines": ["Saturn at 28° Aries when you were born", "Exact on 31 Mar 2028", "Window closes 12 Apr 2028", "Free preview at rite.report"],
+      "vo": {"script": "(c) 5", "hook": "Born in November 1998? Your Saturn return is the last thing Saturn does before it leaves Aries.", "lines": ["Natal Saturn at 28 degrees Aries. Saturn's just under 10 today, going backwards.", "Exact on 31 March 2028.", "Window closes twelve days later. A short, clean pass at the very end. Most of your window is approach.", "Free preview at rite dot report."]},
       "expect": { "sign": "Aries", "returnNumber": 1, "hits": ["2028-03-31"], "windowEnd": "2028-04-12" }
     },
     {
@@ -59,6 +62,7 @@
       "time": null,
       "hook": "Born in 1999? Your Saturn return opens 13 April 2028. Here's your date.",
       "lines": ["Saturn at 3° Taurus when you were born", "Window opens 13 Apr 2028", "First exact pass: 10 May 2028", "Free preview at rite.report. It'll email you when it starts"],
+      "vo": {"script": "(c) 3", "hook": "Born in 1999? Everyone's talking about Saturn returns, and yours hasn't started.", "lines": ["Saturn was in Taurus when you were born. It's in Aries now.", "Your window opens the day Saturn enters Taurus.", "First exact pass a month later. You have eighteen months. Use them.", "Free preview at rite dot report. It'll email you when it starts."]},
       "expect": { "sign": "Taurus", "returnNumber": 1, "hits": ["2028-05-10"], "windowStart": "2028-04-13" }
     },
     {
@@ -69,6 +73,7 @@
       "time": null,
       "hook": "Born in 1967 or 68? Your second Saturn return is running now, on the same dates as the 1997 kids.",
       "lines": ["Second return · 11° Aries", "21 May 2026 · 4 Oct 2026", "And once more: 11 Feb 2027", "Free preview at rite.report. Written for second returns too"],
+      "vo": {"script": "(c) 4", "hook": "Born in 1967 or 68? This is your second Saturn return, and it's running on the same calendar as your kids' first.", "lines": ["Saturn's back at the degree it held the day you were born. For the second time.", "Three passes: May and October this year,", "and once more in February. The first one was about what you had to prove. This one's about what outlasts you.", "Free preview at rite dot report. Written for second returns too."]},
       "expect": { "sign": "Aries", "returnNumber": 2, "hits": ["2026-05-21", "2026-10-04", "2027-02-11"], "windowEnd": "2028-04-12" }
     },
     {

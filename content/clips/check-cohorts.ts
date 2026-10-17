@@ -95,22 +95,62 @@ for (const [where, t] of texts) {
 console.log(`${texts.length} card strings swept for dates`);
 // clip captions: every full date in a hook or line is one of that cohort's passes / window ends or a verified fact
 // above, and every "N° Sign" is the natal degree (floored, as the site shows it), or Saturn's today after "Today:"
-for (const c of cfg.cohorts) {
-  const place = CITIES[c.city]; if (!place) continue;
-  const r = compute({ date: c.date, time: c.time, place }, today);
+// The spoken script (`vo`) is swept the same way: "N degrees Sign" is the natal degree unless followed by "today";
+// "Yours is at N" is natal; "at N today" / "N degrees Sign today" is today's degree (floored); "just under N today" means
+// today's degree is in [N-1, N).
+type Clip = { id: string; date: string; city: string; time: string | null; hook: string; lines: string[]; vo?: { hook: string; lines: string[] } };
+const CLIPS = cfg.cohorts as Clip[];
+const LONG_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const words: Record<string, string> = Object.fromEntries(MON.map((m, i) => [LONG_MONTHS[i], m]));
+function sweepClip(c: Clip, day: Date, label: string, skipToday = false): number {
+  const place = CITIES[c.city]; if (!place) return 0;
+  const r = compute({ date: c.date, time: c.time, place }, day);
+  const lon = saturnLongitude(day); const todayDeg = degreeInSign(lon);
   const own = new Set([c.date, ...r.window.hits, r.window.windowStart, r.window.windowEnd].map((x) => fmt(x.slice(0, 10))));
-  const words: Record<string, string> = Object.fromEntries(MON.map((m, i) => [["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][i], m]));
-  for (const t of [c.hook, ...c.lines]) {
-    const norm = t.replace(/(\d{1,2}) (January|February|March|April|May|June|July|August|September|October|November|December) (\d{4})/g, (_, d, m, y) => `${d} ${words[m]} ${y}`);
+  let n = 0;
+  const fail = (msg: string) => { console.log(`✗ clip ${c.id}${label}: ${msg}`); n++; };
+  const shown = [c.hook, ...c.lines], spoken = c.vo ? [c.vo.hook, ...c.vo.lines] : [];
+  for (const t of [...shown, ...spoken]) {
+    const norm = t.replace(new RegExp(`(\\d{1,2}) (${LONG_MONTHS.join("|")}) (\\d{4})`, "g"), (_, d, m, y) => `${d} ${words[m]} ${y}`);
     for (const m of norm.matchAll(new RegExp(`\\b(\\d{1,2}) (${M}) (\\d{4})\\b`, "g"))) {
-      if (!own.has(m[0]) && !verified.has(m[0])) { console.log(`✗ clip ${c.id}: "${m[0]}" in "${t}" is not one of its dates`); factBad++; }
-    }
-    for (const m of t.matchAll(/(Today: )?(\d{1,2})° ([A-Z][a-z]+)/g)) {
-      const want = m[1] ? `${Math.floor(degreeInSign(sl))}° ${signOf(sl)}` : `${Math.floor(r.degree)}° ${r.sign}`;
-      if (`${m[2]}° ${m[3]}` !== want) { console.log(`✗ clip ${c.id}: "${m[0]}" but the site shows ${want}`); factBad++; }
+      if (!own.has(m[0]) && !verified.has(m[0])) fail(`"${m[0]}" in "${t}" is not one of its dates`);
     }
   }
+  for (const t of shown) for (const m of t.matchAll(/(Today: )?(\d{1,2})° ([A-Z][a-z]+)/g)) {
+    if (m[1] && skipToday) continue;
+    const want = m[1] ? `${Math.floor(todayDeg)}° ${signOf(lon)}` : `${Math.floor(r.degree)}° ${r.sign}`;
+    if (`${m[2]}° ${m[3]}` !== want) fail(`"${m[0]}" but the site shows ${want}`);
+  }
+  for (const t of spoken) {
+    for (const m of t.matchAll(/(\d{1,2}) degrees ([A-Z][a-z]+)( today)?/g)) {
+      if (m[3] && skipToday) continue;
+      const want = m[3] ? `${Math.floor(todayDeg)} ${signOf(lon)}` : `${Math.floor(r.degree)} ${r.sign}`;
+      if (`${m[1]} ${m[2]}` !== want) fail(`VO "${m[0]}" but the site shows ${want}`);
+    }
+    for (const m of t.matchAll(/Yours is at (\d{1,2})\b/g)) if (+m[1] !== Math.floor(r.degree)) fail(`VO "${m[0]}" but natal is ${Math.floor(r.degree)}°`);
+    if (skipToday) continue;
+    for (const m of t.matchAll(/\bat (\d{1,2}) today/g)) if (+m[1] !== Math.floor(todayDeg)) fail(`VO "${m[0]}" but Saturn is ${todayDeg.toFixed(2)}°`);
+    for (const m of t.matchAll(/just under (\d{1,2}) today/g)) if (!(todayDeg >= +m[1] - 1 && todayDeg < +m[1])) fail(`VO "${m[0]}" but Saturn is ${todayDeg.toFixed(2)}°`);
+  }
+  return n;
 }
-console.log(`${cfg.cohorts.length} clips' captions swept for dates and degrees`);
+// with --plan, a scheduled clip's "today" statements are checked on its posting day (below), not on TODAY
+const planIdx = process.argv.indexOf("--plan");
+const plan = planIdx > 0 ? JSON.parse(readFileSync(process.argv[planIdx + 1], "utf8")) : null;
+const posts = (plan ? (Array.isArray(plan) ? plan : plan.posts) : []) as Array<{ date: string; asset?: string }>;
+const scheduled = new Set(posts.map((p) => p.asset?.replace(/_vo$/, "")));
+for (const c of CLIPS) factBad += sweepClip(c, today, "", scheduled.has(c.id));
+console.log(`${CLIPS.length} clips' captions and VO scripts swept for dates and degrees`);
+// --plan <plan.json>: also check each clip against Saturn on the day it's scheduled to post ("Today: 10°" is only true
+// for a few days; the site rounds the degree down).
+if (plan) {
+  let k = 0;
+  for (const p of posts) {
+    const c = CLIPS.find((x) => x.id === p.asset?.replace(/_vo$/, "")); if (!c) continue;
+    const bad = sweepClip(c, new Date(`${p.date}T12:00:00Z`), ` (posting ${p.date})`); factBad += bad; k++;
+    if (!bad) console.log(`✓ clip ${c.id} on its posting day ${p.date} (Saturn ${degreeInSign(saturnLongitude(new Date(`${p.date}T12:00:00Z`))).toFixed(2)}°)`);
+  }
+  console.log(`${k} scheduled clip(s) checked against their posting day`);
+}
 if (factBad) console.log(`${factBad} card fact(s) failed. Fix remotion/carousels.json or cards.config.json.`);
 if (bad || factBad) process.exit(1);

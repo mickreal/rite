@@ -2,7 +2,7 @@
 # Renders every card into content/out/. Bundles once, then renders each still/video from the bundle.
 #   bash remotion/render-all.sh                 everything (12 sign stills, 2 sign MP4s, all cohorts, all quotes)
 #   VIDEOS="Aries Taurus Leo" bash remotion/render-all.sh   choose which signs get the 8 s vertical MP4
-#   ONLY=signs|cohorts|quotes|videos|carousels|verticals bash remotion/render-all.sh
+#   ONLY=signs|cohorts|quotes|videos|carousels|verticals bash remotion/render-all.sh   (or a comma list: ONLY=cohorts,quotes)
 #   VERTICALS="CohortCard:aries-first-return QuoteCard:aries-sign-line" bash remotion/render-all.sh
 #     a card on a 1080×1920 frame, 10 s with a slow push-in, for the TikTok / Reels slot
 #     (→ cohorts/cohort-<id>-vertical.mp4, quotes/quote-<id>-vertical.mp4)
@@ -13,6 +13,7 @@ OUT="../out"
 VIDEOS="${VIDEOS:-Aries Taurus}"
 VERTICALS="${VERTICALS:-}"
 ONLY="${ONLY:-all}"
+has() { [[ $ONLY == all || ,$ONLY, == *,$1,* ]]; }   # ONLY=cohorts,quotes picks several groups
 mkdir -p "$OUT/signs" "$OUT/cohorts" "$OUT/quotes" "$OUT/carousels"
 
 bun scripts/build-data.ts
@@ -21,38 +22,38 @@ R=(--browser-executable="$CHROME" --chrome-mode=chrome-for-testing --log=error)
 
 ids() { node -e "const d=require('./data/$1.json');console.log(d.$1.map(x=>x.$2).join('\n'))"; }
 
-if [[ $ONLY == all || $ONLY == signs ]]; then
+if has signs; then
   for s in $(ids signs sign); do
     npx remotion still build SignCard "$OUT/signs/sign-${s,,}.png" --props="{\"sign\":\"$s\"}" "${R[@]}"
     echo "  signs/sign-${s,,}.png"
   done
 fi
-if [[ $ONLY == all || $ONLY == videos ]]; then
+if has videos; then
   for s in $VIDEOS; do
     npx remotion render build SignCardVertical "$OUT/signs/sign-${s,,}-vertical.mp4" --props="{\"sign\":\"$s\"}" --codec=h264 --crf=20 "${R[@]}"
     echo "  signs/sign-${s,,}-vertical.mp4"
   done
 fi
-if [[ $ONLY == all || $ONLY == cohorts ]]; then
+if has cohorts; then
   for c in $(ids cohorts id); do
     npx remotion still build CohortCard "$OUT/cohorts/cohort-$c.png" --props="{\"id\":\"$c\"}" "${R[@]}"
     echo "  cohorts/cohort-$c.png"
   done
 fi
-if [[ $ONLY == all || $ONLY == quotes ]]; then
+if has quotes; then
   for q in $(ids quotes id); do
     npx remotion still build QuoteCard "$OUT/quotes/quote-$q.png" --props="{\"id\":\"$q\"}" "${R[@]}"
     echo "  quotes/quote-$q.png"
   done
 fi
-if [[ $ONLY == all || $ONLY == carousels ]]; then
+if has carousels; then
   for line in $(node -e "const d=require('./data/carousels.json');for(const c of d.carousels)c.slides.forEach((_,i)=>console.log(c.id+':'+(i+1)))"); do
     c=${line%%:*}; n=${line##*:}; f="$OUT/carousels/$c-$(printf %02d "$n").png"
     npx remotion still build CarouselSlide "$f" --props="{\"id\":\"$c\",\"n\":$n}" "${R[@]}"
     echo "  carousels/$(basename "$f")"
   done
 fi
-if [[ $ONLY == all || $ONLY == verticals ]]; then
+if has verticals; then
   for v in $VERTICALS; do
     card=${v%%:*}; id=${v##*:}; dir=cohorts; pre=cohort; [[ $card == QuoteCard ]] && { dir=quotes; pre=quote; }
     f="$OUT/$dir/$pre-$id-vertical.mp4"
