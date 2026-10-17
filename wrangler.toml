@@ -35,7 +35,7 @@ TTS_VOICE = "luna"
 ADMIN_EMAIL = "mail@mickreal.com"
 POSTHOG_KEY = "phc_ybwtQEUxfgYeRSpCMHFL5uJX5GBHUv4JDzxx7HUPvh3T"
 POSTHOG_HOST = "https://us.i.posthog.com"
-# POSTHOG_PROJECT_ID = "12345"   # optional, with the POSTHOG_PERSONAL_API_KEY secret: visits in the Monday KPI email
+POSTHOG_PROJECT_ID = "668507"   # the Rite project; with the POSTHOG_PERSONAL_API_KEY secret, visits appear in the Monday KPI email
 FROM_EMAIL = "Rite <hello@rite.report>"
 SUPPORT_EMAIL = "hello@rite.report"
 
