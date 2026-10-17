@@ -2,7 +2,7 @@
 // Everything from the database goes through hono/html interpolation (escaped); raw() is only used by shell() for CSS.
 import { html } from "hono/html";
 import { shell } from "./theme";
-import type { AdminStats, AdminExtras } from "../admin";
+import type { AdminStats, AdminExtras, AdminMoney } from "../admin";
 
 const CSS = `
 .adm{max-width:1240px;margin:0 auto;padding:8px clamp(16px,4vw,48px) 120px;display:flex;flex-direction:column;gap:28px}
@@ -32,9 +32,21 @@ const CSS = `
 const num = (v: unknown) => (typeof v === "number" ? v : v == null ? 0 : Number(v) || 0);
 const when = (iso: string | null | undefined) => (iso ?? "").replace("T", " ").slice(0, 16);
 
-export interface AdminPageData { stats: AdminStats; extras: AdminExtras; currency: string; key?: string | null; generatedAt?: string }
+export interface AdminPageData { stats: AdminStats; extras: AdminExtras; money?: AdminMoney; currency: string; key?: string | null; generatedAt?: string }
+
+/** Price test: previews, purchases, purchase rate and revenue per preview (net of tax) for each arm, and the result once done. */
+function priceTest(m: AdminMoney, money: (c: unknown) => string) {
+  let done: { winner?: string; reason?: string } | null = null;
+  if (m.price_test_done?.detail) { try { done = JSON.parse(m.price_test_done.detail); } catch { done = {}; } }
+  return html`<section class="card" aria-labelledby="h-price"><h2 id="h-price">Price test</h2>
+<p class="muted" style="margin:0 0 12px">${done ? html`Stopped ${when(m.price_test_done!.at)} UTC (${done.reason === "previews" ? "600 previews per arm" : "14 days"}). Winner by revenue per preview: <b>arm ${done.winner ?? "?"}</b>. New previews see arm A; switching the price is a config change.` : "Running: new previews split by a hash of their id. Stops itself after 14 days or 600 previews per arm."}</p>
+<div class="scroll"><table><thead><tr><th>Arm</th><th class="n">Previews</th><th class="n">Purchases</th><th class="n">Purchase rate</th><th class="n">Revenue (net of tax)</th><th class="n">Per preview</th></tr></thead><tbody>
+${m.arms.length ? m.arms.map((a) => html`<tr><td>${a.arm}</td><td class="n">${num(a.previews)}</td><td class="n">${num(a.purchases)}</td><td class="n">${a.previews ? (num(a.purchases) / num(a.previews) * 100).toFixed(1) : "0.0"}%</td><td class="n">${money(a.cents)}</td><td class="n">${money(a.previews ? num(a.cents) / num(a.previews) : 0)}</td></tr>`) : html`<tr><td colspan="6" class="empty">Nothing yet.</td></tr>`}
+</tbody></table></div></section>`;
+}
 
 export function adminPage(d: AdminPageData) {
+
   const { stats: s, extras: x } = d;
   const money = (cents: unknown) => {
     try { return new Intl.NumberFormat("en-US", { style: "currency", currency: (d.currency || "usd").toUpperCase() }).format(num(cents) / 100); }
@@ -55,7 +67,9 @@ export function adminPage(d: AdminPageData) {
 <section aria-labelledby="h-funnel"><h2 id="h-funnel">Funnel</h2><div class="tiles">
 ${tile(f.previews, "previews")}${tile(f.checkouts, `checkouts · ${f.preview_to_checkout}% of previews`)}${tile(f.paid, `paid · ${f.checkout_to_paid}% of checkouts`)}${tile(f.generated, "readings written")}
 ${tile(money(rev.cents), `revenue · ${num(rev.n)} purchases`)}${tile(num(rev.free_or_gift), "free or gift")}
+${d.money ? html`${tile(money(d.money.tax_30d), "tax collected (30d)")}${tile(num(d.money.bumps_30d.n), `order bumps (30d) · ${money(d.money.bumps_30d.cents)}`)}` : ""}
 </div></section>
+${d.money && (d.money.arms.length || d.money.price_test_done) ? priceTest(d.money, money) : ""}
 
 <div class="grid2">
 <section class="card" aria-labelledby="h-season"><h2 id="h-season">Saturn Season</h2><table><thead><tr><th>Status</th><th class="n">Subscriptions</th></tr></thead><tbody>

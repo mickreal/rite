@@ -72,3 +72,27 @@ ${MARK(80, 150, 42)}<text class="d" x="136" y="184" font-size="38" font-weight="
 <text class="h" x="80" y="506" font-size="26" fill="#BDB6A8">Your exact passes, free in ten seconds.</text>
 </svg>`;
 }
+
+/**
+ * Gift card (1080×1350, prints on A5/A6 or sends as an image): the code, the link to open it, and who it's from. Same
+ * palette, fonts and dial as the share card; no birth details exist for a gift, so nothing personal beyond the name.
+ */
+export function giftCardSvg(opts: { code: string; from: string | null; site: string }): string {
+  const from = opts.from ? esc(opts.from.slice(0, 40)) : null;
+  const code = esc(opts.code);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1350" viewBox="0 0 1080 1350">${FONTS}
+<rect width="1080" height="1350" fill="#0E1014"/>
+${dial(560, -60, 600, 300, 0.55)}
+${MARK(96, 110, 58)}<text class="d" x="172" y="156" font-size="52" font-weight="700" letter-spacing="-1" fill="#EDE6D6">Rite</text>
+<text class="h" x="96" y="420" font-size="40" fill="#A7A196">${from ? `A gift from ${from}` : "A gift for you"}</text>
+<text class="d" x="96" y="560" font-size="132" font-weight="800" letter-spacing="-6" fill="#EDE6D6">Your Saturn</text>
+<text class="d" x="96" y="690" font-size="132" font-weight="800" letter-spacing="-6" fill="#F2B544">return, dated.</text>
+<text class="h" x="96" y="790" font-size="34" fill="#BDB6A8">The full reading, written for your own chart.</text>
+<rect x="96" y="870" width="888" height="220" rx="40" fill="none" stroke="rgba(242,181,68,.55)" stroke-width="3"/>
+<text class="h" x="146" y="950" font-size="32" fill="#A7A196">Your code</text>
+<text class="d" x="146" y="1046" font-size="96" font-weight="700" letter-spacing="10" fill="#EDE6D6">${code}</text>
+<line x1="96" y1="1170" x2="984" y2="1170" stroke="rgba(237,230,214,.14)" stroke-width="2"/>
+<text class="h" x="96" y="1246" font-size="30" font-weight="600" fill="#EDE6D6">Open it at <tspan fill="#F2B544">${esc(opts.site)}/gift/${code}</tspan></text>
+<text class="h" x="96" y="1296" font-size="26" fill="#8A857B">Works with or without a birth time. One use, no expiry.</text>
+</svg>`;
+}

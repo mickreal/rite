@@ -5,6 +5,8 @@ import { fmtDay, fmtMonth } from "../compute";
 import { windowChart, fmtMonYrL, untilText } from "../astro/cycle";
 import { windowOpenNotify } from "../season";
 import { windowBand, natalLabelPos } from "./chart";
+import { dollars } from "../commerce";
+
 
 const CSS = `
 .pass{flex:1 1 220px;text-align:left;background:#14171D;border:1px solid rgba(237,230,214,.1);border-radius:22px;padding:20px 22px;color:#EDE6D6;cursor:pointer;display:flex;flex-direction:column;gap:6px;font-family:'Hanken Grotesk',sans-serif;transition:border-color .25s,transform .25s cubic-bezier(.2,.8,.2,1)}
@@ -23,7 +25,9 @@ const PASS3 = [
 const PASS1 = [["The pass", "Saturn crosses your natal degree once, cleanly. There is no retrograde second look this time: what you decide here is what you build on. It tends to feel quieter than people expect, and more binding."]];
 const ORD = ["first", "second", "third"];
 
-export function resultPage(opts: { siteUrl: string; id: string; c: Computed; text: string; placeLabel: string; birthLabel: string; hasTime: boolean; reminded?: boolean | "window"; gift?: { code: string; state: "ok" | "used" | "bad"; from: string | null; message: string | null } | null; today?: Date }) {
+export function resultPage(opts: { siteUrl: string; id: string; c: Computed; text: string; placeLabel: string; birthLabel: string; hasTime: boolean; reminded?: boolean | "window"; gift?: { code: string; state: "ok" | "used" | "bad"; from: string | null; message: string | null } | null; today?: Date;
+  /** The reading prices this preview was shown, in cents (its price-test arm; default the configured $29 / $19). */
+  prices?: { full: number; notime: number }; banner?: boolean }) {
   const { c } = opts; const w = c.window; const today = opts.today ?? new Date();
   const now = today.getTime(), open = Date.parse(w.windowStart), close = Date.parse(w.windowEnd);
   const frac = (now - open) / (close - open);
@@ -43,7 +47,8 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
   const natal = natalLabelPos(chart, c.natalLon, w.hits, natalText, { boxes: chart.todayX > 0 ? [{ x0: chart.todayX - 32, x1: chart.todayX + 32, y0: 2, y1: 26 }] : [] });
   const P = w.hits.length === 1 ? PASS1 : PASS3;
   const passes = w.hits.map((h, i) => ({ label: w.hits.length === 1 ? "Exact pass" : `Pass ${["one", "two", "three"][i]}`, month: fmtMonYrL(Date.parse(h)), name: P[Math.min(i, P.length - 1)][0], body: P[Math.min(i, P.length - 1)][1], x: chart.x(Date.parse(h)) }));
-  const price = opts.hasTime ? 29 : 19;
+  const fullPrice = dollars(opts.prices?.full ?? 2900);
+  const price = opts.hasTime ? fullPrice : dollars(opts.prices?.notime ?? 1900);
   // More than a year before the window opens, pass reminders are too far out to mean anything; offer one email when it opens instead.
   const windowOpen = windowOpenNotify(c.phase, w.windowStart, today);
 
@@ -111,7 +116,7 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
         <div><button type="submit" class="cta dark">Open my reading</button></div></form>`
       : html`<form method="post" action="/checkout" style="display:flex;flex-wrap:wrap;gap:14px 20px;align-items:center"><input type="hidden" name="preview" value="${opts.id}"><button type="submit" class="cta dark">Unlock the full reading</button><a href="/gift" style="color:#14110A;font-weight:500">Buy one as a gift</a></form>
       ${opts.gift?.state === "used" ? html`<p style="margin:0;font-size:15px;color:#8A3B1E">That gift code has already been used.</p>` : opts.gift?.state === "bad" ? html`<p style="margin:0;font-size:15px;color:#8A3B1E">That gift code doesn't match anything. Check it and try the link again.</p>` : ""}
-      <p style="margin:0;font-size:14px;color:rgba(20,17,10,.6)">Not useful? Full refund within 14 days.${opts.hasTime ? "" : " Add a birth time first and the house chapter comes with it, $29."}</p>`}
+      <p style="margin:0;font-size:14px;color:rgba(20,17,10,.6)">Not useful? Full refund within 14 days.${opts.hasTime ? "" : " Add a birth time first and the house chapter comes with it, $" + fullPrice + "."}</p>`}
     </div>
     <div style="flex:1 1 380px;display:flex;flex-direction:column">
       <div class="lock">${raw(LOCK)}<span><strong>Your Saturn.</strong> Sign${opts.hasTime ? ", house" : ""} and the exact degree your return is measured against.</span></div>
@@ -134,6 +139,6 @@ document.querySelectorAll('.pass').forEach(function(b){b.addEventListener('click
   return shell({
     title: `Saturn in ${c.sign} — your return, dated · Rite`, body, extraCss: CSS, script,
     description: lede,
-    nav: html`<nav class="main"><a href="/">Check another birthday</a></nav>`,
+    nav: html`<nav class="main"><a href="/">Check another birthday</a></nav>`, banner: opts.banner,
   });
 }

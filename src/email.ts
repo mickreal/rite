@@ -29,6 +29,8 @@ export async function sendEmail(env: Env, to: string, subject: string, text: str
 export function deliveryEmail(p: {
   firstName: string | null; sign: string; housePhrase: string; windowStart: string; windowEnd: string;
   hitSentence: string; reportUrl: string; upsellUrl: string; monthlyPrice: number; yearlyPrice: number | null;
+  /** The order bump: the gift code bought with this reading, its link and its printable card. */
+  gift?: { code: string; link: string; cardUrl: string };
 }) {
   const name = p.firstName ?? "Hi";
   const subject = `Your Saturn return — ${p.sign}, ${p.windowStart} to ${p.windowEnd}`;
@@ -39,7 +41,9 @@ Your reading's ready: ${p.reportUrl}
 The short version: Saturn in ${p.sign}${p.housePhrase}. Your window runs ${p.windowStart} to ${p.windowEnd}. ${p.hitSentence}
 
 Keep that link; the page updates as you move through the cycle, so it reads differently next year. At the top you can listen to it, add every date to your calendar, print it to PDF, and save a share card (no personal details on it, just the sign and the dates). Five follow-up questions are included at the bottom.
-
+${p.gift ? `
+The reading you added for someone else: code ${p.gift.code}, or send them ${p.gift.link}. They open it with their own birth details, with or without a birth time. One use, no expiry. A card to print or send: ${p.gift.cardUrl}
+` : ""}
 If the Saturn sign is wrong, reply to this and I'll refund you.
 
 — Mick, Rite
@@ -180,14 +184,15 @@ Sent once. To get nothing but what you've bought, stop these here: ${p.stopUrl}`
   };
 }
 
-export function giftEmail(p: { code: string; link: string; from: string | null }) {
+export function giftEmail(p: { code: string; link: string; from: string | null; cardUrl?: string }) {
   const subject = `Your Rite gift code: ${p.code}`;
   const text = `Thanks${p.from ? `, ${p.from}` : ""}.
 
 Here's the gift. Send them either of these:
 
 Code: ${p.code}
-Link: ${p.link}
+Link: ${p.link}${p.cardUrl ? `\nA card to print or send: ${p.cardUrl}` : ""}
+
 
 They open the link, put in their own birth date, place and time if they know it, and the full reading is theirs. It works with or without a birth time. One use, no expiry.
 
@@ -195,4 +200,22 @@ If you'd like it refunded instead, reply to this within 14 days, before the code
 
 — Rite`;
   return { subject, text };
+}
+
+/** Gift season (1 and 15 Dec) to past buyers who haven't stopped emails: send a reading as a gift. Copy: docs/emails.md §6. */
+export function giftSeasonEmail(p: { firstName: string | null; giftUrl: string; price: string; stopUrl: string; second: boolean }) {
+  return {
+    subject: p.second ? "Still time to give a Saturn return" : "Give someone their Saturn return",
+    text: `${p.firstName ?? "Hi"},
+
+${p.second ? "A last note before Christmas." : "You've had your Saturn return reading."} If someone you know is nearly 30 (or nearly 60), it makes an unusual present: their own window and every pass, dated, written for their chart.
+
+Send one as a gift: ${p.giftUrl}
+
+It's $${p.price}. The code arrives by email the moment you pay and they open it with their own birth details, so you don't need to know their birth time. It still works on Christmas morning.
+
+— Rite
+
+One of two gift emails this December, sent to people who've bought a reading. Stop these and all other reminders: ${p.stopUrl}`,
+  };
 }

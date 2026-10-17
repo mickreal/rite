@@ -44,6 +44,8 @@ About 16 agent days in all. Builds 1–6 (about 7.5 days) fit before and around 
 
 **Done when.** A test checkout from a UK address shows VAT included; from a US address in a state without registration, no tax; `tax_cents` recorded; tests cover the session parameters.
 
+**Status (17 Oct, branch `b12-tax-bump`).** Built and tested in code (`test/b12.test.ts`, `test/commerce.test.ts`), behind `STRIPE_TAX` (default "on" in `wrangler.toml`, "off" = as before). Migrations 002–003 add `tax_cents` to purchases and gifts (as well as purchases, so gift checkouts count toward "tax collected"). Local prices need real Prices (Checkout's `price_data` has no `currency_options`), so with `LOCAL_PRICES` set the reading and gift lines switch to cached Prices. Not verified against live Stripe: the UK/US test checkouts are launch checklist B10.
+
 ## 2. Order bump and gift season
 
 **Why.** The bump adds about $2.25 per buyer. Gifts are most of December revenue in the plan.
@@ -55,6 +57,8 @@ About 16 agent days in all. Builds 1–6 (about 7.5 days) fit before and around 
 - **Gift deadline:** gift codes are instant, so the message is "still works on Christmas morning".
 
 **Done when.** A test checkout with the bump produces a reading, a gift code and one email with both; the price test splits ~50/50 in tests; the banner shows only inside its dates.
+
+**Status (17 Oct, branch `b12-tax-bump`).** Built and tested: bump ($15, `PRICE_BUMP_CENTS`; gift code on the same session and payment, line in the delivery email, also on the reading page), price test (`PRICE_TEST`, off; arm in `previews.price_arm`, migration 004; stops itself and logs `price_test_done`), gift banner and the 1/15 Dec emails (`campaign_sends`, migration 005; skip refunds and stops), gift card PNG at `/gift/card/:code.png`. Refunds keep the full-refunds-only rule: a full refund voids the bump code, a partial one changes nothing (README, support macros §6). Copy to approve: banner (`views/theme.ts`), gift email (`docs/emails.md` §6), bump line, gift card.
 
 ## 3. Inbox assistant (support and refunds)
 

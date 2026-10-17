@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS previews (
   hits TEXT NOT NULL,               -- JSON array of YYYY-MM-DD
   phase TEXT NOT NULL,
   preview_text TEXT,
-  ref TEXT                          -- ?r= attribution
+  ref TEXT,                         -- ?r= attribution
+  price_arm TEXT                    -- price test arm 'A' | 'B' while PRICE_TEST runs; NULL otherwise (migrations/004)
 );
 
 CREATE TABLE IF NOT EXISTS purchases (
@@ -38,7 +39,8 @@ CREATE TABLE IF NOT EXISTS purchases (
   report_md TEXT,                   -- generated report (markdown)
   report_json TEXT,                 -- inputs handed to the LLM, for audit
   status TEXT NOT NULL DEFAULT 'paid',  -- paid | generated | failed | refunded
-  delivered_at TEXT
+  delivered_at TEXT,
+  tax_cents INTEGER                 -- Stripe Tax on the session (total_details.amount_tax), included in amount_cents; NULL before migrations/002
 );
 
 CREATE TABLE IF NOT EXISTS subscriptions (
@@ -106,7 +108,8 @@ CREATE TABLE IF NOT EXISTS gifts (
   stripe_payment_intent TEXT,
   amount_cents INTEGER NOT NULL,
   redeemed_purchase_id TEXT REFERENCES purchases(id),
-  redeemed_at TEXT
+  redeemed_at TEXT,
+  tax_cents INTEGER                 -- as purchases.tax_cents, for gift checkouts; NULL for order-bump codes (the tax is on the purchase)
 );
 
 -- Day-3 and day-10 follow-up emails to reading owners (docs/emails.md §2, §3). Scheduled when a reading is written;
@@ -130,3 +133,13 @@ CREATE TABLE IF NOT EXISTS stories (
   can_quote INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_stories_purchase ON stories(purchase_id, created_at);
+
+-- One-off campaign emails (the gift-season emails on 1 and 15 Dec). One row per campaign per address, claimed before the
+-- send so overlapping cron runs can't double-send; a failed send deletes its claim so the next hour retries.
+CREATE TABLE IF NOT EXISTS campaign_sends (
+  campaign TEXT NOT NULL,           -- e.g. gift-2026-12-01
+  email TEXT NOT NULL,
+  purchase_id TEXT,                 -- the purchase whose stop link the email carried
+  sent_at TEXT NOT NULL,
+  UNIQUE(campaign, email)
+);

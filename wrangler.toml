@@ -10,6 +10,25 @@ PRICE_NOTIME_CENTS = "1900"
 PRICE_SEASON_MONTHLY_CENTS = "700"
 PRICE_SEASON_YEARLY_CENTS = "5900"
 CURRENCY = "usd"
+# Stripe Tax (docs/automation-builds.md §1). "on": automatic_tax + required billing address on every Checkout, tax-inclusive
+# prices (tax_behavior "inclusive", tax code txcd_10000000). Stripe Tax must be activated in the dashboard first, or every
+# Checkout errors: set "off" until then (launch checklist B10). "off" = exactly the behaviour before tax.
+STRIPE_TAX = "off"
+# Local prices (GBP/EUR/AUD/CAD), off by default. Set to JSON of currency -> cents per product, e.g.
+# '{"gbp":{"full":2300,"notime":1500,"gift":2300,"bump":1200,"season_month":600,"season_year":4700}}' (also full_b / notime_b
+# for arm B of the price test). When set, Checkout uses Stripe Prices with currency_options, so buyers see their own currency.
+LOCAL_PRICES = ""
+# Order bump on the reading Checkout: "Add a reading for someone else" (a gift code). "0" turns the bump off.
+PRICE_BUMP_CENTS = "1500"
+# Price test (growth plan): "on" splits new previews 50/50 between arm A (the prices above) and arm B (these). Stops itself
+# after 14 days or 600 previews per arm and logs price_test_done with the winner; previews keep the price they were shown.
+PRICE_TEST = "off"
+PRICE_TEST_B_FULL_CENTS = "3900"
+PRICE_TEST_B_NOTIME_CENTS = "2500"
+# Gift season: the gift banner on /, /p/:id and /r/:tok between these dates (inclusive, UTC), and the gift email to past
+# buyers on 1 and 15 Dec inside them.
+GIFT_SEASON_START = "2026-11-15"
+GIFT_SEASON_END = "2026-12-22"
 MODEL_REPORT = "claude-sonnet-5-5"
 MODEL_PREVIEW = "claude-haiku-5-5"
 TTS_VOICE = "luna"
