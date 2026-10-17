@@ -20,6 +20,7 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { postMeta, type MetaData } from "./post-meta";
 import { publicUrl, r2FromEnv, r2GetText, r2Put } from "./r2";
 
 const CONTENT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -73,6 +74,14 @@ function fileFor(post: ExportPost, platform: string, name: string): File {
   return file;
 }
 
+// title + presenter per post (post-meta.ts): read by auto-posting for YouTube/TikTok titles and the AI flags.
+const readJson = (rel: string) => JSON.parse(readFileSync(join(CONTENT, rel), "utf8"));
+const metaData: MetaData = {
+  cohorts: readJson("clips/cohorts.json").cohorts,
+  carousels: readJson("remotion/carousels.json").carousels,
+  presenter: readJson("remotion/presenter.json").reels,
+};
+
 const posts = exp.posts.map((p, i) => {
   const first = Object.entries(p.files).find(([, names]) => names.length);
   let media: null | { type: "video"; vo: File | null; silent: File } | { type: "image"; files: File[] } = null;
@@ -94,6 +103,7 @@ const posts = exp.posts.map((p, i) => {
     id: `${p.date}-${String(i + 1).padStart(2, "0")}`,
     date: p.date, at: slotUtc(p.date, p.time ?? DEFAULT_TIME), day: p.day, slot: p.slot, kit: p.kit, note: p.note,
     asset: p.asset, ref: p.ref, platforms: p.platforms, auto, missing: p.missing,
+    ...postMeta(p.asset, p.caption, metaData),
     caption: p.caption, alt: p.alt, media,
   };
 });

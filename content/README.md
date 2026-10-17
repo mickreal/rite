@@ -217,7 +217,7 @@ weeks/<monday>/manifest.json                        the week
 weeks/<monday>/<16-char random id>/<date>_<asset>.mp4, <date>_<asset>_vo.mp4, <date>_<carousel>-NN.png
 ```
 
-Media sit in a random folder per upload, so their URLs can't be guessed from the date. The manifest's path is predictable and, on a public bucket, readable by anyone who guesses it (which shows next week's media a few days early). If that matters, block `weeks/*/manifest.json` and `weeks/latest.json` on the custom domain with a WAF rule and have build 5 read them through the Worker's R2 binding. Uploading a week again makes a new random folder and replaces its manifest; `latest.json` only moves forward.
+Media sit in a random folder per upload, so their URLs can't be guessed from the date. The manifest's path is predictable and, on a public bucket, readable by anyone who guesses it (which shows next week's media a few days early). Build 5 (og-content-system's `import_rite.py` on Mick's Pi) reads them by that public URL, so don't block them with a WAF rule unless the importer is given another way in. Uploading a week again makes a new random folder and replaces its manifest; `latest.json` only moves forward.
 
 `manifest.json`, version 1:
 
@@ -240,6 +240,8 @@ Media sit in a random folder per upload, so their URLs can't be guessed from the
       "platforms": ["tiktok", "reels"],      // tiktok | reels | shorts | instagram | x | threads | reddit | email | other | …
       "auto": true,                          // build 5 may post it unattended (below)
       "missing": false,                      // true: the asset wasn't rendered (a presenter reel)
+      "title": "Born in 1996? Your exact pass already happened. The window hasn't closed.",  // headline for YouTube / TikTok titles: the clip's cohort hook, the carousel's title, else the caption's first sentence (scripts/post-meta.ts)
+      "presenter": false,                    // true: an Anna (AI presenter) reel, from remotion/presenter.json; build 5 labels it made with AI
       "caption": "Born in 1996? … Free preview at rite.report",
       "alt": ["Screen recording of the Rite site: …"],   // one per image; one for a video; [] when none
       "media": {                             // null for a text post or a missing asset
@@ -256,3 +258,4 @@ Media sit in a random folder per upload, so their URLs can't be guessed from the
 - `media.vo` is null when the video has no voice. Post `vo` when there is one, else `silent` (build 5's retry also uses `silent`). Both are captioned; music is added in the app.
 - `auto` is true when every platform is one Postiz posts to (tiktok, reels, shorts, instagram, x, threads), there's a caption, and there's media (or it's a text post for X / Threads only). Reddit, email, creator reposts, unrendered talking heads, backdrops and cut-in cards are in the manifest with `auto: false`, for Mick.
 - A post's file is the same for every platform it lists (the export folder's per-platform copies are uploaded once).
+- Build 5 posts only `auto: true` posts and maps platforms tiktok→TikTok, reels and instagram→Instagram, shorts→YouTube Shorts, x→X, threads→Threads. A video goes to YouTube only if its plan lists `shorts`.
