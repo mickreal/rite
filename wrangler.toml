@@ -38,6 +38,18 @@ POSTHOG_HOST = "https://us.i.posthog.com"
 POSTHOG_PROJECT_ID = "668507"   # the Rite project; with the POSTHOG_PERSONAL_API_KEY secret, visits appear in the Monday KPI email
 FROM_EMAIL = "Rite <hello@rite.report>"
 SUPPORT_EMAIL = "hello@rite.report"
+# Support inbox (docs/automation-builds.md §3): Email Routing sends hello@ to this Worker's email() handler. "off" = watch
+# mode: every message is stored, classified and sent to ADMIN_EMAIL with a drafted reply and what it would do; nothing
+# goes to the customer and no refund/stop/delete runs. "on" = acts inside the support macros (launch checklist, after
+# 3–5 days of correct drafts). ADMIN_EMAIL must be a verified Email Routing destination for the original to be forwarded.
+INBOX_AUTO = "off"
+INBOX_REFUNDS_PER_DAY = "20"         # automatic refunds per rolling 24h; past either cap, refunds go to Mick
+INBOX_REFUND_CENTS_PER_DAY = "50000" # $500
+# Automated data deletion (macro 5) needs an R2 bucket for the D1 export it takes first. Without this binding, delete
+# requests go to Mick. To enable: wrangler r2 bucket create rite-support-exports, then uncomment:
+# [[r2_buckets]]
+# binding = "SUPPORT_EXPORTS"
+# bucket_name = "rite-support-exports"
 
 # Secrets (set with `wrangler secret put NAME`):
 #   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, ANTHROPIC_API_KEY, RESEND_API_KEY

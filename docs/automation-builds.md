@@ -81,6 +81,8 @@ About 16 agent days in all. Builds 1–6 (about 7.5 days) fit before and around 
 
 **Done when.** Tests for each class with fixture emails; a refund request at day 13 refunds, at day 15 forwards; a spoofed sender is forwarded, never acted on.
 
+**Status (18 Oct, branch `b3-inbox`).** Built and tested (`test/inbox.test.ts`): the `email()` handler (`src/inbox.ts`, with a small MIME parser in `src/mime.ts`, no new dependency), migration 006 (`support_messages`; `npm run db:migrate:b3`), the Haiku classifier (`MODEL_PREVIEW`), every action above, caps (`INBOX_REFUNDS_PER_DAY`, `INBOX_REFUND_CENTS_PER_DAY`), a loop guard (auto-replies, bulk, noreply, our own addresses) and `/admin/inbox?key=`. It ships with **`INBOX_AUTO = "off"`**: every message goes to Mick with the draft and what it would do, and nothing reaches the customer. Mick gets the original (Email Routing forward, so `ADMIN_EMAIL` must be a verified destination) plus a summary via Resend. Replies are signed "Mick, Rite", as the macros are. Two things differ from the design: **data deletion goes to Mick**, because there's no R2 binding yet (add `SUPPORT_EXPORTS`, commented in `wrangler.toml`, to turn it on), and a "stop" from someone with only free pass reminders is honoured too. Not verified against live mail: the SPF/DKIM check reads Cloudflare's `ARC-Authentication-Results`; check the first real messages on `/admin/inbox` show "pass" (launch checklist B4). Mondays' KPI email has a support line.
+
 ## 4. Scheduled render
 
 **Why.** Content is the launch channel; today a render is a command on Mick's Mac or in a session.

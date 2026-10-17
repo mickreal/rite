@@ -74,3 +74,8 @@ export function parseJsonReply<T>(text: string): T {
 export function answerQuestion(env: Env, system: string, user: string) {
   return complete(env, env.MODEL_PREVIEW, system, user, 700);
 }
+
+/** Support inbox classifier (src/inbox.ts): the cheap model, a short JSON reply. */
+export function classifySupport(env: Env, system: string, user: string) {
+  return complete(env, env.MODEL_PREVIEW, system, user, 200);
+}

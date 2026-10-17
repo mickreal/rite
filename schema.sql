@@ -143,3 +143,30 @@ CREATE TABLE IF NOT EXISTS campaign_sends (
   sent_at TEXT NOT NULL,
   UNIQUE(campaign, email)
 );
+
+-- Support inbox (build 3, src/inbox.ts): every email to hello@, its classification and what was done. One row per message.
+-- status: received | handled | forwarded | ignored | awaiting_delete | deleted. action: what it did, or would do with
+-- INBOX_AUTO off. outcome: the result, or why it went to Mick. thread_key: the first message's id in the thread.
+CREATE TABLE IF NOT EXISTS support_messages (
+  id TEXT PRIMARY KEY,
+  received_at TEXT NOT NULL,
+  from_addr TEXT NOT NULL,          -- the From header's address, lower-cased
+  subject TEXT,
+  body_text TEXT,                   -- text/plain (or stripped HTML), up to 20,000 characters
+  message_id TEXT,
+  in_reply_to TEXT,
+  thread_key TEXT NOT NULL,
+  auth_pass INTEGER NOT NULL DEFAULT 0,   -- 1 when Email Routing's auth results show aligned SPF or DKIM (or DMARC) pass
+  auth_detail TEXT,                 -- the auth results header it read, for checking
+  has_attachment INTEGER NOT NULL DEFAULT 0,
+  class TEXT,                       -- where_is_reading | refund | stop | wrong_details | delete_data | how_it_works | gift_issue | other
+  confidence REAL,
+  status TEXT NOT NULL DEFAULT 'received',
+  action TEXT,
+  outcome TEXT,
+  draft TEXT,                       -- the reply sent, or drafted for Mick
+  reply_message_id TEXT             -- Resend's id for the reply
+);
+CREATE INDEX IF NOT EXISTS idx_support_thread ON support_messages(thread_key, from_addr);
+CREATE INDEX IF NOT EXISTS idx_support_msgid ON support_messages(message_id);
+CREATE INDEX IF NOT EXISTS idx_support_received ON support_messages(received_at);
