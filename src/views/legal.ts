@@ -45,7 +45,7 @@ export function legalPage(opts: { siteUrl: string; page: "privacy" | "terms" | "
 <h2>Your choices</h2>
 <ul>
   <li>Email <a href="mailto:${e}">${e}</a> and we will delete your reading, birth details and email, or send you a copy of what we hold. We do this by hand, usually within a few days.</li>
-  <li>Saturn Season notes have a link to stop them. To stop reminder or follow-up emails, reply to any of them and we'll take you off; the delivery email is sent once.</li>
+  <li>Every reminder, follow-up and Saturn Season email has a link to stop it, and stopping takes effect straight away. You can also reply to any of them. The delivery email is sent once.</li>
   <li>We don't sell data, run ads, or share your details with anyone not listed above.</li>
 </ul>
 <h2>Cookies</h2>

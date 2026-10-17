@@ -66,18 +66,20 @@ describe("Season line in stage reminders", () => {
     expect(stageSeasonLine(false, "2028-04-12", "2031-01-01")).toBe(false); // squares after the window
   });
   it("the email adds one closing line with the link, and only when asked", () => {
-    const base = { firstName: "Sam", label: "Contact opens", onDate: "28 Apr 2027", readingUrl: "https://rite.test/r/t", stageKey: "contact" };
+    const base = { firstName: "Sam", label: "Contact opens", onDate: "28 Apr 2027", readingUrl: "https://rite.test/r/t", stageKey: "contact", stopUrl: "https://rite.test/stop/t" };
     const off = stageReminderEmail({ ...base, subscribed: true, seasonUrl: "https://rite.test/r/t#season", monthlyPrice: 7 });
     expect(off.text).not.toContain("Saturn Season");
     const on = stageReminderEmail({ ...base, subscribed: false, seasonUrl: "https://rite.test/r/t#season", monthlyPrice: 7 });
     expect(on.text).toContain("Saturn Season is a short note each Monday until your window closes, $7 a month, and it stops itself: https://rite.test/r/t#season");
     expect(stageReminderEmail(base).text).not.toContain("Saturn Season");
+    expect(stageReminderEmail(base).text).toContain("Stop these: https://rite.test/stop/t");
   });
 });
 
 describe("day-3 and day-10 emails", () => {
   it("day 3 links chapter three and the workbook", () => {
-    const m = day3Email({ firstName: null, readingUrl: "https://rite.test/r/t" });
+    const m = day3Email({ firstName: null, readingUrl: "https://rite.test/r/t", stopUrl: "https://rite.test/stop/t" });
+    expect(m.text).toContain("https://rite.test/stop/t");
     expect(m.subject).toBe("Did you put the dates in your calendar?");
     expect(m.text).toMatch(/^Hi,/);
     expect(m.text).toContain("https://rite.test/r/t#c3");
@@ -94,7 +96,8 @@ describe("day-3 and day-10 emails", () => {
     const sn = sampleNote(c, monday);
     expect(sn.position).toMatch(/^Saturn is at \d+° Aries, \d+(\.\d)?° from your natal degree\. It's retrograde until \d+ Dec 2026/);
     expect(sn.body).toContain("One thing this week:");
-    const m = day10Email({ firstName: "Sam", windowEnd: "12 Apr 2028", position: sn.position, body: sn.body, comingUp: sn.comingUp, seasonUrl: "https://rite.test/r/t#season", monthlyPrice: 7, yearlyPrice: 59 });
+    const m = day10Email({ firstName: "Sam", windowEnd: "12 Apr 2028", position: sn.position, body: sn.body, comingUp: sn.comingUp, seasonUrl: "https://rite.test/r/t#season", monthlyPrice: 7, yearlyPrice: 59, stopUrl: "https://rite.test/stop/t" });
+    expect(m.text).toContain("stop these here: https://rite.test/stop/t");
     expect(m.subject).toBe("What a Monday note looks like");
     expect(m.text).toContain("until your window closes on 12 Apr 2028");
     expect(m.text).toContain(`> ${sn.position}`);
@@ -102,7 +105,7 @@ describe("day-3 and day-10 emails", () => {
     expect(m.text).toContain("> Coming up in the next 30 days:");
     expect(m.text).toContain("$7 a month or $59 a year");
     expect(m.text).not.toMatch(/\{|undefined|NaN/);
-    expect(day10Email({ firstName: null, windowEnd: "x", position: "p", body: "b", comingUp: "c", seasonUrl: "u", monthlyPrice: 7, yearlyPrice: null }).text).not.toContain("a year");
+    expect(day10Email({ firstName: null, windowEnd: "x", position: "p", body: "b", comingUp: "c", seasonUrl: "u", monthlyPrice: 7, yearlyPrice: null, stopUrl: "s" }).text).not.toContain("a year");
   });
   it("Monday rolls back across the week in the reader's zone, Monday itself included", () => {
     expect(lastMondayLocal("Australia/Brisbane", new Date("2026-10-18T21:00:00Z"))).toBe("2026-10-19"); // Mon 07:00 local
@@ -117,5 +120,27 @@ describe("day-3 and day-10 emails", () => {
     expect(f.reread.hash).toBe("#c7");
     expect(positionLine(f)).toContain(`${f.orbText} ${f.dir} your natal degree`);
     expect(f.allowed.length).toBeGreaterThan(0);
+  });
+});
+
+describe("delivery emails", () => {
+  const base = { firstName: "Ana", sign: "Aries", housePhrase: ", in your ninth house", windowStart: "May 2025", windowEnd: "Apr 2028", hitSentence: "One exact pass: 29 Apr 2027.", reportUrl: "https://rite.test/r/t" };
+  it("a bought reading quotes prices from config and drops the yearly price when it isn't offered", async () => {
+    const { deliveryEmail } = await import("../src/email");
+    const m = deliveryEmail({ ...base, upsellUrl: "u", monthlyPrice: 8, yearlyPrice: 69 });
+    expect(m.text).toContain("Saturn in Aries, in your ninth house.");
+    expect(m.text).toContain("$8 a month, or $69 a year, and it stops itself");
+    expect(deliveryEmail({ ...base, upsellUrl: "u", monthlyPrice: 7, yearlyPrice: null }).text).not.toContain("a year");
+  });
+  it("a gift recipient gets their own copy: who it's from, no refund line", async () => {
+    const { giftDeliveryEmail } = await import("../src/email");
+    const m = giftDeliveryEmail({ ...base, from: "Jo" });
+    expect(m.subject).toBe("Jo gave you your Saturn return");
+    expect(m.text).toContain("Jo bought you this.");
+    expect(m.text).toContain("we'll fix it");
+    expect(m.text).not.toContain("refund");
+    const anon = giftDeliveryEmail({ ...base, from: null });
+    expect(anon.subject).toBe("Your Saturn return, a gift");
+    expect(anon.text).not.toMatch(/null|bought you|P\.S\./);
   });
 });

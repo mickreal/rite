@@ -9,7 +9,8 @@ import { signPage, type SignPageData } from "./views/sign";
 import { whenPage, comparePage, type Cohort } from "./views/guides";
 import { SIGNS, type Sign } from "./astro/saturn";
 import { writePreview, writeReport, writeSeason, datesAreGrounded, parseJsonReply, answerQuestion } from "./llm";
-import { sendEmail, deliveryEmail, seasonEmail, seasonCompleteEmail, stageReminderEmail, giftEmail, day3Email, day10Email } from "./email";
+import { sendEmail, stopUrl, deliveryEmail, giftDeliveryEmail, seasonEmail, seasonCompleteEmail, stageReminderEmail, giftEmail, day3Email, day10Email } from "./email";
+import { stopPage } from "./views/stop";
 import { followupSchedule, followupDue, followupSkip, stageSeasonLine, type FollowupKind } from "./followups";
 import { readingPage, type ReportJson } from "./views/reading";
 import { shareCardSvg, ogSvg } from "./card";
@@ -75,6 +76,7 @@ async function log(env: Env, kind: string, ref?: string | null, detail?: unknown
 function withAnalytics(env: Env, res: Response, path: string): Response {
   if (!env.POSTHOG_KEY || !(res.headers.get("content-type") || "").includes("text/html")) return res;
   if (path === "/admin" || path.startsWith("/admin/")) return res; // admin pages carry the secret in the URL
+  if (path.startsWith("/stop/")) return res; // an unsubscribe page is no place for tracking
   // never tag the private pages with their tokens
   const page = path.startsWith("/r/") ? "/r/:tok" : path.startsWith("/p/") ? "/p/:id" : path.startsWith("/gift/") ? "/gift/:code" : path;
   const snippet = `<script>!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload identify alias people.set people.set_once set_config startSessionRecording stopSessionRecording get_distinct_id".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
@@ -305,6 +307,38 @@ app.post("/remind", async (c) => {
   }
   await log(c.env, "remind", pid, { kind: "pass" });
   return c.redirect(`/p/${pid}?reminded=1`);
+});
+
+// ---------- stop reminder and follow-up emails ----------
+// `tok` is a purchase id (stage reminders, day-3 and day-10 follow-ups) or a preview id (free pass reminders). GET shows
+// the button only, because mail scanners open links; POST stops (the page's form, and RFC 8058 one-click from mail apps).
+// Season notes are separate (their own manage page). Skips are 'skipped:stop', so nothing ever retries them.
+async function stopTarget(env: Env, tok: string): Promise<"reading" | "preview" | null> {
+  if (!/^[A-Za-z0-9_-]{6,80}$/.test(tok)) return null;
+  if (await env.DB.prepare("SELECT 1 FROM purchases WHERE id=?").bind(tok).first()) return "reading";
+  if (await env.DB.prepare("SELECT 1 FROM previews WHERE id=?").bind(tok).first()) return "preview";
+  return null;
+}
+async function stopSeasonUrl(env: Env, tok: string) {
+  const sub = await env.DB.prepare("SELECT 1 FROM subscriptions WHERE purchase_id=? AND status IN ('active','past_due')").bind(tok).first();
+  return sub ? `${env.SITE_URL}/season/manage/${tok}` : null;
+}
+app.get("/stop/:tok", async (c) => {
+  const tok = c.req.param("tok"); const kind = await stopTarget(c.env, tok); if (!kind) return c.notFound();
+  const seasonUrl = kind === "reading" ? await stopSeasonUrl(c.env, tok) : null;
+  return c.html(stopPage({ siteUrl: c.env.SITE_URL, tok, kind, done: c.req.query("done") === "1", seasonUrl }), 200, { "cache-control": "no-store", "x-robots-tag": "noindex" });
+});
+app.post("/stop/:tok", async (c) => {
+  const tok = c.req.param("tok"); const kind = await stopTarget(c.env, tok); if (!kind) return c.notFound();
+  if (kind === "reading") await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE stage_reminders SET sent_at='skipped:stop' WHERE purchase_id=? AND sent_at IS NULL").bind(tok),
+    c.env.DB.prepare("UPDATE followups SET sent_at='skipped:stop' WHERE purchase_id=? AND sent_at IS NULL").bind(tok),
+  ]);
+  else await c.env.DB.prepare("UPDATE reminders SET sent_at='skipped:stop' WHERE preview_id=? AND sent_at IS NULL").bind(tok).run();
+  await log(c.env, "stopped", tok, { kind });
+  const body = await c.req.text().catch(() => "");
+  if (/List-Unsubscribe=One-Click/i.test(body)) return c.text("Stopped.", 200);
+  return c.redirect(`/stop/${tok}?done=1`, 303);
 });
 
 // ---------- share cards ----------
@@ -705,11 +739,15 @@ async function generateReport(env: Env, tok: string) {
   await scheduleFollowups(env, tok, p.tz);
 
   if (pu.email) {
-    const m = deliveryEmail({
-      firstName: pu.first_name, sign: comp.sign, housePhrase: comp.house ? `, ${houseLabel(comp)}` : "",
+    const common = {
+      firstName: pu.first_name, sign: comp.sign, housePhrase: comp.house ? `, in your ${houseLabel(comp)}` : "",
       windowStart: fmtMonth(comp.window.windowStart), windowEnd: fmtMonth(comp.window.windowEnd),
-      hitSentence: hitSentence(comp), reportUrl: `${env.SITE_URL}/r/${tok}`, upsellUrl: `${env.SITE_URL}/r/${tok}#season`,
-    });
+      hitSentence: hitSentence(comp), reportUrl: `${env.SITE_URL}/r/${tok}`,
+    };
+    const gift = await env.DB.prepare("SELECT buyer_name FROM gifts WHERE redeemed_purchase_id=?").bind(tok).first<{ buyer_name: string | null }>();
+    const m = gift ? giftDeliveryEmail({ ...common, from: gift.buyer_name })
+      : deliveryEmail({ ...common, upsellUrl: `${env.SITE_URL}/r/${tok}#season`, monthlyPrice: Math.round(parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100),
+        yearlyPrice: yearlyAllowed(comp.window.windowEnd, new Date()) ? Math.round(parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10) / 100) : null });
     const ok = await sendEmail(env, pu.email, m.subject, m.text);
     if (ok) { await env.DB.prepare("UPDATE purchases SET delivered_at=? WHERE id=?").bind(now(), tok).run(); await log(env, "emailed", tok); }
   }
@@ -1156,15 +1194,16 @@ async function runFollowups(env: Env) {
       if (!(await mark(claimed)).meta.changes) continue; // another run got it
       const readingUrl = `${env.SITE_URL}/r/${r.purchase_id}`;
       let m: { subject: string; text: string };
-      if (r.kind === "day3") m = day3Email({ firstName: r.first_name, readingUrl });
+      const stop = stopUrl(env.SITE_URL, r.purchase_id);
+      if (r.kind === "day3") m = day3Email({ firstName: r.first_name, readingUrl, stopUrl: stop });
       else {
         // The note they'd have got this Monday (07:00 local), built by code only: no model call in a nudge.
         const monday = localToUtc(lastMondayLocal(r.tz, nowD), "07:00", r.tz);
         const sn = sampleNote(recompute(r, monday), monday);
         m = day10Email({ firstName: r.first_name, windowEnd: fmtDay(comp.window.windowEnd), position: sn.position, body: sn.body, comingUp: sn.comingUp, seasonUrl: `${readingUrl}#season`,
-          monthlyPrice: Math.round(parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100), yearlyPrice: yearlyAllowed(comp.window.windowEnd, nowD) ? Math.round(parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10) / 100) : null });
+          monthlyPrice: Math.round(parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100), yearlyPrice: yearlyAllowed(comp.window.windowEnd, nowD) ? Math.round(parseInt(env.PRICE_SEASON_YEARLY_CENTS, 10) / 100) : null, stopUrl: stop });
       }
-      const ok = await sendEmail(env, r.email, m.subject, m.text);
+      const ok = await sendEmail(env, r.email, m.subject, m.text, undefined, { unsubscribe: stop });
       if (ok) await log(env, "followup_sent", r.purchase_id, { kind: r.kind });
       else await env.DB.prepare("UPDATE followups SET sent_at=NULL WHERE purchase_id=? AND kind=? AND sent_at=?").bind(r.purchase_id, r.kind, claimed).run(); // retry next hour
     } catch (e) { await log(env, "error", r.purchase_id, { where: "followup", kind: r.kind, e: String(e) }); }
@@ -1181,8 +1220,8 @@ async function runStageReminders(env: Env) {
     if (!r.email) continue;
     const subscribed = !!r.subscribed;
     const m = stageReminderEmail({ firstName: r.first_name, label: r.label, onDate: fmtDay(r.on_date), readingUrl: `${env.SITE_URL}/r/${r.purchase_id}`, stageKey: r.stage_key,
-      subscribed, seasonUrl: stageSeasonLine(subscribed, r.window_end, r.on_date) ? `${env.SITE_URL}/r/${r.purchase_id}#season` : null, monthlyPrice: Math.round(parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100) });
-    const ok = await sendEmail(env, r.email, m.subject, m.text);
+      subscribed, seasonUrl: stageSeasonLine(subscribed, r.window_end, r.on_date) ? `${env.SITE_URL}/r/${r.purchase_id}#season` : null, monthlyPrice: Math.round(parseInt(env.PRICE_SEASON_MONTHLY_CENTS, 10) / 100), stopUrl: stopUrl(env.SITE_URL, r.purchase_id) });
+    const ok = await sendEmail(env, r.email, m.subject, m.text, undefined, { unsubscribe: stopUrl(env.SITE_URL, r.purchase_id) });
     if (ok) { await env.DB.prepare("UPDATE stage_reminders SET sent_at=? WHERE id=?").bind(now(), r.id).run(); await log(env, "stage_reminder", r.purchase_id, { stage: r.stage_key }); }
   }
   // anything whose date has passed unsent (e.g. a cron outage) is marked so it never fires late
@@ -1204,23 +1243,23 @@ The full reading dates every pass and tells you what to build before each one: $
 
 — Rite
 
-You asked for this one email. There is nothing to unsubscribe from.`);
+You asked for this one email. Stop reminders for this preview: ${stopUrl(env.SITE_URL, r.preview_id)}`, undefined, { unsubscribe: stopUrl(env.SITE_URL, r.preview_id) });
       if (ok) await env.DB.prepare("UPDATE reminders SET sent_at=? WHERE id=?").bind(now(), r.id).run();
       continue;
     }
-    const ok = await sendEmail(env, r.email, `Your Saturn pass is a week away — ${fmtDay(r.hit_date)}`,
+    const ok = await sendEmail(env, r.email, `Your Saturn pass is a week away: ${fmtDay(r.hit_date)}`,
 `Hi,
 
 A week from now, on ${fmtDay(r.hit_date)}, Saturn crosses the degree it held when you were born. Saturn in ${r.natal_sign}.
 
-This is the part people mean when they say Saturn return. Nothing has to happen on the day — but whatever you have been circling tends to ask for a decision around it.
+This is the part people mean when they say Saturn return. The work is deciding, not waiting to see.
 
 Your preview, with the full window: ${env.SITE_URL}/p/${r.preview_id}
 The full reading dates every pass and tells you what to build before each one: ${env.SITE_URL}/p/${r.preview_id}#reading
 
 — Rite
 
-You asked for this one email. There is nothing to unsubscribe from.`);
+You asked for one email a week before each pass. Stop them: ${stopUrl(env.SITE_URL, r.preview_id)}`, undefined, { unsubscribe: stopUrl(env.SITE_URL, r.preview_id) });
     if (ok) await env.DB.prepare("UPDATE reminders SET sent_at=? WHERE id=?").bind(now(), r.id).run();
   }
 }

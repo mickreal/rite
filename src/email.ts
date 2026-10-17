@@ -1,12 +1,20 @@
 // Transactional email via Resend.
 interface Env { RESEND_API_KEY: string; FROM_EMAIL: string; SUPPORT_EMAIL: string; SITE_URL: string; DB?: D1Database }
 
-export async function sendEmail(env: Env, to: string, subject: string, text: string, html?: string): Promise<boolean> {
+/** Where a recipient stops reminder and follow-up emails (src/views/stop.ts). `tok` is a purchase id or a preview id. */
+export const stopUrl = (siteUrl: string, tok: string) => `${siteUrl}/stop/${tok}`;
+
+/**
+ * `opts.unsubscribe`: the stop URL, sent as List-Unsubscribe plus List-Unsubscribe-Post (RFC 8058) so mail apps show
+ * their own one-click unsubscribe; the POST lands on /stop/:tok, which does the same as the page's button.
+ */
+export async function sendEmail(env: Env, to: string, subject: string, text: string, html?: string, opts: { unsubscribe?: string } = {}): Promise<boolean> {
   if (!env.RESEND_API_KEY) { console.warn("RESEND_API_KEY missing; email not sent", { to, subject }); return false; }
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ from: env.FROM_EMAIL, to: [to], reply_to: env.SUPPORT_EMAIL, subject, text, html }),
+    body: JSON.stringify({ from: env.FROM_EMAIL, to: [to], reply_to: env.SUPPORT_EMAIL, subject, text, html,
+      ...(opts.unsubscribe ? { headers: { "List-Unsubscribe": `<${opts.unsubscribe}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } } : {}) }),
   });
   if (!res.ok) {
     const body = await res.text();
@@ -20,7 +28,7 @@ export async function sendEmail(env: Env, to: string, subject: string, text: str
 
 export function deliveryEmail(p: {
   firstName: string | null; sign: string; housePhrase: string; windowStart: string; windowEnd: string;
-  hitSentence: string; reportUrl: string; upsellUrl: string;
+  hitSentence: string; reportUrl: string; upsellUrl: string; monthlyPrice: number; yearlyPrice: number | null;
 }) {
   const name = p.firstName ?? "Hi";
   const subject = `Your Saturn return — ${p.sign}, ${p.windowStart} to ${p.windowEnd}`;
@@ -36,7 +44,29 @@ If the Saturn sign is wrong, reply to this and I'll refund you.
 
 — Mick, Rite
 
-P.S. Saturn Season is a weekly note through your window: where Saturn is this week relative to your chart, and one thing to do with it. $7 a month, or $59 a year if your window has nine months or more left, and it stops itself when your window closes: ${p.upsellUrl}`;
+P.S. Saturn Season is a weekly note through your window: where Saturn is this week relative to your chart, and one thing to do with it. $${p.monthlyPrice} a month${p.yearlyPrice ? `, or $${p.yearlyPrice} a year` : ""}, and it stops itself when your window closes: ${p.upsellUrl}`;
+  return { subject, text };
+}
+
+/** The delivery email for a reading opened from a gift code (docs/emails.md §5): the recipient didn't pay, so no refund line. */
+export function giftDeliveryEmail(p: {
+  firstName: string | null; from: string | null; sign: string; housePhrase: string; windowStart: string; windowEnd: string;
+  hitSentence: string; reportUrl: string;
+}) {
+  const subject = p.from ? `${p.from} gave you your Saturn return` : "Your Saturn return, a gift";
+  const text = `${p.firstName ?? "Hi"},
+${p.from ? `\n${p.from} bought you this. No strings on their side and none on ours.\n` : ""}
+Your reading's ready: ${p.reportUrl}
+
+The short version: Saturn in ${p.sign}${p.housePhrase}. Your window runs ${p.windowStart} to ${p.windowEnd}. ${p.hitSentence}
+
+Keep the link. The page updates as you move through the cycle, so it reads differently next year. At the top you can listen to it, add every date to your calendar, print it, and save a share card (no personal details on it, just the sign and the dates). Five follow-up questions are included at the end; the answers come from your chart, not a script.
+
+If the Saturn sign is wrong, reply here and we'll fix it.
+
+— Rite${p.from ? `
+
+P.S. If you'd like to say thanks to ${p.from}, the share card is the easy way.` : ""}`;
   return { subject, text };
 }
 
@@ -53,7 +83,7 @@ ${p.body}
 
 ${p.comingUp}
 
-Reread: ${p.rereadName}: ${p.rereadUrl}
+Reread “${p.rereadName}”: ${p.rereadUrl}
 
 — Rite
 
@@ -78,7 +108,7 @@ See you at the next one.
   };
 }
 
-export function stageReminderEmail(p: { firstName: string | null; label: string; onDate: string; readingUrl: string; stageKey: string; subscribed?: boolean; seasonUrl?: string | null; monthlyPrice?: number }) {
+export function stageReminderEmail(p: { firstName: string | null; label: string; onDate: string; readingUrl: string; stageKey: string; subscribed?: boolean; seasonUrl?: string | null; monthlyPrice?: number; stopUrl: string }) {
   const what: Record<string, string> = {
     approach: "Saturn enters your natal sign and your return window opens. Nothing is exact yet. The work is deciding what this return is going to test and setting it up before the first pass.",
     contact: "Saturn reaches the degree it held when you were born. This is the part people mean when they say Saturn return. The work is deciding, not waiting to see.",
@@ -101,12 +131,12 @@ If you'd rather hear from us every week than only at the turning points, Saturn 
 ` : ""}
 — Rite
 
-Sent once, a week before each stage of your cycle. Reply to stop these.`;
+Sent once, a week before each stage of your cycle. Stop these: ${p.stopUrl}`;
   return { subject, text };
 }
 
 /** Day 3 after the reading: put the dates in a calendar, open the workbook. Copy: docs/emails.md §2. */
-export function day3Email(p: { firstName: string | null; readingUrl: string }) {
+export function day3Email(p: { firstName: string | null; readingUrl: string; stopUrl: string }) {
   return {
     subject: "Did you put the dates in your calendar?",
     text: `${p.firstName ?? "Hi"},
@@ -121,7 +151,7 @@ Then open the workbook: ${p.readingUrl}#c7. The prompts for the phase you're in 
 
 — Rite
 
-Sent once. Reply to this and a person answers.`,
+Sent once. Reply to this and a person answers. Stop reminder and follow-up emails: ${p.stopUrl}`,
   };
 }
 
@@ -129,7 +159,7 @@ Sent once. Reply to this and a person answers.`,
  * Day 10 after the reading, to owners without Saturn Season: what a Monday note looks like, with a sample built by code
  * for their own chart (position, orb, motion, the code-only paragraph, the 30-day list). Copy: docs/emails.md §3.
  */
-export function day10Email(p: { firstName: string | null; windowEnd: string; position: string; body: string; comingUp: string; seasonUrl: string; monthlyPrice: number; yearlyPrice: number | null }) {
+export function day10Email(p: { firstName: string | null; windowEnd: string; position: string; body: string; comingUp: string; seasonUrl: string; monthlyPrice: number; yearlyPrice: number | null; stopUrl: string }) {
   const lines = [p.position, "", ...p.body.split("\n").flatMap((l, i) => (i === 0 ? [l] : ["", l])), "", ...p.comingUp.split("\n")];
   const quote = lines.map((l) => (l ? `> ${l}` : ">")).join("\n");
   return {
@@ -146,7 +176,7 @@ Every Monday, 7am your time. $${p.monthlyPrice} a month${p.yearlyPrice ? ` or $$
 
 — Rite
 
-Sent once. Reply "stop" and we'll send nothing but what you've bought.`,
+Sent once. To get nothing but what you've bought, stop these here: ${p.stopUrl}`,
   };
 }
 

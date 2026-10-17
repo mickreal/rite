@@ -126,7 +126,7 @@ describe("manage page and note template", () => {
   it("note email carries the coming-up list, the reread link and the manage link", () => {
     const m = seasonEmail({ firstName: "Sam", transitDeg: "12°", transitSign: "Aries", orb: "1.2°", dir: "from", motionSentence: "It's direct.", body: "Para.\nOne thing this week: x.\nOne line to carry: y.", comingUp: "Coming up in the next 30 days:\n- 28 Apr 2027: Contact", rereadName: "Workbook", rereadUrl: "https://rite.test/r/tok1#c7", manageUrl: "https://rite.test/season/manage/tok1", welcome: true });
     expect(m.subject).toMatch(/starts/);
-    expect(m.text).toContain("Reread: Workbook: https://rite.test/r/tok1#c7");
+    expect(m.text).toContain("Reread “Workbook”: https://rite.test/r/tok1#c7");
     expect(m.text).toContain("- 28 Apr 2027: Contact");
     expect(m.text).toContain("/season/manage/tok1");
     expect(m.text).toContain("Welcome to Saturn Season");
