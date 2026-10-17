@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import Stripe from "stripe";
 import { geocode } from "./geo";
 import { compute, cycle, reportInputs, fmtMonth, fmtDay, hitSentence, phaseSentence, houseLabel, type Computed } from "./compute";
@@ -31,11 +31,12 @@ import { seasonLandingPage } from "./views/season-landing";
 import { seasonAvailable, nextNoteDate, nextNoteAfterLast, yearlyAllowed, unusedMonths, yearlyRefundCents, comingUpText, windowOpenSendOn, noteFacts, seasonFallbackBody, sampleNote, lastMondayLocal, localParts, type SeasonPlan } from "./season";
 import { SIGN_NOTES } from "./content/notes";
 import { localHour, localToUtc } from "./geo";
-import { adminAuthorized, adminStats, adminExtras, adminDays, adminMoney } from "./admin";
+import { adminAuthorized, adminStats, adminExtras, adminDays, adminMoney, makeSession, sessionValid, cookieValue, sessionCookie, csrfToken, sameOrigin, safeNext, safeEqual, SESSION_COOKIE } from "./admin";
 import { adminPage } from "./views/admin";
 import { buildKpiReport, kpiSendHour, posthogVisits } from "./kpi";
 import { handleSupportEmail, type InboxDeps } from "./inbox";
-import { inboxPage, type InboxRow } from "./views/inbox";
+import { threadsPage, threadPage, loginPage } from "./views/inbox";
+import { listThreads, loadThread, sendReply, changeThread, threadKeyFromUrl, tabOf, newNonce, THREAD_ACTIONS, type ThreadAction } from "./inbox-ui";
 import { taxOn, sessionTax, localPrices, currencyOptions, priceKeySuffix, bumpCents, armFor, armCents, priceTestStop, priceTestWinner, perPreview, giftSeasonOn, giftEmailDates, TAX_CODE, GIFT_EMAIL_HOUR, dollars, type PriceProduct, type PriceTestState, type ArmStats } from "./commerce";
 
 export interface Env {
@@ -1187,14 +1188,133 @@ async function cancelSeason(env: Env, sub: { id: string; plan: string | null; pu
 // ---------- support inbox (build 3, src/inbox.ts) ----------
 const inboxDeps: InboxDeps = { log, refundPurchase, refundGift, cancelSeason, stopReading, stopPreview, kickGenerate };
 
-// Recent support messages, newest first: what came in, how it was labelled and what was done (ADMIN_KEY, like GET /admin).
+// ---------- admin session + the inbox UI (build 3b, src/inbox-ui.ts, src/views/inbox.ts) ----------
+// Browser admin pages accept ADMIN_KEY as a bearer, as ?key=, or a signed session cookie from /admin/login (HttpOnly,
+// Secure, SameSite=Strict, Path=/admin, 30 days, HMAC'd with ADMIN_KEY). Inbox POSTs also need the per-session CSRF token
+// and, when the browser sends one, a same-origin Sec-Fetch-Site / Origin. Bearer POSTs (curl) skip both: no ambient credential.
+type AdminCtx = { env: Env; req: { header(n: string): string | undefined; query(n: string): string | undefined } };
+async function adminSession(c: AdminCtx): Promise<{ ok: boolean; sid: string; key: string | null; bearer: boolean; cookie: boolean }> {
+  const no = { ok: false, sid: "", key: null, bearer: false, cookie: false };
+  const secret = c.env.ADMIN_KEY;
+  if (!secret) return no;
+  const auth = c.req.header("authorization");
+  if (auth && adminAuthorized(secret, auth)) return { ok: true, sid: "bearer", key: null, bearer: true, cookie: false };
+  const key = c.req.query("key");
+  if (key !== undefined && adminAuthorized(secret, undefined, key)) return { ok: true, sid: "key", key, bearer: false, cookie: false };
+  const ck = cookieValue(c.req.header("cookie"), SESSION_COOKIE);
+  if (ck && await sessionValid(secret, ck)) return { ok: true, sid: ck, key: null, bearer: false, cookie: true };
+  return no;
+}
+const INBOX_HDRS = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY" };
+const inboxAuto = (env: Env) => (env.INBOX_AUTO ?? "off").trim().toLowerCase() === "on";
+const toLogin = (c: { env: Env; req: { url: string; method: string } }) => {
+  if (!c.env.ADMIN_KEY) return null;
+  const u = new URL(c.req.url);
+  u.searchParams.delete("key"); // a wrong key never ends up in the next URL
+  const next = safeNext(c.req.method === "GET" ? u.pathname + u.search : u.pathname.replace(/\/(reply|state)$/, ""));
+  return new Response(null, { status: 303, headers: { Location: `/admin/login?next=${encodeURIComponent(next)}`, ...INBOX_HDRS } });
+};
+/** A browser POST to an inbox route: same origin (when the browser says) and the session's CSRF token. */
+async function postOk(c: { env: Env; req: { raw: Request } }, s: { sid: string; bearer: boolean }, csrf: unknown): Promise<boolean> {
+  if (s.bearer) return true;
+  if (!sameOrigin(c.req.raw)) return false;
+  return typeof csrf === "string" && safeEqual(csrf, await csrfToken(c.env.ADMIN_KEY!, s.sid));
+}
+const formStr = (v: unknown) => (typeof v === "string" ? v : "");
+const back = (path: string, key: string | null, q = "") => new Response(null, { status: 303, headers: { Location: `${path}${q ? `?${q}` : ""}${key ? `${q ? "&" : "?"}key=${encodeURIComponent(key)}` : ""}`, ...INBOX_HDRS } });
+
+app.get("/admin/login", async (c) => {
+  if (!c.env.ADMIN_KEY) return c.notFound();
+  const next = safeNext(c.req.query("next"));
+  if (await sessionValid(c.env.ADMIN_KEY, cookieValue(c.req.header("cookie"), SESSION_COOKIE))) return c.redirect(next, 303);
+  return c.html(loginPage({ next }), 200, INBOX_HDRS);
+});
+// At most 10 wrong keys an hour per IP (KV), then 429 until the hour is up.
+app.post("/admin/login", async (c) => {
+  if (!c.env.ADMIN_KEY) return c.notFound();
+  if (!sameOrigin(c.req.raw)) return c.text("cross-site request refused", 403);
+  const f = await c.req.parseBody();
+  const next = safeNext(formStr(f.next));
+  const tkey = `adminlogin:${c.req.header("cf-connecting-ip") ?? "unknown"}`;
+  const fails = parseInt((await c.env.CACHE.get(tkey)) ?? "0", 10) || 0;
+  if (fails >= 10) return c.html(loginPage({ next, error: "Too many wrong keys. Try again in an hour." }), 429, INBOX_HDRS);
+  if (!adminAuthorized(c.env.ADMIN_KEY, undefined, formStr(f.key))) {
+    await c.env.CACHE.put(tkey, String(fails + 1), { expirationTtl: 3600 });
+    return c.html(loginPage({ next, error: "That's not the key." }), 401, INBOX_HDRS);
+  }
+  return new Response(null, { status: 303, headers: { Location: next, "Set-Cookie": sessionCookie(await makeSession(c.env.ADMIN_KEY)), ...INBOX_HDRS } });
+});
+app.post("/admin/logout", async (c) => {
+  const s = await adminSession(c);
+  if (!s.ok) return toLogin(c) ?? c.notFound();
+  if (!(await postOk(c, s, (await c.req.parseBody()).csrf))) return c.text("cross-site request refused", 403);
+  return new Response(null, { status: 303, headers: { Location: "/admin/login", "Set-Cookie": sessionCookie("", 0), ...INBOX_HDRS } });
+});
+
+// Threads, newest activity first: Needs me (default), All, Closed.
 app.get("/admin/inbox", async (c) => {
-  if (!c.env.ADMIN_KEY || !adminAuthorized(c.env.ADMIN_KEY, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
-  let rows: InboxRow[] = [];
-  let missing = false;
-  try { rows = (await c.env.DB.prepare("SELECT id, received_at, from_addr, subject, body_text, class, confidence, status, action, outcome, auth_pass, auth_detail, has_attachment, draft FROM support_messages ORDER BY received_at DESC LIMIT 100").all<InboxRow>()).results; }
-  catch { missing = true; } // migration 006 not applied yet
-  return c.html(inboxPage({ rows, auto: (c.env.INBOX_AUTO ?? "off").trim().toLowerCase() === "on", missing, key: c.req.query("key"), generatedAt: now() }), 200, ADMIN_HDRS);
+  const s = await adminSession(c);
+  if (!s.ok) return toLogin(c) ?? c.notFound();
+  const tab = tabOf(c.req.query("tab"));
+  const r = await listThreads(c.env.DB, tab);
+  return c.html(threadsPage({ ...r, tab, auto: inboxAuto(c.env), key: s.key, csrf: await csrfToken(c.env.ADMIN_KEY!, s.sid), session: s.cookie, generatedAt: now() }), 200, INBOX_HDRS);
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function renderThread(c: Context<{ Bindings: Env }, any>, k: string, s: { sid: string; key: string | null }, flash?: { ok?: string; error?: string }, text?: string, status: 200 | 400 = 200) {
+  const t = await loadThread(c.env, k);
+  if (!t) return null;
+  return c.html(threadPage({ t, key: s.key, csrf: await csrfToken(c.env.ADMIN_KEY!, s.sid), nonce: newNonce(), auto: inboxAuto(c.env), flash, text }), status, INBOX_HDRS);
+}
+const FLASH: Record<string, { ok?: string; error?: string }> = {
+  sent: { ok: "Sent. The thread is yours now; the assistant won't act on it." }, dup: { ok: "Already sent: that form was submitted before, so nothing was sent twice." },
+  close: { ok: "Closed." }, reopen: { ok: "Reopened: it's in Needs me." }, take: { ok: "It's yours: the assistant won't act on new messages here." },
+  handback: { ok: "Handed back: the assistant can act on new messages here again (inside INBOX_AUTO and its guards)." },
+  migrate: { error: "That needs migration 007: run npm run db:migrate:b3b." },
+};
+
+app.get("/admin/inbox/t/:id", async (c) => {
+  const s = await adminSession(c);
+  if (!s.ok) return toLogin(c) ?? c.notFound();
+  const k = threadKeyFromUrl(c.req.param("id"));
+  if (!k) return c.notFound();
+  return (await renderThread(c, k, s, FLASH[c.req.query("f") ?? ""])) ?? c.notFound();
+});
+
+// Send Mick's reply (src/inbox-ui.ts sendReply). The form's nonce makes a resubmit a no-op; success redirects (POST/redirect/GET).
+app.post("/admin/inbox/t/:id/reply", async (c) => {
+  const s = await adminSession(c);
+  if (!s.ok) return toLogin(c) ?? c.notFound();
+  const k = threadKeyFromUrl(c.req.param("id"));
+  if (!k) return c.notFound();
+  const f = await c.req.parseBody();
+  if (!(await postOk(c, s, f.csrf))) return c.text("cross-site request refused", 403);
+  const path = `/admin/inbox/t/${c.req.param("id")}`;
+  let r;
+  try { r = await sendReply(c.env, k, formStr(f.body), formStr(f.nonce), (kind, ref, detail) => log(c.env, kind, ref, detail)); }
+  catch (e) {
+    await log(c.env, "error", null, { where: "inbox-reply", e: String(e).slice(0, 300) });
+    r = { ok: false as const, error: /no such table/i.test(String(e)) ? FLASH.migrate!.error! : "Something went wrong; nothing was sent. The error is on /admin." };
+  }
+  if (r.ok) return back(path, s.key, "f=sent");
+  if (r.duplicate) return back(path, s.key, "f=dup");
+  return (await renderThread(c, k, s, { error: r.error }, formStr(f.body), 400)) ?? c.notFound();
+});
+
+// Close, Reopen, "I've got this" (take), "Hand back to assistant" (handback).
+app.post("/admin/inbox/t/:id/state", async (c) => {
+  const s = await adminSession(c);
+  if (!s.ok) return toLogin(c) ?? c.notFound();
+  const k = threadKeyFromUrl(c.req.param("id"));
+  if (!k) return c.notFound();
+  const f = await c.req.parseBody();
+  if (!(await postOk(c, s, f.csrf))) return c.text("cross-site request refused", 403);
+  const a = formStr(f.do) as ThreadAction;
+  if (!THREAD_ACTIONS.includes(a)) return c.text("unknown action", 400);
+  if (!(await c.env.DB.prepare("SELECT 1 FROM support_messages WHERE thread_key=? LIMIT 1").bind(k).first())) return c.notFound();
+  const ok = await changeThread(c.env.DB, k, a);
+  if (ok) await log(c.env, "support_thread", null, { thread: k.slice(0, 120), do: a });
+  return back(`/admin/inbox/t/${c.req.param("id")}`, s.key, `f=${ok ? a : "migrate"}`);
 });
 
 // ---------- health + stats ----------
@@ -1206,7 +1326,7 @@ app.get("/admin/stats", async (c) => {
 });
 // HTML view of /admin/stats + recent errors, stories and email queues. Bearer header or ?key= (same secret); 404 otherwise.
 app.get("/admin", async (c) => {
-  if (!c.env.ADMIN_KEY || !adminAuthorized(c.env.ADMIN_KEY, c.req.header("authorization"), c.req.query("key"))) return c.notFound(); // ADMIN_KEY only
+  if (!(await adminSession(c)).ok) return c.notFound(); // ADMIN_KEY only (bearer, ?key= or the /admin/login cookie)
   const [stats, extras, money] = await Promise.all([adminStats(c.env.DB, adminDays(c.req.query("days"))), adminExtras(c.env.DB), adminMoney(c.env.DB)]);
   return c.html(adminPage({ stats, extras, money, currency: c.env.CURRENCY, key: c.req.query("key"), generatedAt: now() }), 200,
     { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
@@ -1214,7 +1334,7 @@ app.get("/admin", async (c) => {
 
 // Monday KPI email as text, any time (ADMIN_KEY only, like GET /admin), and a forced send (bearer, like the other POSTs).
 app.get("/admin/kpi", async (c) => {
-  if (!c.env.ADMIN_KEY || !adminAuthorized(c.env.ADMIN_KEY, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
+  if (!(await adminSession(c)).ok) return c.notFound();
   const r = await buildKpiReport(c.env.DB, new Date(), kpiOpts(c.env));
   return c.text(r.text, 200, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
 });

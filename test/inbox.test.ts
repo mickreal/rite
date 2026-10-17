@@ -170,8 +170,11 @@ describe("refunds", () => {
     expect(mick).toHaveLength(1);
     expect(mick[0]!.subject).toContain("over_14_days");
     expect(mick[0]!.text).toContain("past the 14-day refund window");
-    expect(mick[0]!.text).toMatch(/Purchases: tok_test… \S+ generated \$29 full \(15d ago\)/);
     expect(mick[0]!.text).toContain("The refund window is 14 days from purchase");
+    // build 3b: the note is short and links to the thread page, which has the history
+    const link = /https:\/\/rite\.test(\/admin\/inbox\/t\/[A-Za-z0-9_-]+)/.exec(mick[0]!.text)![1]!;
+    const page = await (await h.request(`${link}?key=${KEY}`)).text();
+    expect(page).toMatch(/Purchases: tok_test… \S+ generated \$29 full \(15d ago\)/);
     expect(lastSupport()).toMatchObject({ action: "forward", outcome: "over_14_days", auto: "on" });
   });
 
@@ -406,17 +409,21 @@ describe("delete my data", () => {
 });
 
 describe("admin and KPI", () => {
-  it("/admin/inbox lists recent messages with ADMIN_KEY, 404 otherwise", async () => {
+  it("/admin/inbox lists threads with ADMIN_KEY, sends you to login otherwise", async () => {
     h.seedPurchase();
     label = { class: "how_it_works", confidence: 0.9 };
     await deliver(eml({ subject: "Is it <real>?" }));
-    expect((await h.request("/admin/inbox")).status).toBe(404);
-    const r = await h.request(`/admin/inbox?key=${KEY}`);
+    // build 3b: no key or session goes to the login page (404 only when ADMIN_KEY isn't set)
+    const anon = await h.request("/admin/inbox");
+    expect(anon.status).toBe(303);
+    expect(anon.headers.get("location")).toBe("/admin/login?next=%2Fadmin%2Finbox");
+    const r = await h.request(`/admin/inbox?key=${KEY}&tab=all`);
     expect(r.status).toBe(200);
     const page = await r.text();
     expect(page).toContain("Is it &lt;real&gt;?");
-    expect(page).toContain("macro7");
     expect(page).toContain("INBOX_AUTO is <b");
+    const thread = /href="(\/admin\/inbox\/t\/[^"?]+)/.exec(page)![1]!;
+    expect(await (await h.request(`${thread}?key=${KEY}`)).text()).toContain("macro7");
   });
 
   it("the Monday KPI email counts support emails, handled and forwarded", async () => {

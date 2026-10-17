@@ -16,7 +16,9 @@
     "db:migrate:b12": "for f in migrations/002-*.sql migrations/003-*.sql migrations/004-*.sql migrations/005-*.sql; do wrangler d1 execute rite --remote --file=$f; done",
     "db:migrate:b12:local": "for f in migrations/002-*.sql migrations/003-*.sql migrations/004-*.sql migrations/005-*.sql; do wrangler d1 execute rite --local --file=$f; done",
     "db:migrate:b3": "wrangler d1 execute rite --remote --file=migrations/006-support-messages.sql",
-    "db:migrate:b3:local": "wrangler d1 execute rite --local --file=migrations/006-support-messages.sql"
+    "db:migrate:b3:local": "wrangler d1 execute rite --local --file=migrations/006-support-messages.sql",
+    "db:migrate:b3b": "wrangler d1 execute rite --remote --file=migrations/007-support-threads.sql",
+    "db:migrate:b3b:local": "wrangler d1 execute rite --local --file=migrations/007-support-threads.sql"
   },
   "keywords": [],
   "author": "",

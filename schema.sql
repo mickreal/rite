@@ -170,3 +170,32 @@ CREATE TABLE IF NOT EXISTS support_messages (
 CREATE INDEX IF NOT EXISTS idx_support_thread ON support_messages(thread_key, from_addr);
 CREATE INDEX IF NOT EXISTS idx_support_msgid ON support_messages(message_id);
 CREATE INDEX IF NOT EXISTS idx_support_received ON support_messages(received_at);
+
+-- Support inbox UI (build 3b, /admin/inbox, migration 007). One row per thread: status needs_mick | assistant |
+-- mick_replied | closed; owner assistant | mick (taken over: the assistant only drafts); notified_msg_id: the last
+-- customer message Mick got a note about.
+CREATE TABLE IF NOT EXISTS support_threads (
+  thread_key TEXT PRIMARY KEY,
+  status TEXT NOT NULL DEFAULT 'needs_mick',
+  owner TEXT NOT NULL DEFAULT 'assistant',
+  updated_at TEXT NOT NULL,
+  notified_msg_id TEXT
+);
+-- Every outbound support email: the assistant's replies and Mick's. nonce: the reply form's one-time value (no double send).
+CREATE TABLE IF NOT EXISTS support_replies (
+  id TEXT PRIMARY KEY,
+  thread_key TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  author TEXT NOT NULL,             -- assistant | mick
+  to_addr TEXT NOT NULL,
+  subject TEXT,
+  body_text TEXT,
+  in_reply_to TEXT,                 -- the customer message it answers (Message-ID)
+  references_hdr TEXT,
+  nonce TEXT UNIQUE,
+  status TEXT NOT NULL DEFAULT 'sending',   -- sending | sent | failed
+  resend_id TEXT,
+  sent_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_support_replies_thread ON support_replies(thread_key, created_at);
+CREATE INDEX IF NOT EXISTS idx_support_threads_status ON support_threads(status, updated_at);
