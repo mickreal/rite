@@ -138,7 +138,7 @@ app.get("/api/calc", async (c) => {
   const wa = (((saturnLongitude(new Date()) - comp.natalLon) % 360) + 360) % 360;
   const out = {
     sign: comp.sign, degree: Math.floor(comp.degree), returnNumber: comp.returnNumber,
-    angle: +wa.toFixed(2), pct: Math.floor(wa / 360 * 100), inside, frac: +frac.toFixed(3),
+    angle: +wa.toFixed(2), pct: inside && (wa < 1 || wa > 359) ? 100 : Math.floor(wa / 360 * 100), inside, // at the return point itself, "100% of the way round" rather than 0% frac: +frac.toFixed(3),
     windowOpen: fmtMonYr(open), windowOpenLong: fmtMonYrL(open), windowClose: fmtMonYr(close),
     opensIn: inside ? "You are here" : now < open ? "Opens " + untilText(new Date(), open) : "Closed",
     ticks: w.hits.map((h) => +((Date.parse(h) - open) / (close - open) * 100).toFixed(1)),

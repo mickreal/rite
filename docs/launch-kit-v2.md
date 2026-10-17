@@ -149,7 +149,7 @@ All under 280 characters. No hashtag spam (one tag at most, usually none). At mo
 
 6. Saturn leaves Aries on 12 April 2028. If you're Aries-Saturn (born Apr 96 – Jun 98, or Oct 98 – Feb 99), that's when your window closes, whatever else is going on. Everything before it is still the season.
 
-7. Born in 1999 or 2000? Your Saturn return hasn't started. Taurus opens 13 April 2028. rite.report will email you the week before, free.
+7. Born in 1999 or 2000? Your Saturn return hasn't started. Taurus opens 13 April 2028. rite.report will email you a month before, free.
 
 8. A Saturn return has three phases: approach (pressure, no verdict), contact (the dated pass or passes), integration (what you chose becomes structure). Most of the content you'll see is about contact. Most of your window is the other two.
 

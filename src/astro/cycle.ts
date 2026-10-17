@@ -201,6 +201,7 @@ export function untilText(from: Date, to: number): string {
   const m = Math.round((to - from.getTime()) / (YEAR / 12));
   if (m < 1) return "within a month";
   if (m < 18) return `in ${m} month${m === 1 ? "" : "s"}`;
+  if (m < 24) return "in about a year and a half";
   return `in about ${Math.round(m / 12)} years`;
 }
 
