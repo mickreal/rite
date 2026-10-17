@@ -10,7 +10,7 @@ Launch day L = the first Monday the domain, email and webhook all work, aiming f
 |---|---|---|
 | D−3 | Buy the domain; Cloudflare zone; spend caps (ElevenLabs, Anthropic); deploy current main | Builds 1, 2, 6 in parallel sessions |
 | D−2 | Checklist B1–B6 (domain on the Worker, SITE_URL, Resend verified, Email Routing to the Worker, Stripe webhook URL and public details); Stripe Tax on | Build 3 (inbox assistant) against the live domain; review and merge 1, 2, 6 |
-| D−1 | C1–C4 on the live domain (emails, a friend's purchase, refund, gift); B7 promo code off after making creator codes; Ayrshare account + connect socials | `LAUNCH=<L> npm run launch` → render, reread flagged posts; builds 4 and 5 |
+| D−1 | C1–C4 on the live domain (emails, a friend's purchase, refund, gift); B7 promo code off after making creator codes; Postiz API key; five accounts connected in Postiz | `LAUNCH=<L> npm run launch` → render, reread flagged posts; builds 4 and 5 |
 | L | Launch-day runbook (checklist) | Watch errors, fix forward |
 | L+1…L+6 | Reply to comments the first day; Reddit post 1 by hand | Weekly render and auto-posting live by L+4 |
 
@@ -59,7 +59,7 @@ $29 vs $39 for the reading with a birth time ($19 vs $25 without), 50/50 by prev
 
 ## 6. Creators
 
-`creators.md` has 16+ accounts and the three-line ask. With build 8 the ask becomes: a free reading (gift code), a personal 10%-off code for their audience, and 30% of every sale through it, paid monthly by Stripe automatically. That replaces "the budget is codes" in `creators.md`. Outreach is by hand (DMs can't be automated without breaking platform rules): 10 DMs a week in November, from the list, then inbound through `/creators`.
+`creators.md` has 16+ accounts and the three-line ask. With build 8 the ask becomes: a free reading (gift code), a personal 10%-off code for their audience, and 30% of every sale through it, paid monthly by Stripe automatically (decided 17 Oct; 30% is within the usual 20–50% for digital products). That replaces "the budget is codes" in `creators.md`. Outreach is by hand (DMs can't be automated without breaking platform rules): 10 DMs a week in November, from the list, then inbound through `/creators`.
 
 ## 7. Waiting list and the next cohorts
 

@@ -17,14 +17,14 @@ Written 17 Oct 2026. Companion to the "Rite: path to $1M" doc and `growth-plan.m
 | 2 | Order bump + gift season | Before launch (gifts peak Nov–Dec) | 1.5 days | Approve copy | — |
 | 3 | Inbox assistant (support + refunds) | Launch day (needs the domain) | 2.5 days | Domain + Email Routing on | ~$5 in model calls |
 | 4 | Scheduled render | Launch week | 1.5 days | GitHub repo secrets | GitHub Actions minutes (likely free tier) |
-| 5 | Auto-posting | Launch week | 1 day + platform approvals | Ayrshare account, connect 5 social accounts | $149 (Ayrshare Premium) |
+| 5 | Auto-posting (Postiz) | Launch week | 1 day + platform approvals | Postiz API key; the five accounts connected in Postiz; TikTok public posting confirmed | Existing Postiz plan |
 | 6 | Monday KPI email | Launch week | 0.5 day | — | — |
 | 7 | Birth-month search pages | November | 2 days | Search Console verified (checklist B9) | — |
 | 8 | Creator and affiliate program | November | 3.5 days | Stripe Connect enabled | 30% of attributed sales |
 | 9 | Bookkeeping sync | November | 0.5 day | Xero account + Stripe app install | Xero plan |
 | 10 | Ads budget controller | December, after gate A | 2.5 days | Meta Business account, ad account, app + system-user token | Ad spend under the cap |
 
-About 16 agent days in all. Builds 1–6 (about 7.5 days) fit before and around launch if they run in parallel: 1+2 in one session, 3 in another, 4+5+6 in a third.
+About 16 agent days in all. Builds 1–6 (about 7.5 days) fit before and around launch if they run in parallel: 1+2 in one session, 3 in another, 4+5+6 in a third. (Build 5 uses Mick's existing Postiz instead of a new posting service.)
 
 ---
 
@@ -34,7 +34,8 @@ About 16 agent days in all. Builds 1–6 (about 7.5 days) fit before and around 
 
 **Design.**
 - `automatic_tax: { enabled: true }` on all four Checkout Sessions (reading, gift, Season subscription, and the order-bump session). `billing_address_collection: "required"` so Stripe has the customer's location (two pieces of evidence: card country + address).
-- Prices become **tax-inclusive** (`tax_behavior: "inclusive"` on `price_data` and on the Season Prices), so the customer still sees $29 and Rite absorbs the tax. Alternative: exclusive pricing, with tax added at checkout. Inclusive keeps the headline price; it costs about 12% of revenue on taxed sales either way.
+- Prices are **tax-inclusive** (decided 17 Oct: `tax_behavior: "inclusive"` on `price_data` and on the Season Prices), so the customer sees $29 and Rite absorbs the tax.
+- Currency: USD stays the base. Local prices for GBP, EUR, AUD and CAD (set, rounded amounts rather than a live conversion) sit behind a `LOCAL_PRICES` config, off until Mick sets the amounts; Checkout then shows the buyer's own currency, which UK and EU consumers expect with VAT-inclusive pricing.
 - Product tax code `txcd_10000000` (general electronically supplied services) on the reading, gift and Season products.
 - Season Prices: recreate with `tax_behavior` set (Stripe won't change it on an existing Price). `ensureSeasonPrices` gets a new lookup key `v2`; existing subscriptions stay on the old Prices.
 - `/admin` adds "tax collected (30d)" from `session.total_details.amount_tax` stored on purchases (new column `tax_cents`, migration 002).
@@ -90,20 +91,21 @@ About 16 agent days in all. Builds 1–6 (about 7.5 days) fit before and around 
 
 **Done when.** A dispatched run produces a week's files and manifest in R2 within the Actions time limit; a deliberately stale caption fails the run.
 
-## 5. Auto-posting
+## 5. Auto-posting (Postiz)
 
 **Why.** Posting by hand is daily work.
 
 **Design.**
-- **Ayrshare** (Premium, $149/mo: one profile, TikTok, Instagram, YouTube, X, Threads and more). Chosen because direct TikTok posting needs an audited app, and Ayrshare already has one.
-- A Worker cron (hourly) reads the week's manifest from R2 and posts each item at its slot time through Ayrshare's API with `scheduleDate`, captions and alt text from the manifest; records the post ids in a `posts` table and logs `posted` events.
+- **Postiz**, which Mick already uses for content. Its public API uploads media (`POST /public/v1/upload`) and creates or schedules posts (`POST /public/v1/posts`, `type: "schedule"` with a date, several posts per request), with a rate limit of about 100 post requests an hour on cloud, 90 self-hosted ([Postiz API](https://docs.postiz.com/public-api/introduction)). One request per day's posts stays far inside that.
+- A Worker cron (daily) reads the week's manifest from R2, uploads each file to Postiz and schedules it at its slot with the caption and the platform settings; records the Postiz post ids in a `posts` table and logs `posted` events.
+- **TikTok caveat:** a self-hosted Postiz posts through your own TikTok developer app, and until TikTok audits that app every post is forced to private (`SELF_ONLY`) and at most 5 accounts can post a day ([Postiz TikTok docs](https://docs.postiz.com/providers/tiktok.md)). If Mick's Postiz is self-hosted, the TikTok app audit has to be applied for now, or TikTok posts go through a hosted service until it passes. Postiz cloud: confirm one public test post before relying on it.
 - Bio links stay `rite.report/?r=<platform>`; captions carry the same link where a platform allows it.
-- Failure handling: a rejected post (format, length, policy) is retried once with the silent version, then reported in the KPI email and the error digest.
+- Failure handling: a rejected post is retried once with the silent version, then reported in the KPI email and the error digest.
 - Kill switch: `POSTING=off`.
 
-**Mick provides.** The Ayrshare account; connect the five social accounts once in Ayrshare's dashboard (OAuth, has to be him); TikTok account set to a business or creator account.
+**Mick provides.** The Postiz API key (in `.dev.vars`), the five accounts connected in Postiz, and whether it's cloud or self-hosted (and the base URL if self-hosted).
 
-**Done when.** A test week posts to a private test account on each platform; the `posts` table matches the manifest.
+**Done when.** A test week posts to private test accounts; the `posts` table matches the manifest.
 
 ## 6. Monday KPI email
 
@@ -172,7 +174,7 @@ About 16 agent days in all. Builds 1–6 (about 7.5 days) fit before and around 
 ## Order of work
 
 1. **This week, before launch:** 1 Stripe Tax · 2 order bump and gift season · 3 inbox assistant (lands the day the domain does) · 6 KPI email.
-2. **Launch week:** 4 scheduled render · 5 auto-posting (needs Mick's Ayrshare and account connections).
+2. **Launch week:** 4 scheduled render · 5 auto-posting (needs Mick's Postiz and account connections).
 3. **November:** 7 search pages · 8 creator program · 9 bookkeeping.
 4. **December, once gate A is met:** 10 ads controller.
 
