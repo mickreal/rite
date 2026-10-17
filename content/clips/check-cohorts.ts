@@ -1,11 +1,12 @@
 // Checks every cohort's `expect` block in cohorts.json against the site's own maths (src/compute.ts), so the dates
 // burned into a clip are the dates the site shows for that birth date and city. Run: bun clips/check-cohorts.ts
 // Uses a fixed coordinate table rather than live geocoding; add a city here when you add one to cohorts.json.
-import { compute } from "../../src/compute";
+import { compute, cycle } from "../../src/compute";
 import { saturnLongitude, signOf, degreeInSign, natalSaturn, scanReturn, nextStation, type Sign } from "../../src/astro/saturn";
 import SIGN_PERIODS from "../../src/content/sign-periods.json";
 import { readFileSync } from "node:fs";
 import cfg from "./cohorts.json";
+import { unspeak } from "./spoken";
 
 export const CITIES: Record<string, { label: string; lat: number; lon: number; tz: string }> = {
   "London": { label: "London", lat: 51.5072, lon: -0.1276, tz: "Europe/London" },
@@ -14,6 +15,9 @@ export const CITIES: Record<string, { label: string; lat: number; lon: number; t
   "Sydney": { label: "Sydney", lat: -33.8688, lon: 151.2093, tz: "Australia/Sydney" },
   "Toronto": { label: "Toronto", lat: 43.6532, lon: -79.3832, tz: "America/Toronto" },
   "Buriram": { label: "Buriram", lat: 14.9930, lon: 103.1029, tz: "Asia/Bangkok" },
+  "Columbus, Ohio": { label: "Columbus", lat: 39.9612, lon: -82.9988, tz: "America/New_York" },
+  "Quakertown": { label: "Quakertown", lat: 40.4418, lon: -75.3416, tz: "America/New_York" },
+  "Chester, England": { label: "Chester", lat: 53.1934, lon: -2.8931, tz: "Europe/London" },
 };
 
 const today = process.env.TODAY ? new Date(`${process.env.TODAY}T12:00:00Z`) : new Date();
@@ -75,6 +79,53 @@ birthRange("Taurus", "1969-04-30", "1971-06-18"); windowOf("1970-06-01", 2, "202
   const st = nextStation(new Date("2026-10-01T12:00:00Z")); const deg = degreeInSign(saturnLongitude(new Date("2026-12-11T12:00:00Z")));
   fact(st?.date.slice(0, 10) === "2026-12-11" && st.to === "direct" && deg.toFixed(1) === "7.9", `Saturn turns direct ${st?.date.slice(0, 10)} at ${deg.toFixed(1)}° Aries`, ["11 Dec 2026"]);
 }
+{ // the 27 Jul 2026 station at 14.7° Aries (carousel 3)
+  const st = nextStation(new Date("2026-07-01T12:00:00Z")); const deg = degreeInSign(saturnLongitude(new Date("2026-07-27T12:00:00Z")));
+  fact(st?.date.slice(0, 10) === "2026-07-27" && st.to === "retrograde" && deg.toFixed(1) === "14.7", `Saturn stops ${st?.date.slice(0, 10)} at ${deg.toFixed(1)}° Aries`, ["27 Jul 2026"]);
+}
+// a named birth (celebrity rows in launch-kit-v2 (h), worked examples): noon local at the city, no birth time, as the
+// site computes it. Its passes become verified dates; its floored degree a verified "N degrees Sign".
+const verifiedDeg = new Set<string>(["7.9 Aries", "14.7 Aries"]);
+const birth = (who: string, date: string, city: string, hits: string[]) => {
+  const place = CITIES[city];
+  const r = compute({ date, time: null, place }, new Date("2026-11-01T12:00:00Z"));
+  const got = r.window.hits.map((h) => h.slice(0, 10));
+  fact(JSON.stringify(got) === JSON.stringify(hits), `${who}, born ${fmt(date)} in ${city}: ${Math.floor(r.degree)}° ${r.sign}, passes ${got.map(fmt).join(", ")}`, [fmt(date), ...hits.map(fmt)]);
+  verifiedDeg.add(`${Math.floor(r.degree)} ${r.sign}`);
+  return r;
+};
+birth("Example (kit (b))", "1997-04-01", "New York", ["2026-05-13", "2026-10-15", "2027-02-03"]);
+birth("Simone Biles", "1997-03-14", "Columbus, Ohio", ["2026-04-23", "2026-11-22", "2026-12-29"]);
+birth("Kylie Jenner", "1997-08-10", "Los Angeles", ["2027-04-28"]);
+birth("Jennifer Aniston", "1969-02-11", "Los Angeles", ["2027-05-05", "2027-12-15", "2028-01-01"]);
+birth("Daniel Craig", "1968-03-02", "Chester, England", ["2026-05-20", "2026-10-05", "2027-02-11"]);
+birth("Sabrina Carpenter", "1999-05-11", "Quakertown", ["2028-06-26", "2028-10-21", "2029-03-16"]);
+{ // Simone Biles: the 11 Dec 2026 station within half a degree of her natal Saturn (Script 8)
+  const r = compute({ date: "1997-03-14", time: null, place: CITIES["Columbus, Ohio"] }, new Date("2026-11-01T12:00:00Z"));
+  const t = cycle(r, new Date("2026-11-01T12:00:00Z")).turn;
+  fact(t?.date.slice(0, 10) === "2026-12-11" && t.orb < 0.5, `Simone Biles: closest turn ${t?.date.slice(0, 10)} at ${t?.orb}° (under half a degree)`, []);
+}
+// a birth band: every day in it (noon UTC, London) satisfies `ok`. Band edges move by a day with birth time and place,
+// which is why the cards say "born on a boundary day? the site checks"; the day either side failing is reported, not required.
+const LONDON = CITIES["London"];
+const band = (what: string, a: string, b: string, ok: (iso: string) => boolean) => {
+  let all = true; for (let d = a; d <= b; d = plus(d, 1)) if (!ok(d)) { all = false; console.log(`    ${what}: born ${fmt(d)} does not qualify`); break; }
+  const edges = [!ok(plus(a, -1)), !ok(plus(b, 1))];
+  fact(all, `${what}: born ${fmt(a)} – ${fmt(b)}${edges.every(Boolean) ? "" : " (inside; a day either side also qualifies)"}`, [fmt(a), fmt(b)]);
+};
+const ON = new Date("2026-11-01T12:00:00Z");
+const passesOf = (iso: string) => compute({ date: iso, time: null, place: LONDON }, ON).window.hits.map((h) => h.slice(0, 10));
+const threeIn2026Loop = (iso: string) => { const h = passesOf(iso); return h.length === 3 && h[0] >= "2026-04-01" && h[2] <= "2027-03-31"; };
+band("Three passes in the 2026 loop", "1997-03-12", "1997-05-06", threeIn2026Loop);
+band("Three passes in the 2026 loop", "1997-11-10", "1998-01-21", threeIn2026Loop);
+band("Three passes in the 2026 loop (second return)", "1967-05-09", "1967-10-16", threeIn2026Loop);
+band("Three passes in the 2026 loop (second return)", "1968-01-30", "1968-03-30", threeIn2026Loop); // kit (b)/(e) say 29 Jan: 7.90°, one pass
+const closestTurn = (iso: string) => { const r = compute({ date: iso, time: null, place: LONDON }, ON); const t = cycle(r, ON).turn; return !!t && t.date.slice(0, 10) === "2026-12-11" && t.orb <= 1.0; };
+band("Closest turn 11 Dec 2026 within a degree", "1996-06-24", "1996-08-11", closestTurn);
+band("Closest turn 11 Dec 2026 within a degree", "1997-03-04", "1997-03-19", closestTurn);
+band("Closest turn 11 Dec 2026 within a degree (second return)", "1967-04-30", "1967-05-18", closestTurn);
+band("Closest turn 11 Dec 2026 within a degree (second return)", "1967-10-04", "1967-10-31", closestTurn);
+band("Closest turn 11 Dec 2026 within a degree (second return)", "1968-01-16", "1968-02-09", closestTurn);
 // sweep: every "D Mon YYYY" (and the "D Mon – D Mon YYYY" short form) on carousels and quote cards
 const REMOTION = new URL("../remotion/", import.meta.url);
 const texts: Array<[string, string]> = [];
@@ -86,8 +137,13 @@ const walk = (where: string, v: unknown) => {
 walk("carousels", JSON.parse(readFileSync(new URL("carousels.json", REMOTION), "utf8")).carousels);
 walk("quotes", JSON.parse(readFileSync(new URL("cards.config.json", REMOTION), "utf8")).quotes);
 const M = MON.join("|");
+/** Short forms to full dates: "4 Mar – 19 Mar 1997" style ranges ("12 Mar – 6 May 1997", "12 Mar and 6 May 1997",
+ * "4 – 19 Mar 1997", "4 to 19 Mar 1997") get the year (and month) on both ends. */
+const expand = (t: string) => t
+  .replace(new RegExp(`(\\d{1,2}) (${M}) (–|to|and) (\\d{1,2}) (${M}) (\\d{4})`, "g"), "$1 $2 $6 $3 $4 $5 $6")
+  .replace(new RegExp(`\\b(\\d{1,2}) (–|to) (\\d{1,2}) (${M}) (\\d{4})`, "g"), "$1 $4 $5 $2 $3 $4 $5");
 for (const [where, t] of texts) {
-  const full = t.replace(new RegExp(`(\\d{1,2}) (${M}) – (\\d{1,2}) (${M}) (\\d{4})`, "g"), "$1 $2 $5 – $3 $4 $5");
+  const full = expand(t);
   for (const m of full.matchAll(new RegExp(`\\b(\\d{1,2}) (${M}) (\\d{4})\\b`, "g"))) {
     if (!verified.has(m[0])) { console.log(`✗ ${where}: "${m[0]}" is not a verified date`); factBad++; }
   }
@@ -109,9 +165,9 @@ function sweepClip(c: Clip, day: Date, label: string, skipToday = false): number
   const own = new Set([c.date, ...r.window.hits, r.window.windowStart, r.window.windowEnd].map((x) => fmt(x.slice(0, 10))));
   let n = 0;
   const fail = (msg: string) => { console.log(`✗ clip ${c.id}${label}: ${msg}`); n++; };
-  const shown = [c.hook, ...c.lines], spoken = c.vo ? [c.vo.hook, ...c.vo.lines] : [];
+  const shown = [c.hook, ...c.lines], spoken = c.vo ? [c.vo.hook, ...c.vo.lines].map(unspeak) : []; // VO dates and numbers are spelled out
   for (const t of [...shown, ...spoken]) {
-    const norm = t.replace(new RegExp(`(\\d{1,2}) (${LONG_MONTHS.join("|")}) (\\d{4})`, "g"), (_, d, m, y) => `${d} ${words[m]} ${y}`);
+    const norm = expand(t).replace(new RegExp(`(\\d{1,2}) (${LONG_MONTHS.join("|")}) (\\d{4})`, "g"), (_, d, m, y) => `${d} ${words[m]} ${y}`);
     for (const m of norm.matchAll(new RegExp(`\\b(\\d{1,2}) (${M}) (\\d{4})\\b`, "g"))) {
       if (!own.has(m[0]) && !verified.has(m[0])) fail(`"${m[0]}" in "${t}" is not one of its dates`);
     }
@@ -121,8 +177,9 @@ function sweepClip(c: Clip, day: Date, label: string, skipToday = false): number
     const want = m[1] ? `${Math.floor(todayDeg)}° ${signOf(lon)}` : `${Math.floor(r.degree)}° ${r.sign}`;
     if (`${m[2]}° ${m[3]}` !== want) fail(`"${m[0]}" but the site shows ${want}`);
   }
+  if (c.vo) for (const t of [c.vo.hook, ...c.vo.lines]) if (/\d/.test(t.replace(/\[pause \d+\]/g, ""))) fail(`VO "${t}" has digits: spell numbers and dates as words for the voice`);
   for (const t of spoken) {
-    for (const m of t.matchAll(/(\d{1,2}) degrees ([A-Z][a-z]+)( today)?/g)) {
+    for (const m of t.matchAll(/(?<![\d.])(\d{1,2}) degrees ([A-Z][a-z]+)( today)?/g)) {
       if (m[3] && skipToday) continue;
       const want = m[3] ? `${Math.floor(todayDeg)} ${signOf(lon)}` : `${Math.floor(r.degree)} ${r.sign}`;
       if (`${m[1]} ${m[2]}` !== want) fail(`VO "${m[0]}" but the site shows ${want}`);
@@ -139,8 +196,32 @@ const planIdx = process.argv.indexOf("--plan");
 const plan = planIdx > 0 ? JSON.parse(readFileSync(process.argv[planIdx + 1], "utf8")) : null;
 const posts = (plan ? (Array.isArray(plan) ? plan : plan.posts) : []) as Array<{ date: string; asset?: string }>;
 const scheduled = new Set(posts.map((p) => p.asset?.replace(/_vo$/, "")));
-for (const c of CLIPS) factBad += sweepClip(c, today, "", scheduled.has(c.id));
+for (const c of CLIPS) factBad += sweepClip(c, today, "", plan ? true : scheduled.has(c.id)); // with a plan, "today" lines are checked on each posting day below (unscheduled clips are not in this batch)
 console.log(`${CLIPS.length} clips' captions and VO scripts swept for dates and degrees`);
+// card voiceovers (clips/card-vo.json, { "<card id>": text }): spelled out, and every full date spoken is a verified
+// fact, one of the card's own birth-range ends (cohort cards, from cards.config.json) or one of the sign's transit dates
+// (sign cards, from sign-periods.json); every "N degrees Sign" is a verified degree.
+{
+  const VO = JSON.parse(readFileSync(new URL("card-vo.json", import.meta.url), "utf8")) as Record<string, string>;
+  const CARDS = JSON.parse(readFileSync(new URL("cards.config.json", REMOTION), "utf8")) as { cohorts: Array<{ id: string; ranges: Array<[string, string]> }>; quotes: Array<{ id: string }> };
+  let k = 0;
+  for (const [id, text] of Object.entries(VO)) {
+    if (id.startsWith("_")) continue;
+    k++;
+    const fail = (msg: string) => { console.log(`✗ card VO ${id}: ${msg}`); factBad++; };
+    const own = new Set<string>();
+    const coh = CARDS.cohorts.find((c) => `cohort-${c.id}` === id);
+    if (coh) coh.ranges.flat().forEach((d) => own.add(fmt(d)));
+    const sg = /^sign-(.+)$/.exec(id)?.[1];
+    if (sg) { const name = sg[0].toUpperCase() + sg.slice(1); const ps = PERIODS[name]; if (!ps) fail(`no sign "${name}"`); else ps.forEach((p) => { own.add(fmt(p.from)); own.add(fmt(p.to)); }); }
+    if (!coh && !sg && !CARDS.quotes.some((q) => `quote-${q.id}` === id)) fail("no such card in cards.config.json");
+    if (/\d/.test(text)) fail("has digits: spell numbers and dates as words for the voice");
+    const norm = expand(unspeak(text));
+    for (const m of norm.matchAll(new RegExp(`\\b(\\d{1,2}) (${M}) (\\d{4})\\b`, "g"))) if (!own.has(m[0]) && !verified.has(m[0])) fail(`"${m[0]}" is not a verified date`);
+    for (const m of norm.matchAll(/(?<![\d.])(\d{1,2}(?:\.\d)?) degrees ([A-Z][a-z]+)/g)) if (!verifiedDeg.has(`${m[1]} ${m[2]}`)) fail(`"${m[0]}" is not a verified degree`);
+  }
+  console.log(`${k} card voiceovers swept for dates and degrees`);
+}
 // --plan <plan.json>: also check each clip against Saturn on the day it's scheduled to post ("Today: 10°" is only true
 // for a few days; the site rounds the degree down).
 if (plan) {

@@ -1,26 +1,32 @@
 #!/usr/bin/env bash
 # Renders every card into content/out/. Bundles once, then renders each still/video from the bundle.
 #   bash remotion/render-all.sh                 everything (12 sign stills, 2 sign MP4s, all cohorts, all quotes)
-#   VIDEOS="Aries Taurus Leo" bash remotion/render-all.sh   choose which signs get the 8 s vertical MP4
+#   VIDEOS="Aries Taurus Leo" bash remotion/render-all.sh   choose which signs get the animated vertical (VIDEOS=all: all twelve)
+#   SIGNS_OUT=../out/signs-2026-v2 VIDEOS=all ONLY=videos bash remotion/render-all.sh   sign verticals into another folder
+#   Card and sign verticals last their voiceover + 1.6 s (scripts/card-vo.ts, text in clips/card-vo.json); with a take
+#   (ELEVENLABS_API_KEY, or VO_PROVIDER=files VO_DIR=<dir> with <dir>/cards/<card id>.wav, <dir>/signs/<slug>.wav)
+#   each also gets a <name>_vo.mp4 next to the silent one.
 #   ONLY=signs|cohorts|quotes|videos|carousels|verticals bash remotion/render-all.sh   (or a comma list: ONLY=cohorts,quotes)
 #   VERTICALS="CohortCard:aries-first-return QuoteCard:aries-sign-line" bash remotion/render-all.sh
-#     a card on a 1080×1920 frame, 10 s with a slow push-in, for the TikTok / Reels slot
+#     a card on a 1080×1920 frame with a slow push-in, for the TikTok / Reels slot
 #     (→ cohorts/cohort-<id>-vertical.mp4, quotes/quote-<id>-vertical.mp4)
 set -euo pipefail
 cd "$(dirname "$0")"
 CHROME="${CHROMIUM:-/opt/pw-browsers/chromium}"
 OUT="../out"
 VIDEOS="${VIDEOS:-Aries Taurus}"
+SIGNS_OUT="${SIGNS_OUT:-$OUT/signs}"
 VERTICALS="${VERTICALS:-}"
 ONLY="${ONLY:-all}"
 has() { [[ $ONLY == all || ,$ONLY, == *,$1,* ]]; }   # ONLY=cohorts,quotes picks several groups
-mkdir -p "$OUT/signs" "$OUT/cohorts" "$OUT/quotes" "$OUT/carousels"
+mkdir -p "$OUT/signs" "$OUT/cohorts" "$OUT/quotes" "$OUT/carousels" "$SIGNS_OUT"
 
 bun scripts/build-data.ts
 npx remotion bundle src/index.ts --out-dir build --public-dir ../fonts >/dev/null
 R=(--browser-executable="$CHROME" --chrome-mode=chrome-for-testing --log=error)
 
 ids() { node -e "const d=require('./data/$1.json');console.log(d.$1.map(x=>x.$2).join('\n'))"; }
+cardvo() { (cd .. && bun scripts/card-vo.ts "$@"); }   # seconds <key> | mux <key> <in> <out> (paths absolute)
 
 if has signs; then
   for s in $(ids signs sign); do
@@ -29,9 +35,12 @@ if has signs; then
   done
 fi
 if has videos; then
+  [[ $VIDEOS == all ]] && VIDEOS=$(ids signs sign)
   for s in $VIDEOS; do
-    npx remotion render build SignCardVertical "$OUT/signs/sign-${s,,}-vertical.mp4" --props="{\"sign\":\"$s\"}" --codec=h264 --crf=20 "${R[@]}"
-    echo "  signs/sign-${s,,}-vertical.mp4"
+    f="$(cd "$SIGNS_OUT" && pwd)/sign-${s,,}-vertical.mp4"; secs=$(cardvo seconds "signs/${s,,}")
+    npx remotion render build SignCardVertical "$f.v.mp4" --props="{\"sign\":\"$s\",\"seconds\":$secs}" --codec=h264 --crf=20 "${R[@]}"
+    cardvo mux "signs/${s,,}" "$f.v.mp4" "$f"; rm -f "$f.v.mp4"
+    echo "  $f (${secs} s)"
   done
 fi
 if has cohorts; then
@@ -56,11 +65,10 @@ fi
 if has verticals; then
   for v in $VERTICALS; do
     card=${v%%:*}; id=${v##*:}; dir=cohorts; pre=cohort; [[ $card == QuoteCard ]] && { dir=quotes; pre=quote; }
-    f="$OUT/$dir/$pre-$id-vertical.mp4"
-    npx remotion render build VerticalCard "$f.v.mp4" --props="{\"card\":\"$card\",\"id\":\"$id\"}" --codec=h264 --crf=20 "${R[@]}"
-    # add a silent AAC track, like the dial clips (some schedulers reject video with no audio stream)
-    ffmpeg -y -hide_banner -loglevel error -i "$f.v.mp4" -f lavfi -i anullsrc=r=48000:cl=stereo -map 0:v -map 1:a -c:v copy -c:a aac -b:a 128k -shortest -movflags +faststart "$f"
-    rm -f "$f.v.mp4"
-    echo "  $dir/$pre-$id-vertical.mp4"
+    f="$(cd "$OUT/$dir" && pwd)/$pre-$id-vertical.mp4"; secs=$(cardvo seconds "cards/$pre-$id")
+    npx remotion render build VerticalCard "$f.v.mp4" --props="{\"card\":\"$card\",\"id\":\"$id\",\"seconds\":$secs}" --codec=h264 --crf=20 "${R[@]}"
+    # silent version with a silent AAC track (some schedulers reject video with no audio stream), plus _vo with a take
+    cardvo mux "cards/$pre-$id" "$f.v.mp4" "$f"; rm -f "$f.v.mp4"
+    echo "  $dir/$pre-$id-vertical.mp4 (${secs} s)"
   done
 fi

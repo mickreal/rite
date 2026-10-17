@@ -9,7 +9,8 @@ export type CarouselProps = { id: string; n: number };
 type Slide = { kind?: "cover" | "cta"; head?: string; text?: string; small?: string; tag?: string; dial?: string; list?: string[][]; alt: string };
 
 // keep "13 May 2026" together, and keep a range's dash on the first line ("29 Jan 1994 –" / "7 Apr 1996")
-const nw = (t: string) => t.replace(/(\d{1,2}) ([A-Z][a-z]{2}) (\d{4})/g, "$1 $2 $3").replace(/(\d{1,2}) ([A-Z][a-z]{2}) –/g, "$1 $2 –").replace(/(\d{4}) – /g, "$1 – ");
+const nw = (t: string) => t.replace(/(\d{1,2}) ([A-Z][a-z]{2}) (\d{4})/g, "$1 $2 $3").replace(/(\d{1,2}) ([A-Z][a-z]{2}) –/g, "$1 $2 –").replace(/(\d{4}) – /g, "$1 – ")
+  .replace(/\b([A-Z][a-z]{2})–([A-Z][a-z]{2})\b/g, "$1–\u2060$2"); // "Dec–Mar" never splits at its dash
 const sizeFor = (s: string, steps: Array<[number, number]>) => (steps.find(([n]) => s.length <= n) ?? steps[steps.length - 1])[1];
 
 export const CarouselSlide: React.FC<CarouselProps> = ({ id, n }) => {
@@ -34,7 +35,7 @@ export const CarouselSlide: React.FC<CarouselProps> = ({ id, n }) => {
   if (s.kind === "cover" || last) {
     return (
       <AbsoluteFill style={{ background: T.cream, padding: 80, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ position: "absolute", right: 80, bottom: 150, opacity: 0.85 }}><Dial size={460} angle={last ? 352 : 300} onCream halo={0.12} /></div>
+        <div style={{ position: "absolute", right: 80, bottom: 150, opacity: 0.85 }}><Dial size={last ? 400 : 460} angle={last ? 352 : 300} onCream halo={0.12} /></div>
         {top}
         <div style={{ marginTop: 130, width: 96, height: 8, borderRadius: 4, background: T.accent, position: "relative" }} />
         <div style={{ marginTop: 44, fontFamily: DISPLAY, fontWeight: 800, fontSize: sizeFor(s.head!, [[30, 132], [45, 116], [999, 100]]), letterSpacing: "-0.045em", lineHeight: 0.98, color: T.ink, maxWidth: 900, textWrap: "balance" as never, position: "relative" }}>

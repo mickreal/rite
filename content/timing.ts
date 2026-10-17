@@ -61,7 +61,7 @@ export const CLIP = {
   loudnessRange: 11,
 
   // camera: a slow push-in on the summary while the beats play
-  pushScale: 1.06,
+  pushScale: 1.04,
   pushIn: 3.5,            // seconds the push takes (eased in-out), starting when the summary has settled
 };
 
@@ -72,6 +72,13 @@ export const CARD = {
   fadeOut: 0.8,
   pushFrom: 1.0,
   pushTo: 1.035,
+  // voiceover on a card vertical (scripts/card-vo.ts): the vertical lasts voLead + the take + voTail (1.6 s in all), so
+  // the line starts once the card has faded in and ends before the fade-out. Without a take (silent render) the length
+  // is estimated from the card's VO text at wordsPerSecond, never shorter than minSeconds.
+  voLead: 0.5,
+  voTail: 1.1,
+  wordsPerSecond: 2.6,
+  minSeconds: 8,
 };
 
 /** Fraction of an eased move at time t for a move from a to b (clamped). */
