@@ -138,7 +138,9 @@ ${quote}
 
 Every Monday, 7am your time. $${p.monthlyPrice} a month${p.yearlyPrice ? ` or $${p.yearlyPrice} a year` : ""}. It stops itself the week Saturn leaves your sign, so you can't forget to cancel: ${p.seasonUrl}
 
-— Rite`,
+— Rite
+
+Sent once. Reply "stop" and we'll send nothing but what you've bought.`,
   };
 }
 
