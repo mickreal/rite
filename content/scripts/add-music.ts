@@ -27,7 +27,7 @@ import { offsetsFor, type Direction, type Library, type Track, type Use } from "
 const CONTENT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const MUSIC_DIR = join(CONTENT, "music");
 export const LIBRARY = join(MUSIC_DIR, "library.json");
-export const MIX_VERSION = 1;          // bump when the mix changes, so cached mixes are redone
+export const MIX_VERSION = 2;          // bump when the mix changes, so cached mixes are redone
 export const TARGET = { I: -16, TP: -2, LRA: 11 };
 export const BED_LUFS = -29;           // music level before ducking (gaps between speech)
 export const BED_SILENT_LUFS = -16;    // music-only videos
@@ -78,14 +78,20 @@ export function buildLibrary(): Library {
   return lib;
 }
 
-function twoPass(raw: string, out: string, extra = "") {
-  const ln = `loudnorm=I=${TARGET.I}:TP=${TARGET.TP}:LRA=${TARGET.LRA}`;
-  const r = sh("ffmpeg", ["-hide_banner", "-i", raw, "-af", `${ln}:print_format=json`, "-f", "null", "-"]);
+/** Two-pass loudness: pass 1 measures (EBU R128, loudnorm), pass 2 applies the linear gain to TARGET.I and a
+ *  4×-oversampled peak limiter at LIMIT dBFS, so the peak target holds for music-heavy mixes too (loudnorm's own
+ *  linear mode falls back to dynamic compression when a gain would push peaks over, which shifted loudness). */
+export const LIMIT_DB = -2.5;
+export const PEAK_MAX = -1.5;   // dBTP after the AAC encode; the limiter is lowered and the encode redone if over
+function twoPass(raw: string, out: string, limitDb = LIMIT_DB) {
+  const r = sh("ffmpeg", ["-hide_banner", "-i", raw, "-af", `loudnorm=I=${TARGET.I}:TP=${TARGET.TP}:LRA=${TARGET.LRA}:print_format=json`, "-f", "null", "-"]);
   const m = /\{[\s\S]*?"input_i"[\s\S]*?\}/.exec(r.stderr); if (!m) throw new Error(`loudnorm measure failed: ${r.stderr.slice(-500)}`);
   const j = JSON.parse(m[0]) as Record<string, string>;
-  const af = `${ln}:measured_I=${j.input_i}:measured_TP=${j.input_tp}:measured_LRA=${j.input_lra}:measured_thresh=${j.input_thresh}:offset=${j.target_offset}:linear=true,aresample=48000${extra}`;
-  ff(["-i", raw, "-af", af, "-c:a", "pcm_s24le", out]);
-  return { af, measuredI: parseFloat(j.input_i), offset: parseFloat(j.target_offset) };
+  const gain = TARGET.I - parseFloat(j.input_i);
+  const lim = Math.pow(10, limitDb / 20).toFixed(4);
+  const af = `volume=${gain.toFixed(2)}dB,aresample=192000,alimiter=limit=${lim}:attack=2:release=80:level=false:latency=true,aresample=48000`;
+  ff(["-i", raw, "-af", af, "-c:a", "pcm_f32le", out]);
+  return { af, measuredI: parseFloat(j.input_i), gain };
 }
 
 export type MixResult = { track: string; offset: number; voice: boolean; seconds: number; lufs: number; tp: number };
@@ -103,7 +109,7 @@ export function mixMusic(input: string, output: string, track: Track, offset: nu
   // a 30 s stretch of it (quiet intros, builds), so the bed gain is set from the segment
   const seg = join(tmp, "music.wav");
   const loop = offset + dur > track.duration ? ["-stream_loop", "-1"] : [];
-  ff([...loop, "-ss", offset.toFixed(3), "-i", musicFile, "-t", dur.toFixed(3), "-af", fmt, "-c:a", "pcm_s24le", seg]);
+  ff([...loop, "-ss", offset.toFixed(3), "-i", musicFile, "-t", dur.toFixed(3), "-af", fmt, "-c:a", "pcm_f32le", seg]);
   const segLufs = loudness(seg).lufs;
   const gain = Number.isFinite(segLufs) ? (voice ? BED_LUFS : BED_SILENT_LUFS) - segLufs : 0;
   const fade = `afade=t=in:st=0:d=${FADE_IN},afade=t=out:st=${Math.max(0, dur - FADE_OUT).toFixed(3)}:d=${FADE_OUT}`;
@@ -113,29 +119,34 @@ export function mixMusic(input: string, output: string, track: Track, offset: nu
   try {
     if (voice) {
       const graph = `[0:a]${fmt},asplit=2[v][key];${mus}[m];[m][key]${DUCK}[d];[v][d]amix=inputs=2:normalize=0:duration=first[a]`;
-      ff([...inputs, "-filter_complex", graph, "-map", "[a]", "-t", dur.toFixed(3), "-c:a", "pcm_s24le", raw]);
+      ff([...inputs, "-filter_complex", graph, "-map", "[a]", "-t", dur.toFixed(3), "-c:a", "pcm_f32le", raw]);
     } else {
-      ff([...inputs, "-filter_complex", `${mus}[a]`, "-map", "[a]", "-t", dur.toFixed(3), "-c:a", "pcm_s24le", raw]);
+      ff([...inputs, "-filter_complex", `${mus}[a]`, "-map", "[a]", "-t", dur.toFixed(3), "-c:a", "pcm_f32le", raw]);
     }
     const norm = join(tmp, "norm.wav");
-    const { af } = twoPass(raw, norm);
+    twoPass(raw, norm);
     if (opts.stems && voice) {
       // the same chain, one stem at a time, with the final (linear) loudnorm gain
       mkdirSync(opts.stems, { recursive: true });
       const stem = basename(output, ".mp4");
       const v = join(tmp, "v.wav"), d = join(tmp, "d.wav");
-      ff([...inputs, "-filter_complex", `[0:a]${fmt},asplit=2[v][key];${mus}[m];[m][key]${DUCK}[d];[v]anullsink`, "-map", "[d]", "-t", dur.toFixed(3), "-c:a", "pcm_s24le", d]);
-      ff(["-i", input, "-af", fmt, "-t", dur.toFixed(3), "-c:a", "pcm_s24le", v]);
+      ff([...inputs, "-filter_complex", `[0:a]${fmt},asplit=2[v][key];${mus}[m];[m][key]${DUCK}[d];[v]anullsink`, "-map", "[d]", "-t", dur.toFixed(3), "-c:a", "pcm_f32le", d]);
+      ff(["-i", input, "-af", fmt, "-t", dur.toFixed(3), "-c:a", "pcm_f32le", v]);
       // loudnorm in linear mode is a plain gain: apply the gain the mix got (measured − target) to each stem
       const gainDb = TARGET.I - loudness(raw).lufs;
-      ff(["-i", v, "-af", `volume=${gainDb.toFixed(2)}dB`, "-c:a", "pcm_s24le", join(opts.stems, `${stem}.voice.wav`)]);
-      ff(["-i", d, "-af", `volume=${gainDb.toFixed(2)}dB`, "-c:a", "pcm_s24le", join(opts.stems, `${stem}.music.wav`)]);
-      void af;
+      ff(["-i", v, "-af", `volume=${gainDb.toFixed(2)}dB`, "-c:a", "pcm_f32le", join(opts.stems, `${stem}.voice.wav`)]);
+      ff(["-i", d, "-af", `volume=${gainDb.toFixed(2)}dB`, "-c:a", "pcm_f32le", join(opts.stems, `${stem}.music.wav`)]);
     }
     mkdirSync(dirname(output), { recursive: true });
-    ff(["-i", input, "-i", norm, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+    const mux = () => ff(["-i", input, "-i", norm, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
       "-t", dur.toFixed(3), "-metadata", `comment=${TAG}${track.id}@${offset}`, "-movflags", "+faststart", output]);
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+    mux();
+    // dense, heavily limited music can overshoot by 1–2 dB in the AAC encode: lower the limiter by the excess and redo
+    for (let limit = LIMIT_DB, i = 0; i < 3; i++) {
+      const tp = loudness(output).tp; if (!(tp > PEAK_MAX)) break;
+      limit -= tp - PEAK_MAX + 0.3; twoPass(raw, norm, limit); mux();
+    }
+  } finally { if (!process.env.MUSIC_KEEP_WORK) rmSync(tmp, { recursive: true, force: true }); }
   const m = loudness(output);
   return { track: track.id, offset, voice, seconds: Math.round(dur * 100) / 100, lufs: m.lufs, tp: m.tp };
 }
