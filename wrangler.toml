@@ -29,6 +29,14 @@ PRICE_TEST_B_NOTIME_CENTS = "2500"
 # buyers on 1 and 15 Dec inside them.
 GIFT_SEASON_START = "2026-11-15"
 GIFT_SEASON_END = "2026-12-22"
+# Year-ahead reading (docs/automation-builds.md §11): the next 12 months of Saturn for an existing reading, $19 (tax-inclusive
+# like the others; a Stripe Price under lookup key rite_year_ahead_<cents>_usd_<live|test>[_v2], made by the code on first
+# checkout; LOCAL_PRICES can price "year_ahead"). YEAR_AHEAD: "off" sells and offers nothing (bought ones still open);
+# "page" sells it and shows it on the reading page; "on" also sends the offer emails (the reading's anniversary and
+# YEAR_AHEAD_JANUARY, MM-DD, from 09:00 in the buyer's birthplace zone). Needs migration 010 (npm run db:migrate:b11).
+YEAR_AHEAD = "off"
+PRICE_YEAR_AHEAD_CENTS = "1900"
+YEAR_AHEAD_JANUARY = "01-05"
 MODEL_REPORT = "claude-sonnet-5-5"
 MODEL_PREVIEW = "claude-haiku-5-5"
 TTS_VOICE = "luna"

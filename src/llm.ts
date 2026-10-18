@@ -1,5 +1,5 @@
 // Anthropic Messages API, called directly with fetch (no SDK needed on Workers).
-import { previewSystem, reportSystem, seasonSystem, type SeasonInputs } from "./content/prompts";
+import { previewSystem, reportSystem, seasonSystem, yearAheadSystem, type SeasonInputs } from "./content/prompts";
 
 interface Env { ANTHROPIC_API_KEY: string; MODEL_REPORT: string; MODEL_PREVIEW: string }
 
@@ -50,6 +50,11 @@ export function writePreview(env: Env, inputs: unknown) {
 
 export function writeReport(env: Env, inputs: unknown) {
   return complete(env, env.MODEL_REPORT, reportSystem(), JSON.stringify(inputs), 6000);
+}
+
+/** Year-ahead reading (build 11): the report model, as the main reading. */
+export function writeYearAhead(env: Env, inputs: unknown) {
+  return complete(env, env.MODEL_REPORT, yearAheadSystem(), JSON.stringify(inputs), 4000);
 }
 
 export function writeSeason(env: Env, inputs: SeasonInputs) {

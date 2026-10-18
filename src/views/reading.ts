@@ -68,7 +68,9 @@ const WHEEL_LABELS = ["Return", "Planting", "First test", "Building", "Full view
 const WHEEL_POS: Array<[number, number]> = [[250, 88], [367, 141], [406, 250], [363, 363], [250, 412], [137, 363], [94, 250], [131, 143]];
 
 export function readingPage(opts: { siteUrl: string; token: string; c: Computed; cy: Cycle; r: ReportJson; firstName: string | null; birthLabel: string; placeLabel: string; askLeft: number; asks: Array<{ q: string; a: string }>; subscribed: boolean; today?: Date;
-  /** The gift code bought with this reading (order bump), if any. */ bumpGift?: { code: string; used: boolean } | null; banner?: boolean }) {
+  /** The gift code bought with this reading (order bump), if any. */ bumpGift?: { code: string; used: boolean } | null; banner?: boolean;
+  /** Build 11: year-aheads bought for this reading, and the offer when one can be bought now (YEAR_AHEAD not "off"). */
+  yearAhead?: { bought: Array<{ year: number; label: string; ready: boolean }>; offer: { label: string; price: string } | null } | null }) {
   const { c, cy, r } = opts; const w = c.window; const today = opts.today ?? new Date();
   const Cw = 2 * Math.PI * 200;
   // Natal label placed clear of the curve, the pass rings and the Approach / Contact labels.
@@ -305,6 +307,16 @@ ${opts.bumpGift ? html`<section id="gift" class="ch rv noprint" style="padding-b
     : html`<h3>Their code is <span style="color:#F2B544">${opts.bumpGift.code}</span></h3>
     <p style="margin:0;color:#CFC8BA;line-height:1.6;max-width:620px">Send them the code or this link: <a href="${opts.siteUrl}/gift/${opts.bumpGift.code}" style="white-space:nowrap">${opts.siteUrl.replace(/^https?:\/\//, "")}/gift/${opts.bumpGift.code}</a>. They open it with their own birth details, with or without a birth time. One use, no expiry.</p>
     <div><a href="/gift/card/${opts.bumpGift.code}.png" download="rite-gift-card.png" class="ghost">Download a gift card</a></div>`}
+  </div>
+</section>` : ""}
+
+${opts.yearAhead && (opts.yearAhead.bought.length || opts.yearAhead.offer) ? html`<section id="year" class="ch rv noprint" style="padding-bottom:80px">
+  <div class="card" style="display:flex;flex-direction:column;gap:12px${opts.yearAhead.offer ? ";border:1px solid rgba(242,181,68,.35)" : ""}">
+    <span class="kicker">Your year ahead</span>
+    ${opts.yearAhead.bought.map((b) => html`<p style="margin:0;color:#CFC8BA;line-height:1.6"><a href="/r/${opts.token}/year/${b.year}">${b.label}</a>${b.ready ? "" : " (being written)"}</p>`)}
+    ${opts.yearAhead.offer ? html`<h3>The next twelve months of Saturn against your chart.</h3>
+    <p style="margin:0;color:#CFC8BA;line-height:1.6;max-width:620px">${opts.yearAhead.offer.label}, month by month: where Saturn is each month relative to your natal Saturn, every date that matters, and what each month is good for. From the birth details you already gave us. $${opts.yearAhead.offer.price}, once.</p>
+    <div><a href="/r/${opts.token}/year" class="ghost">See what's in your year</a></div>` : ""}
   </div>
 </section>` : ""}
 

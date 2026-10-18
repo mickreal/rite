@@ -22,7 +22,9 @@
     "db:migrate:b8": "wrangler d1 execute rite --remote --file=migrations/008-creators.sql",
     "db:migrate:b8:local": "wrangler d1 execute rite --local --file=migrations/008-creators.sql",
     "db:migrate:b10": "wrangler d1 execute rite --remote --file=migrations/009-season-invoices.sql",
-    "db:migrate:b10:local": "wrangler d1 execute rite --local --file=migrations/009-season-invoices.sql"
+    "db:migrate:b10:local": "wrangler d1 execute rite --local --file=migrations/009-season-invoices.sql",
+    "db:migrate:b11": "wrangler d1 execute rite --remote --file=migrations/010-year-ahead.sql",
+    "db:migrate:b11:local": "wrangler d1 execute rite --local --file=migrations/010-year-ahead.sql"
   },
   "keywords": [],
   "author": "",

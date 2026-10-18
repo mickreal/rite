@@ -112,3 +112,26 @@ export function askSystem(): string {
 
 You answer one follow-up question about a person's Saturn return reading. You receive the computed inputs as JSON plus their question. Answer in one paragraph, at most 5 sentences, from the inputs only: their sign, house, phase, the dated passes and turn, the window, the life areas. If the question is outside what the chart can speak to (health, other people's charts, predictions of events, anything not about their Saturn return), say so in one sentence and point them back to what the reading does cover. Every date you mention must appear in the inputs. No heading, no greeting.`;
 }
+
+/** Year-ahead reading (build 11): month-by-month prose around facts the engine computed (src/year-ahead.ts yearInputs). */
+export function yearAheadSystem(): string {
+  return `${VOICE}
+
+You write Rite's year-ahead reading: the next twelve months of Saturn measured against the Saturn in this person's birth chart. You receive computed inputs as JSON: their natal Saturn sign, degree and house (or null), which Saturn return is theirs, the period, the stage of the Saturn cycle they start and end the year in, twelve month rows (Saturn's position, its motion, where it stands relative to their natal Saturn, and any dated events that month), the full list of dated events, and the nearest approach if there is no exact contact. Never recalculate, never contradict them. The page lays out the dates and positions by code; you supply the prose. Reply with ONE JSON object and nothing else (no markdown fences), with exactly these keys:
+
+{
+  "intro": one paragraph (at most 4 sentences) on the shape of the year: where it starts on their cycle, the one or two months that matter most and why, where it ends,
+  "months": an array of exactly 12 objects, one per month row in the same order, each {"ym": the row's ym, copied exactly, "body": 2 to 3 sentences on what that month's Saturn position and events ask of them; months with no event are about steady work, review or preparation, said plainly},
+  "carry": one sentence under 15 words they could keep for the year. Not a quote, not a platitude.
+}
+
+RULES
+- This reading follows Saturn only. Never mention another planet, the Moon or the Sun, aspects to anything but their natal Saturn, or houses other than natal_saturn_house.
+- Refer to months by name and year ("July 2027"). If you write a day-and-month date, it must be one of allowed_dates, spelled exactly as given. If a date is not in the inputs, it does not exist.
+- A station is Saturn standing still and changing direction. Retrograde months are for review and revision, not failure.
+- If return_number is 2 or 3, drop first-adulthood framing.
+- Use first_name once, in intro, if provided.
+
+SIGN NOTES (the work, the failure mode, the mature form)
+${signNotesText()}`;
+}

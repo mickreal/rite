@@ -111,7 +111,7 @@ Change plan or stop these: ${p.manageUrl}`;
   return { subject, text };
 }
 
-export function seasonCompleteEmail(p: { firstName: string | null; readingUrl?: string; nextAge?: number | null }) {
+export function seasonCompleteEmail(p: { firstName: string | null; readingUrl?: string; nextAge?: number | null; yearAheadUrl?: string | null }) {
   return {
     subject: "Your Saturn return is over",
     text: `${p.firstName ?? "Hi"},
@@ -121,7 +121,7 @@ As of this week Saturn has left your natal sign. The window's closed.
 What you built in it is yours now. What you let go stays gone.
 
 This is the last note. There's nothing left to track, so the subscription has cancelled itself; you won't be charged again. If you were on the yearly plan, the full months you hadn't used are refunded to your card.
-${p.readingUrl ? `\nYour reading stays at ${p.readingUrl} and keeps updating through the long arc${p.nextAge ? ` (the next turning point is around age ${p.nextAge})` : ""}.\n` : ""}
+${p.readingUrl ? `\nYour reading stays at ${p.readingUrl} and keeps updating through the long arc${p.nextAge ? ` (the next turning point is around age ${p.nextAge})` : ""}.\n` : ""}${p.yearAheadUrl ? `\nIf you'd like the next twelve months dated the same way, the year-ahead reading picks up from here: ${p.yearAheadUrl}\n` : ""}
 See you at the next one.
 
 — Rite`,
@@ -233,5 +233,45 @@ It's $${p.price}. The code arrives by email the moment you pay and they open it 
 — Rite
 
 One of two gift emails this December, sent to people who've bought a reading. Stop these and all other reminders: ${p.stopUrl}`,
+  };
+}
+
+/** Year-ahead reading delivered (build 11, docs/emails.md §7). Transactional: no stop link, as the reading's own delivery email. */
+export function yearAheadDeliveryEmail(p: { firstName: string | null; period: string; url: string; readingUrl: string; dates: number }) {
+  return {
+    subject: `Your year ahead: ${p.period}`,
+    text: `${p.firstName ?? "Hi"},
+
+Your year ahead is ready: ${p.url}
+
+Twelve months of Saturn against your chart, ${p.period}, month by month${p.dates ? `, with ${p.dates === 1 ? "one date" : `${p.dates} dates`} worth putting in your calendar` : ""}. It sits under your Saturn return reading, which is still at ${p.readingUrl}
+
+It follows Saturn only: its exact contacts with your natal Saturn, where it stands still and turns, and when it changes sign.
+
+If something looks wrong, reply to this and I'll fix it or refund you.
+
+— Mick, Rite`,
+  };
+}
+
+/**
+ * Year-ahead offer (build 11, docs/emails.md §8): on the anniversary of the reading, or in early January. Only to buyers who
+ * haven't stopped emails and have no year-ahead running past the next two months; carries the stop link and List-Unsubscribe.
+ * `lines` is the code-only teaser (src/year-ahead.ts teaser): counts and months, no dates.
+ */
+export function yearAheadOfferEmail(p: { firstName: string | null; kind: "anniversary" | "january"; period: string; lines: string[]; offerUrl: string; price: string; stopUrl: string }) {
+  return {
+    subject: p.kind === "anniversary" ? "A year since your Saturn return reading" : `Your Saturn year: ${p.period}`,
+    text: `${p.firstName ?? "Hi"},
+
+${p.kind === "anniversary" ? "It's a year since your Saturn return reading." : "A new year, and a new stretch of your Saturn cycle."} Saturn's next twelve months against your chart, ${p.period}, are worked out:
+
+${p.lines.map((l) => `- ${l}`).join("\n")}
+
+The year-ahead reading takes each month in turn: where Saturn is against your natal Saturn, what's dated, and what the month is good for. No birth details to enter again. $${p.price}: ${p.offerUrl}
+
+— Rite
+
+Sent at most once a year (on your reading's anniversary or in January), to people who've bought a reading. Stop these and all other reminders: ${p.stopUrl}`,
   };
 }
