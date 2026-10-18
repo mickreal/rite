@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 // @ts-expect-error: as above
 import { createHash } from "node:crypto";
 // @ts-expect-error: as above
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 // @ts-expect-error: as above
 import { tmpdir } from "node:os";
 // @ts-expect-error: as above
@@ -45,8 +45,10 @@ describe("content-hashed media names (og-content-system's R2 rule)", () => {
 });
 
 const hasBun = spawnSync("bun", ["--version"]).status === 0;
+// upload-week needs content/'s own dependencies (aws4fetch); skip rather than fail where `npm ci` hasn't been run in content/.
+const hasContentDeps = existsSync(join(process.cwd(), "content", "node_modules", "aws4fetch"));
 
-describe.skipIf(!hasBun)("upload-week.ts --dry-run manifest", () => {
+describe.skipIf(!hasBun || !hasContentDeps)("upload-week.ts --dry-run manifest", () => {
   it("names every media object by its sha256 and records the sha256 per file", () => {
     const dir = mkdtempSync(join(tmpdir(), "rite-week-"));
     const enc = (t: string) => new TextEncoder().encode(t);
