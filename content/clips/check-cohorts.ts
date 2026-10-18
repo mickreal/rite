@@ -7,6 +7,9 @@ import SIGN_PERIODS from "../../src/content/sign-periods.json";
 import { readFileSync } from "node:fs";
 import cfg from "./cohorts.json";
 import { unspeak } from "./spoken";
+import { planPosts } from "../scripts/plan-posts";
+import { RAW as REELS, reelTexts } from "../remotion/src/reels";
+import { passed, relative } from "../scripts/stale";
 
 export const CITIES: Record<string, { label: string; lat: number; lon: number; tz: string }> = {
   "London": { label: "London", lat: 51.5072, lon: -0.1276, tz: "Europe/London" },
@@ -100,6 +103,7 @@ birth("Kylie Jenner", "1997-08-10", "Los Angeles", ["2027-04-28"]);
 birth("Jennifer Aniston", "1969-02-11", "Los Angeles", ["2027-05-05", "2027-12-15", "2028-01-01"]);
 birth("Daniel Craig", "1968-03-02", "Chester, England", ["2026-05-20", "2026-10-05", "2027-02-11"]);
 birth("Sabrina Carpenter", "1999-05-11", "Quakertown", ["2028-06-26", "2028-10-21", "2029-03-16"]);
+birth("Example (kit (b), early degrees)", "1996-09-01", "London", ["2026-04-03"]);
 { // Simone Biles: the 11 Dec 2026 station within half a degree of her natal Saturn (Script 8)
   const r = compute({ date: "1997-03-14", time: null, place: CITIES["Columbus, Ohio"] }, new Date("2026-11-01T12:00:00Z"));
   const t = cycle(r, new Date("2026-11-01T12:00:00Z")).turn;
@@ -121,6 +125,10 @@ band("Three passes in the 2026 loop", "1997-11-10", "1998-01-21", threeIn2026Loo
 band("Three passes in the 2026 loop (second return)", "1967-05-09", "1967-10-16", threeIn2026Loop);
 band("Three passes in the 2026 loop (second return)", "1968-01-30", "1968-03-30", threeIn2026Loop); // kit (b)/(e) say 29 Jan: 7.90°, one pass
 const closestTurn = (iso: string) => { const r = compute({ date: iso, time: null, place: LONDON }, ON); const t = cycle(r, ON).turn; return !!t && t.date.slice(0, 10) === "2026-12-11" && t.orb <= 1.0; };
+// separating: Saturn in Aries at birth, first return, every pass done by 19 Apr 2026 (presenter reel integration-1996)
+const separating = (iso: string) => { const r = compute({ date: iso, time: null, place: LONDON }, ON); const h = r.window.hits.map((x) => x.slice(0, 10)); return r.sign === "Aries" && r.returnNumber === 1 && h.length > 0 && h[h.length - 1] <= "2026-04-19"; };
+band("Separating, last pass by 19 Apr 2026", "1996-04-08", "1997-03-11", separating);
+fact(compute({ date: "1997-03-11", time: null, place: LONDON }, ON).window.hits.some((h) => h.startsWith("2026-04-19")), "born 11 Mar 1997: last pass 19 Apr 2026 (the band's latest)", ["19 Apr 2026"]);
 band("Closest turn 11 Dec 2026 within a degree", "1996-06-24", "1996-08-11", closestTurn);
 band("Closest turn 11 Dec 2026 within a degree", "1997-03-04", "1997-03-19", closestTurn);
 band("Closest turn 11 Dec 2026 within a degree (second return)", "1967-04-30", "1967-05-18", closestTurn);
@@ -194,7 +202,7 @@ function sweepClip(c: Clip, day: Date, label: string, skipToday = false): number
 // with --plan, a scheduled clip's "today" statements are checked on its posting day (below), not on TODAY
 const planIdx = process.argv.indexOf("--plan");
 const plan = planIdx > 0 ? JSON.parse(readFileSync(process.argv[planIdx + 1], "utf8")) : null;
-const posts = (plan ? (Array.isArray(plan) ? plan : plan.posts) : []) as Array<{ date: string; asset?: string }>;
+const posts = (plan ? planPosts(plan) : []) as Array<{ date: string; asset?: string; interim?: string }>; // + fallback posts
 const scheduled = new Set(posts.map((p) => p.asset?.replace(/_vo$/, "")));
 for (const c of CLIPS) factBad += sweepClip(c, today, "", plan ? true : scheduled.has(c.id)); // with a plan, "today" lines are checked on each posting day below (unscheduled clips are not in this batch)
 console.log(`${CLIPS.length} clips' captions and VO scripts swept for dates and degrees`);
@@ -222,6 +230,25 @@ console.log(`${CLIPS.length} clips' captions and VO scripts swept for dates and 
   }
   console.log(`${k} card voiceovers swept for dates and degrees`);
 }
+// presenter reels (remotion/presenter.json, resolved by remotion/src/reels.ts): every full date shown or spoken is
+// verified, every "N° Sign" / "N degrees Sign" a verified degree, and the spoken script is spelled out
+{
+  let k = 0;
+  for (const r of REELS) {
+    k++;
+    const fail = (msg: string) => { console.log(`✗ presenter ${r.id}: ${msg}`); factBad++; };
+    let tx: { spoken: string[]; shown: string[] };
+    try { tx = reelTexts(r.id); } catch (e) { fail(String((e as Error).message)); continue; }
+    for (const t of tx.spoken) if (/\d/.test(t.replace(/\[pause \d+\]/g, ""))) fail(`VO "${t}" has digits: spell numbers and dates as words for the voice`);
+    for (const t of [...tx.shown, ...tx.spoken.map(unspeak)]) {
+      const norm = expand(t.replace(/\u00A0/g, " ")).replace(new RegExp(`(\\d{1,2}) (${LONG_MONTHS.join("|")}) (\\d{4})`, "g"), (_, d, m, y) => `${d} ${words[m]} ${y}`);
+      for (const m of norm.matchAll(new RegExp(`\\b(\\d{1,2}) (${M}) (\\d{4})\\b`, "g"))) if (!verified.has(m[0])) fail(`"${m[0]}" in "${t}" is not a verified date`);
+      for (const m of norm.matchAll(/(?<![\d.])(\d{1,2}(?:\.\d)?)(?:°| degrees) ([A-Z][a-z]+)/g)) if (!verifiedDeg.has(`${m[1]} ${m[2]}`)) fail(`"${m[0]}" in "${t}" is not a verified degree`);
+    }
+  }
+  console.log(`${k} presenter reels swept for dates and degrees`);
+}
+
 // --plan <plan.json>: also check each clip against Saturn on the day it's scheduled to post ("Today: 10°" is only true
 // for a few days; the site rounds the degree down).
 if (plan) {
@@ -232,6 +259,24 @@ if (plan) {
     if (!bad) console.log(`✓ clip ${c.id} on its posting day ${p.date} (Saturn ${degreeInSign(saturnLongitude(new Date(`${p.date}T12:00:00Z`))).toFixed(2)}°)`);
   }
   console.log(`${k} scheduled clip(s) checked against their posting day`);
+}
+// --plan: a presenter reel (or its interim version) posts inside its `postBetween` range, and nothing it shows or says
+// names a date that was ahead when it was written and has passed by its posting day (scripts/stale.ts, as the captions)
+if (plan) {
+  let k = 0;
+  for (const p of posts) for (const a of [p.asset, p.interim]) {
+    const r = REELS.find((x) => x.id === a); if (!r) continue;
+    k++;
+    const base = r.interimOf ? REELS.find((x) => x.id === r.interimOf) : r;
+    const range = base?.postBetween;
+    if (range && (p.date < range[0] || p.date > range[1])) { console.log(`✗ presenter ${a} (posting ${p.date}): outside ${range[0]} – ${range[1]} (${base?.postWhy ?? ""})`); factBad++; continue; }
+    const tx = reelTexts(r.id);
+    const d = passed([...tx.shown, ...tx.spoken], p.date, { marginDays: 0, months: false });
+    if (d) { console.log(`✗ presenter ${a} (posting ${p.date}): ${d}`); factBad++; continue; }
+    const rel = relative(tx.spoken.length ? tx.spoken : tx.shown);
+    console.log(`✓ presenter ${a} on its posting day ${p.date}${range ? ` (inside ${range[0]} – ${range[1]})` : ""}${rel ? `; says ${rel}: true while ${base?.postWhy ?? "reread"}` : ""}`);
+  }
+  console.log(`${k} scheduled presenter reel(s) checked against their posting day`);
 }
 if (factBad) console.log(`${factBad} card fact(s) failed. Fix remotion/carousels.json or cards.config.json.`);
 if (bad || factBad) process.exit(1);

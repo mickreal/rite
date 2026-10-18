@@ -21,12 +21,17 @@
 // mixed from the clean render into out/music/ and recorded per post as `music` in manifest.json / .csv / .md.
 // MUSIC=off exports the clean renders; a post's `music` ("off", "<track id>", "<track id>@<seconds>") overrides.
 //
+// Fallbacks and interim reels (scripts/plan-posts.ts): a post's `fallback` is exported as a post of its own on the same
+// day (slot "Fallback: …", `fallback_for` in manifest.json) unless the post has `"use": "original"`; a post with
+// `interim` exports its `asset` when that's rendered, else the interim version (`interim: true` in manifest.json).
+//
 // Default order alternates a dial clip with a card, so the first week is the soft-launch mix in gtm-plan.md §2.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { planMusic, resolveOffset, type Choice } from "./music";
 import { loadLibrary, mixCached, seconds } from "./add-music";
+import { expandPosts } from "./plan-posts";
 
 const CONTENT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(CONTENT, "out");
@@ -57,11 +62,11 @@ const defaultCaption = (asset?: string) => {
 };
 
 const VIDEO = ["tiktok", "reels", "shorts"], STILL = ["instagram", "x", "threads"];
-type Post = { date: string; asset?: string; platforms?: string[]; caption?: string; alt?: string | string[]; day?: string; slot?: string; kit?: string; note?: string; time?: string; ref?: string; music?: string };
+type Post = { date: string; asset?: string; interim?: string; platforms?: string[]; caption?: string; alt?: string | string[]; day?: string; slot?: string; kit?: string; note?: string; time?: string; ref?: string; music?: string; fallback_for?: string };
 type Plan = { title?: string; notes?: string[]; posts: Post[] };
 let plan: Plan;
 const planPath = arg("plan");
-if (planPath) { const p = JSON.parse(readFileSync(resolve(planPath), "utf8")); plan = Array.isArray(p) ? { posts: p } : p; }
+if (planPath) { const p = JSON.parse(readFileSync(resolve(planPath), "utf8")); plan = Array.isArray(p) ? { posts: p } : p; plan = { ...plan, posts: expandPosts(plan.posts) as Post[] }; }
 else {
   const start = arg("start") ?? new Date().toISOString().slice(0, 10);
   const clips = [...files.keys()].filter((k) => files.get(k)![0].includes("/clips/") && !k.endsWith("_vo"));
@@ -69,13 +74,16 @@ else {
   const order: string[] = []; for (let i = 0; i < Math.max(clips.length, cards.length); i++) { if (clips[i]) order.push(clips[i]); if (cards[i]) order.push(cards[i]); }
   plan = { posts: order.map((asset, i) => ({ date: new Date(Date.parse(start) + i * 86400000).toISOString().slice(0, 10), asset })) };
 }
+// the asset a post exports: its own when rendered, else its interim version when that is (a presenter reel waiting
+// for paid takes), else its own (reported missing)
+const effective = (p: Post) => p.asset && !files.has(p.asset) && p.interim && files.has(p.interim) ? p.interim : p.asset;
 // music choices over the whole plan (before --from/--to), so one week of a plan gets what a full export gets
 const presenterAll = new Set<string>(existsSync(join(CONTENT, "remotion", "presenter.json"))
   ? ((JSON.parse(readFileSync(join(CONTENT, "remotion", "presenter.json"), "utf8")).reels ?? []) as Array<{ id: string }>).map((r) => r.id) : []);
 const musicOff = /^(off|0|false|no)$/i.test(process.env.MUSIC ?? "");
 const library = musicOff ? null : loadLibrary();
 const choices = new Map<Post, Choice | null>();
-if (library) planMusic(plan.posts, library, {
+if (library) planMusic(plan.posts.map((p) => ({ ...p, asset: effective(p) })), library, {
   isVideo: (a) => files.get(a)?.[0]?.endsWith(".mp4") ?? false,
   ids: { cohorts: new Set(cohorts.map((c) => c.id)), presenter: presenterAll },
   env: process.env,
@@ -103,11 +111,13 @@ type Row = { post: Post; platform: string; names: string[]; caption: string; alt
 const out: Row[] = [];
 let copied = 0, missing = 0;
 const missingAssets = new Set<string>();
-for (const p of plan.posts) {
+for (const p0 of plan.posts) {
+  // p0 is the plan's post (keys the maps); p the same post with the asset it actually exports
+  const p = { ...p0, asset: effective(p0) };
   const caption = p.caption ?? defaultCaption(p.asset);
   const alts = p.alt === undefined ? [] : Array.isArray(p.alt) ? p.alt : [p.alt];
   if (!p.asset) {
-    for (const platform of p.platforms ?? ["x", "threads"]) { rows.push([p.date, platform, "", caption, "", "", ""]); out.push({ post: p, platform, names: [], caption, alt: [] }); }
+    for (const platform of p.platforms ?? ["x", "threads"]) { rows.push([p.date, platform, "", caption, "", "", ""]); out.push({ post: p0, platform, names: [], caption, alt: [] }); }
     continue;
   }
   const src = files.get(p.asset);
@@ -123,8 +133,8 @@ for (const p of plan.posts) {
   // what gets copied: the clean render, or its music mix in out/music/ (names in the export stay the clean ones)
   let media = src, voMedia = vo;
   if (ext === ".mp4") {
-    const c = choices.get(p);
-    if (!c) musicOf.set(p, { off: musicOff ? "MUSIC=off" : /^off$/i.test(p.music ?? "") ? "plan: off" : "none" });
+    const c = choices.get(p0);
+    if (!c) musicOf.set(p0, { off: musicOff ? "MUSIC=off" : /^off$/i.test(p.music ?? "") ? "plan: off" : "none" });
     else {
       const track = library!.tracks.find((t) => t.id === c.track)!;
       const offset = resolveOffset(track, c, seconds(src[0]));
@@ -138,7 +148,7 @@ for (const p of plan.posts) {
       };
       media = src.map(mixed);
       if (vo) voMedia = mixed(vo);
-      musicOf.set(p, { track: track.id, direction: track.direction, use: c.use, offset, file: `music/${track.file}`, source: c.source, versions });
+      musicOf.set(p0, { track: track.id, direction: track.direction, use: c.use, offset, file: `music/${track.file}`, source: c.source, versions });
     }
   }
   for (const platform of p.platforms ?? (ext === ".mp4" ? VIDEO : STILL)) {
@@ -146,12 +156,12 @@ for (const p of plan.posts) {
     media.forEach((s, i) => { copyFileSync(s, join(dest, names[i])); copied++; });
     if (vo && voMedia) {
       const vn = `${p.date}_${platform}_${basename(vo, ext)}${ext}`; copyFileSync(voMedia, join(dest, vn)); copied++;
-      rows.push([p.date, platform, vn, caption, alts[0] ?? "", names[0], musicCol(p)]);
-      out.push({ post: p, platform, names: [vn, ...names], caption, alt: alts });
+      rows.push([p.date, platform, vn, caption, alts[0] ?? "", names[0], musicCol(p0)]);
+      out.push({ post: p0, platform, names: [vn, ...names], caption, alt: alts });
       continue;
     }
-    names.forEach((n, i) => rows.push([p.date, platform, n, caption, alts[i] ?? alts[0] ?? "", "", musicCol(p)]));
-    out.push({ post: p, platform, names, caption, alt: alts });
+    names.forEach((n, i) => rows.push([p.date, platform, n, caption, alts[i] ?? alts[0] ?? "", "", musicCol(p0)]));
+    out.push({ post: p0, platform, names, caption, alt: alts });
   }
 }
 const csv = rows.map((r) => r.map((v) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)).join(",")).join("\n") + "\n";
@@ -173,6 +183,8 @@ for (const [date, rs] of byDate) {
     const prs = rs.filter((r) => r.post === p);
     md.push(`### ${p.slot ?? (p.asset ? p.asset : "Text post")}: ${prs.map((r) => r.platform).join(", ")}`, "");
     if (p.kit) md.push(`- **Kit:** ${p.kit}`);
+    if (p.fallback_for) md.push(`- **Fallback** for "${p.fallback_for}" (made by hand): goes out unless that post has \`"use": "original"\` in the plan, or is cancelled in the queue when the original is posted.`);
+    if (p.interim && effective(p) === p.interim) md.push(`- **Interim version** (no Anna, no voice, music only) until \`${p.asset}\` is rendered (scripts/presenter-prep.ts).`);
     if (prs[0].names.length) {
       md.push("- **Files:**");
       const kind = (n: string) => !n.endsWith(".mp4") ? "" : n.endsWith("_vo.mp4") ? ", with voiceover" : prs[0].names.some((x) => x.endsWith("_vo.mp4")) ? ", silent" : "";
@@ -197,10 +209,14 @@ const json = {
     const rs = out.filter((r) => r.post === p);
     const alts = p.alt === undefined ? [] : Array.isArray(p.alt) ? p.alt : [p.alt];
     return {
-      date: p.date, day: p.day ?? null, slot: p.slot ?? null, time: p.time ?? null, ref: p.ref ?? null, asset: p.asset ?? null,
+      date: p.date, day: p.day ?? null, slot: p.slot ?? null, time: p.time ?? null, ref: p.ref ?? null, asset: effective(p) ?? null,
+      // the interim version went out because the finished reel (final_asset) isn't rendered yet
+      ...(p.interim ? { interim: effective(p) === p.interim, final_asset: p.asset ?? null } : {}),
+      // a fallback post (plan-posts.ts): the slot of the post it stands in for, which is made by hand
+      ...(p.fallback_for ? { fallback_for: p.fallback_for } : {}),
       kit: p.kit ?? null, note: p.note ?? null, platforms: p.platforms ?? (rs.length ? rs.map((r) => r.platform) : []),
-      caption: p.caption ?? defaultCaption(p.asset), alt: alts,
-      missing: p.asset ? missingAssets.has(p.asset) : false,
+      caption: p.caption ?? defaultCaption(effective(p)), alt: alts,
+      missing: effective(p) ? missingAssets.has(effective(p)!) : false,
       // the soundtrack this post's video(s) carry: { track, direction, use, offset (s), file, source, versions }, or
       // { off: why }; null for stills, text posts and missing assets
       music: musicOf.get(p) ?? null,

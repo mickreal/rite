@@ -1,5 +1,5 @@
 {
-  "_": "Presenter reels (kit style 3 made with an AI presenter): short Anna to-camera parts where a person lands the line, cards for the data. Times are seconds in the VO take (word timings from ElevenLabs Scribe). Media files are not in git: render-presenter.sh serves content/out/presenter/<id>/ to the renderer.",
+  "_": "Presenter reels (kit style 3 made with an AI presenter): short Anna to-camera parts where a person lands the line, cards for the data. Times are seconds in the VO take, or \"@<line id>[+/-s]\" references into the reel's `script` (resolved by src/reels.ts from `timing`: estimated from the text by `bun scripts/presenter-prep.ts --estimate <id>` until the take exists, then measured from it). `script` lines: `say` is spoken (words, no digits), `show` the caption text; `anna: true` lines are Anna's to-camera part (cut from the take into anna.mp3, lip-synced to anna.mp4). `interimOf` reels are the same cut with Anna taken out and no voice (posted while the paid takes don't exist). Media files are not in git: render-presenter.sh serves content/out/presenter/<id>/ to the renderer.",
   "reels": [
     {
       "id": "script-6",
@@ -8,29 +8,638 @@
       "voSeconds": 46.08,
       "tail": 1.4,
       "segments": [
-        { "kind": "presenter", "from": 0, "to": 10.0, "src": "anna-hook.mp4",
+        {
+          "kind": "presenter",
+          "from": 0,
+          "to": 10,
+          "src": "anna-hook.mp4",
           "captions": [
-            { "at": 0.0, "to": 3.36, "text": "Your Saturn return is not a birthday. Nobody's is." },
-            { "at": 3.47, "to": 7.0, "text": "Saturn takes about 29½ years to go round." },
-            { "at": 7.09, "to": 10.0, "text": "It comes back to the degree it held when you were born…" }
-          ] },
-        { "kind": "window", "from": 10.0, "to": 22.45,
-          "sign": "Aries", "range": "25 May 2025 – 12 Apr 2028",
-          "cues": { "years": 11.08, "inside": 13.69, "one": 15.72, "three": 17.97, "date": 20.54 } },
-        { "kind": "phases", "from": 22.45, "to": 35.1,
+            {
+              "at": 0,
+              "to": 3.36,
+              "text": "Your Saturn return is not a birthday. Nobody's is."
+            },
+            {
+              "at": 3.47,
+              "to": 7,
+              "text": "Saturn takes about 29½ years to go round."
+            },
+            {
+              "at": 7.09,
+              "to": 10,
+              "text": "It comes back to the degree it held when you were born…"
+            }
+          ]
+        },
+        {
+          "kind": "window",
+          "from": 10,
+          "to": 22.45,
+          "sign": "Aries",
+          "range": "25 May 2025 – 12 Apr 2028",
+          "cues": {
+            "years": 11.08,
+            "inside": 13.69,
+            "one": 15.72,
+            "three": 17.97,
+            "date": 20.54
+          }
+        },
+        {
+          "kind": "phases",
+          "from": 22.45,
+          "to": 35.1,
           "phases": [
-            { "name": "Approach", "line": "Pressure, no verdict.", "at": 24.15, "lineAt": 25.17 },
-            { "name": "Contact", "line": "The dated pass or passes.", "at": 28.5, "lineAt": 28.5 },
-            { "name": "Integration", "line": "What you chose becomes structure.", "at": 31.43, "lineAt": 32.91 }
-          ] },
-        { "kind": "line", "from": 35.1, "to": 41.8,
+            {
+              "name": "Approach",
+              "line": "Pressure, no verdict.",
+              "at": 24.15,
+              "lineAt": 25.17
+            },
+            {
+              "name": "Contact",
+              "line": "The dated pass or passes.",
+              "at": 28.5,
+              "lineAt": 28.5
+            },
+            {
+              "name": "Integration",
+              "line": "What you chose becomes structure.",
+              "at": 31.43,
+              "lineAt": 32.91
+            }
+          ]
+        },
+        {
+          "kind": "line",
+          "from": 35.1,
+          "to": 41.8,
           "words": [
-            { "at": 35.23, "text": "If someone tells you it hits at 29," },
-            { "at": 38.16, "text": "ask them which day.", "key": true },
-            { "at": 39.71, "text": "If they can't say, they're guessing." }
-          ] },
-        { "kind": "cta", "from": 41.8, "to": null, "lead": "Free preview at", "site": "rite.report", "tail": "gives you the day.", "tailAt": 44.96 }
+            {
+              "at": 35.23,
+              "text": "If someone tells you it hits at 29,"
+            },
+            {
+              "at": 38.16,
+              "text": "ask them which day.",
+              "key": true
+            },
+            {
+              "at": 39.71,
+              "text": "If they can't say, they're guessing."
+            }
+          ]
+        },
+        {
+          "kind": "cta",
+          "from": 41.8,
+          "to": null,
+          "lead": "Free preview at",
+          "site": "rite.report",
+          "tail": "gives you the day.",
+          "tailAt": 44.96
+        }
       ]
+    },
+    {
+      "id": "script-6-recut",
+      "kit": "launch-kit-v2 (c) 6 re-cut: vertical captions, challenge first, about 25 s",
+      "layout": "captions",
+      "audio": "vo.mp3",
+      "voSeconds": 23.33,
+      "tail": 1.4,
+      "built": "out/presenter/script-6-recut/vo.mp3 = script-6/vo.mp3 cut at pauses: 35.30–41.85 (challenge), 0.3 s gap, 0.00–3.47 (Anna's hook), 13.55–22.60 (one pass or three), 42.15–46.106 (CTA); anna-hook.mp4 copied from script-6. scripts/presenter-recut.sh rebuilds both.",
+      "segments": [
+        {
+          "kind": "line",
+          "from": 0,
+          "to": 6.85,
+          "words": [
+            {
+              "at": 0.1,
+              "text": "If someone tells you it hits at 29,"
+            },
+            {
+              "at": 2.86,
+              "text": "ask them which day.",
+              "key": true
+            },
+            {
+              "at": 4.41,
+              "text": "If they can't say, they're guessing."
+            }
+          ]
+        },
+        {
+          "kind": "presenter",
+          "from": 6.85,
+          "to": 10.32,
+          "src": "anna-hook.mp4",
+          "srcFrom": 0,
+          "captions": [
+            {
+              "at": 6.85,
+              "to": 9.35,
+              "text": "Your Saturn return is not a birthday."
+            },
+            {
+              "at": 9.45,
+              "to": 10.25,
+              "text": "Nobody's is."
+            }
+          ]
+        },
+        {
+          "kind": "line",
+          "from": 10.32,
+          "to": 19.37,
+          "kicker": "Saturn in Aries · 25 May 2025 – 12 Apr 2028",
+          "words": [
+            {
+              "at": 11.07,
+              "text": "Inside that window there's one exact pass,"
+            },
+            {
+              "at": 14.56,
+              "text": "or three if Saturn goes backwards over your degree."
+            },
+            {
+              "at": 17.28,
+              "text": "That's the part with a date.",
+              "key": true
+            }
+          ]
+        },
+        {
+          "kind": "cta",
+          "from": 19.37,
+          "to": null,
+          "lead": "Free preview at",
+          "site": "rite.report",
+          "tail": "gives you the day.",
+          "tailAt": 22.47
+        }
+      ]
+    },
+    {
+      "id": "script-7",
+      "kit": "launch-kit-v2 (c) 7, 'The retrograde pass is the one people miss' (Anna-light)",
+      "layout": "captions",
+      "audio": "vo.mp3",
+      "anna": {
+        "src": "anna.mp4",
+        "from": "s1",
+        "to": "s3"
+      },
+      "postBetween": [
+        "2026-07-28",
+        "2026-12-10"
+      ],
+      "postWhy": "Saturn moves backwards 27 Jul – 11 Dec 2026 (the spoken 'right now'; the 11 Dec turn is spoken as ahead)",
+      "script": [
+        {
+          "id": "s1",
+          "say": "Born in spring nineteen ninety-seven?",
+          "show": "Born in spring 1997?",
+          "anna": true
+        },
+        {
+          "id": "s2",
+          "say": "You're in the backwards part of your Saturn return right now.",
+          "anna": true
+        },
+        {
+          "id": "s3",
+          "say": "Most of you don't know.",
+          "anna": true
+        },
+        {
+          "id": "s4",
+          "say": "Saturn stopped on the twenty-seventh of July and has been going backwards since."
+        },
+        {
+          "id": "s5",
+          "say": "It turns round on the eleventh of December."
+        },
+        {
+          "id": "s6",
+          "say": "Born between the twelfth of March and the sixth of May, nineteen ninety-seven?"
+        },
+        {
+          "id": "s7",
+          "say": "Saturn crosses your degree three times: forwards, backwards, then forwards again."
+        },
+        {
+          "id": "s8",
+          "say": "The backwards pass feels like: why is this back?"
+        },
+        {
+          "id": "s9",
+          "say": "It isn't a repeat. It's the same question, without the adrenaline."
+        },
+        {
+          "id": "s10",
+          "say": "Three dates. Free preview at rite dot report gives you all three."
+        }
+      ],
+      "segments": [
+        {
+          "kind": "presenter",
+          "from": 0,
+          "to": "@s4",
+          "src": "anna.mp4",
+          "srcFrom": 0,
+          "captions": "auto"
+        },
+        {
+          "kind": "dates",
+          "from": "@s4",
+          "to": "@s6",
+          "kicker": "This year's loop",
+          "rows": [
+            {
+              "at": "@s4",
+              "date": "27 Jul 2026",
+              "text": "Saturn stops at 14.7° Aries and starts going backwards."
+            },
+            {
+              "at": "@s5",
+              "date": "11 Dec 2026",
+              "text": "It turns direct at 7.9° Aries."
+            }
+          ]
+        },
+        {
+          "kind": "dates",
+          "cream": true,
+          "from": "@s6",
+          "to": "@s8",
+          "kicker": "Natal Saturn 7.9° – 14.7° Aries",
+          "title": "Born 12 Mar – 6 May 1997",
+          "rows": [
+            {
+              "at": "@s7+1.9",
+              "date": "Apr – Jul 2026",
+              "text": "Forwards: the first pass."
+            },
+            {
+              "at": "@s7+2.6",
+              "date": "Aug – Dec 2026",
+              "text": "Backwards: the second."
+            },
+            {
+              "at": "@s7+3.5",
+              "date": "Dec 2026 – Mar 2027",
+              "text": "Forwards again: the one that settles."
+            }
+          ],
+          "foot": "Or born 10 Nov 1997 – 21 Jan 1998: the same three passes.",
+          "footAt": "@s7+4.2"
+        },
+        {
+          "kind": "line",
+          "from": "@s8",
+          "to": "@s10",
+          "words": [
+            {
+              "at": "@s8",
+              "text": "The backwards pass feels like “why is this back?”"
+            },
+            {
+              "at": "@s9",
+              "text": "It isn't a repeat. It's the same question, without the adrenaline.",
+              "key": true
+            }
+          ]
+        },
+        {
+          "kind": "cta",
+          "from": "@s10",
+          "to": null,
+          "lead": "Three dates. Free preview at",
+          "site": "rite.report",
+          "tail": "gives you all three.",
+          "tailAt": "@s10+2.6"
+        }
+      ],
+      "timing": {
+        "s1": 0.15,
+        "s2": 2.45,
+        "s3": 7.06,
+        "s4": 9.37,
+        "s5": 14.75,
+        "s6": 18.2,
+        "s7": 23.58,
+        "s8": 28.19,
+        "s9": 32.04,
+        "s10": 36.65
+      },
+      "voSeconds": 41.56,
+      "timed": "estimate (2.6 words/s): re-timed from the take by scripts/presenter-prep.ts"
+    },
+    {
+      "id": "closest-turn-talk",
+      "kit": "launch-kit-v2 (c) 10 text, to camera: what the closest turn is (Anna-light)",
+      "layout": "captions",
+      "audio": "vo.mp3",
+      "anna": {
+        "src": "anna.mp4",
+        "from": "s1",
+        "to": "s2"
+      },
+      "postBetween": [
+        "2026-10-17",
+        "2026-12-10"
+      ],
+      "postWhy": "the 11 Dec 2026 station is spoken as ahead",
+      "script": [
+        {
+          "id": "s1",
+          "say": "Saturn stops on the eleventh of December.",
+          "anna": true
+        },
+        {
+          "id": "s2",
+          "say": "If it stops near your degree, that's your closest turn.",
+          "anna": true
+        },
+        {
+          "id": "s3",
+          "say": "It stops at seven point nine degrees Aries."
+        },
+        {
+          "id": "s4",
+          "say": "Within a degree of that? Born the twenty-fourth of June to the eleventh of August, nineteen ninety-six,"
+        },
+        {
+          "id": "s5",
+          "say": "or the fourth to the nineteenth of March, nineteen ninety-seven."
+        },
+        {
+          "id": "s6",
+          "say": "Near a station, Saturn barely moves, so it sits close to your degree for weeks."
+        },
+        {
+          "id": "s7",
+          "say": "The reading dates it, next to your passes."
+        },
+        {
+          "id": "s8",
+          "say": "Your closest turn, free, at rite dot report."
+        }
+      ],
+      "segments": [
+        {
+          "kind": "presenter",
+          "from": 0,
+          "to": "@s3",
+          "src": "anna.mp4",
+          "srcFrom": 0,
+          "captions": "auto"
+        },
+        {
+          "kind": "line",
+          "from": "@s3",
+          "to": "@s4",
+          "kicker": "Saturn's station",
+          "words": [
+            {
+              "at": "@s3",
+              "text": "11 Dec 2026",
+              "key": true
+            },
+            {
+              "at": "@s3+0.9",
+              "text": "Saturn stops at 7.9° Aries."
+            }
+          ]
+        },
+        {
+          "kind": "dates",
+          "cream": true,
+          "from": "@s4",
+          "to": "@s6",
+          "kicker": "Within a degree of 7.9° Aries",
+          "title": "Your closest turn, if you're born",
+          "rows": [
+            {
+              "at": "@s4+1.2",
+              "date": "24 Jun – 11 Aug 1996",
+              "text": "First return."
+            },
+            {
+              "at": "@s5",
+              "date": "4 – 19 Mar 1997",
+              "text": "First return."
+            }
+          ],
+          "foot": "Second return: 30 Apr – 18 May 1967, 4 – 31 Oct 1967, 16 Jan – 9 Feb 1968.",
+          "footAt": "@s5+1.6"
+        },
+        {
+          "kind": "line",
+          "from": "@s6",
+          "to": "@s8",
+          "words": [
+            {
+              "at": "@s6",
+              "text": "Near a station, Saturn barely moves."
+            },
+            {
+              "at": "@s6+2.2",
+              "text": "It sits close to your degree for weeks.",
+              "key": true
+            },
+            {
+              "at": "@s7",
+              "text": "The reading dates it, next to your passes."
+            }
+          ]
+        },
+        {
+          "kind": "cta",
+          "from": "@s8",
+          "to": null,
+          "lead": "Your closest turn, free, at",
+          "site": "rite.report"
+        }
+      ],
+      "timing": {
+        "s1": 0.15,
+        "s2": 3.22,
+        "s3": 7.45,
+        "s4": 10.91,
+        "s5": 17.82,
+        "s6": 22.05,
+        "s7": 28.2,
+        "s8": 31.66
+      },
+      "voSeconds": 35.03,
+      "timed": "estimate (2.6 words/s): re-timed from the take by scripts/presenter-prep.ts"
+    },
+    {
+      "id": "integration-1996",
+      "kit": "calendar (i) week 4: what integration looks like (born 1996, separating), style 3 (Anna-light)",
+      "layout": "captions",
+      "audio": "vo.mp3",
+      "anna": {
+        "src": "anna.mp4",
+        "from": "s1",
+        "to": "s2"
+      },
+      "postBetween": [
+        "2026-04-20",
+        "2028-04-11"
+      ],
+      "postWhy": "every pass in the band is behind (last 19 Apr 2026) and the window is open (until 12 Apr 2028)",
+      "script": [
+        {
+          "id": "s1",
+          "say": "Born in nineteen ninety-six? Your exact pass already happened.",
+          "show": "Born in 1996? Your exact pass already happened.",
+          "anna": true
+        },
+        {
+          "id": "s2",
+          "say": "The window hasn't closed.",
+          "anna": true
+        },
+        {
+          "id": "s3",
+          "say": "Born between April nineteen ninety-six and early March nineteen ninety-seven, your pass, or passes, were done by the nineteenth of April, twenty twenty-six."
+        },
+        {
+          "id": "s4",
+          "say": "Saturn is still in your sign until the twelfth of April, twenty twenty-eight."
+        },
+        {
+          "id": "s5",
+          "say": "Before the pass was approach. The pass was contact."
+        },
+        {
+          "id": "s6",
+          "say": "Now it's integration: what you chose becomes structure."
+        },
+        {
+          "id": "s7",
+          "say": "It's boring on purpose."
+        },
+        {
+          "id": "s8",
+          "say": "Drop the story about yourself that no longer matches what you did."
+        },
+        {
+          "id": "s9",
+          "say": "Free preview at rite dot report shows which phase you're in."
+        }
+      ],
+      "segments": [
+        {
+          "kind": "presenter",
+          "from": 0,
+          "to": "@s3",
+          "src": "anna.mp4",
+          "srcFrom": 0,
+          "captions": "auto"
+        },
+        {
+          "kind": "dates",
+          "from": "@s3",
+          "to": "@s5",
+          "kicker": "Saturn in Aries · first return",
+          "title": "Born 8 Apr 1996 – 11 Mar 1997",
+          "rows": [
+            {
+              "at": "@s3+4.2",
+              "date": "Last pass by 19 Apr 2026",
+              "text": "One pass or three, all behind you."
+            },
+            {
+              "at": "@s4",
+              "date": "Open until 12 Apr 2028",
+              "text": "Saturn stays in your sign until then."
+            }
+          ]
+        },
+        {
+          "kind": "phases",
+          "from": "@s5",
+          "to": "@s7",
+          "phases": [
+            {
+              "name": "Approach",
+              "line": "Pressure, no verdict.",
+              "at": "@s5",
+              "lineAt": "@s5+0.5"
+            },
+            {
+              "name": "Contact",
+              "line": "The pass.",
+              "at": "@s5+1.7",
+              "lineAt": "@s5+2.0"
+            },
+            {
+              "name": "Integration",
+              "line": "What you chose becomes structure.",
+              "at": "@s6",
+              "lineAt": "@s6+1.3"
+            }
+          ]
+        },
+        {
+          "kind": "line",
+          "from": "@s7",
+          "to": "@s9",
+          "words": [
+            {
+              "at": "@s7",
+              "text": "Boring on purpose.",
+              "key": true
+            },
+            {
+              "at": "@s8",
+              "text": "Drop the story about yourself that no longer matches what you did."
+            }
+          ]
+        },
+        {
+          "kind": "cta",
+          "from": "@s9",
+          "to": null,
+          "lead": "Free preview at",
+          "site": "rite.report",
+          "tail": "shows which phase you're in.",
+          "tailAt": "@s9+1.9"
+        }
+      ],
+      "timing": {
+        "s1": 0.15,
+        "s2": 3.99,
+        "s3": 5.91,
+        "s4": 15.14,
+        "s5": 20.52,
+        "s6": 24.36,
+        "s7": 27.81,
+        "s8": 29.73,
+        "s9": 34.73
+      },
+      "voSeconds": 39.26,
+      "timed": "estimate (2.6 words/s): re-timed from the take by scripts/presenter-prep.ts"
+    },
+    {
+      "id": "script-7-interim",
+      "interimOf": "script-7",
+      "kit": "launch-kit-v2 (c) 7, 'The retrograde pass is the one people miss' (Anna-light); interim: no Anna, no voice, music only"
+    },
+    {
+      "id": "closest-turn-talk-interim",
+      "interimOf": "closest-turn-talk",
+      "kit": "launch-kit-v2 (c) 10 text, to camera: what the closest turn is (Anna-light); interim: no Anna, no voice, music only"
+    },
+    {
+      "id": "integration-1996-interim",
+      "interimOf": "integration-1996",
+      "kit": "calendar (i) week 4: what integration looks like (born 1996, separating), style 3 (Anna-light); interim: no Anna, no voice, music only"
     }
   ]
 }

@@ -16,6 +16,8 @@
     "fonts": "python3 fonts/make-static.py",
     "launch": "bun scripts/launch-plan.ts --render",
     "presenter": "bash remotion/render-presenter.sh",
+    "presenter:prep": "bun scripts/presenter-prep.ts",
+    "presenter:recut": "bash scripts/presenter-recut.sh && bash remotion/render-presenter.sh script-6-recut",
     "test": "vitest run",
     "music:library": "bun scripts/add-music.ts --library"
   },

@@ -14,6 +14,7 @@
 // render of the launch plan picks exactly what a full render picks.
 //
 // Overrides: MUSIC=off (env) disables music; a post's `music` field: "off", "<track id>" or "<track id>@<seconds>".
+// Overrides never use up the rotation; a "<track id>@<seconds>" pin doesn't advance that track's offset cursor either.
 
 export type Use = "voice" | "cards";
 export type Direction = "felt-piano" | "orbit" | "pulse";
@@ -83,7 +84,9 @@ export function planMusic(posts: PostLike[], lib: Library, opts: { isVideo: (ass
       if (at !== undefined && !(Number.isFinite(+at) && +at >= 0)) throw new Error(`${p.date} ${p.asset}: music offset "${at}" is not a number of seconds`);
       track = t; source = "override"; fixed = at === undefined ? undefined : +at;
     } else track = pick(lib, use, base + count[use]++);
-    const k = uses.get(track.id) ?? 0; uses.set(track.id, k + 1);
+    // a pinned start ("C2@40") doesn't move the track's cursor, so adding a pinned post leaves every other post's
+    // track and offset as they were (how a plan gains posts without re-mixing the ones already reviewed)
+    const k = uses.get(track.id) ?? 0; if (fixed === undefined) uses.set(track.id, k + 1);
     const offsetIndex = (((Math.floor(base / 7) + k) * STRIDE) % track.offsets.length + track.offsets.length) % track.offsets.length;
     out[i] = { track: track.id, direction: track.direction, use, offsetIndex, ...(fixed !== undefined ? { offset: fixed } : {}), source };
   }
