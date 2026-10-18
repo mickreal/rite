@@ -37,6 +37,7 @@ import { localHour, localToUtc } from "./geo";
 import { adminAuthorized, adminStats, adminExtras, adminDays, adminMoney, makeSession, sessionValid, cookieValue, sessionCookie, csrfToken, sameOrigin, safeNext, safeEqual, SESSION_COOKIE } from "./admin";
 import { adminPage } from "./views/admin";
 import { buildKpiReport, kpiSendHour, posthogVisits } from "./kpi";
+import { runAdsController, sendCapiPurchase, adsMode } from "./ads";
 import { handleSupportEmail, type InboxDeps } from "./inbox";
 import { threadsPage, threadPage, loginPage } from "./views/inbox";
 import { listThreads, loadThread, sendReply, changeThread, threadKeyFromUrl, tabOf, newNonce, THREAD_ACTIONS, type ThreadAction } from "./inbox-ui";
@@ -66,6 +67,11 @@ export interface Env {
   INBOX_AUTO?: string; INBOX_REFUNDS_PER_DAY?: string; INBOX_REFUND_CENTS_PER_DAY?: string; SUPPORT_EXPORTS?: R2Bucket;
   // build 8, the creator program (src/creators.ts, src/creator-ops.ts): CREATORS off | dry | on (payouts), and its numbers
   CREATORS?: string; CREATOR_COMMISSION_PCT?: string; CREATOR_DISCOUNT_PCT?: string; CREATOR_HOLD_DAYS?: string; CREATOR_MIN_PAYOUT_CENTS?: string; CREATOR_UNPAID_CAP_CENTS?: string;
+  // build 10, ads (src/ads.ts): the controller's switch ("off" | "dry-run" | "on") and caps (whole USD), the attribution ref,
+  // the Conversions API switch, and Meta ids. Tokens (META_CAPI_TOKEN, META_ADS_TOKEN, META_APP_SECRET) are secrets.
+  ADS?: string; ADS_DAILY_CAP?: string; ADS_MONTHLY_CAP?: string; ADS_REF?: string;
+  META_CAPI?: string; META_PIXEL_ID?: string; META_CAPI_TOKEN?: string; META_TEST_EVENT_CODE?: string;
+  META_ADS_TOKEN?: string; META_APP_SECRET?: string; META_CAMPAIGN_ID?: string; META_ADSET_ID?: string; META_API_VERSION?: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -837,6 +843,8 @@ app.get("/r/:tok/calendar.ics", async (c) => {
 });
 
 /** Stripe Tax collected on a session (tax-inclusive, so it is part of amount_total); null when tax wasn't calculated. */
+/** Tax on a Season invoice: the sum of total_taxes (inclusive or exclusive, both are inside amount_paid); 0 without Stripe Tax. */
+const invoiceTaxCents = (inv: Stripe.Invoice) => (inv.total_taxes ?? []).reduce((s, t) => s + (Number(t?.amount) || 0), 0);
 const taxCents = (session: Stripe.Checkout.Session) => (typeof session.total_details?.amount_tax === "number" && (session.automatic_tax?.enabled || session.total_details.amount_tax > 0) ? session.total_details.amount_tax : null);
 const paymentIntentOf = (session: Stripe.Checkout.Session) => (typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null);
 
@@ -847,6 +855,14 @@ const creditCreator = (env: Env, session: Stripe.Checkout.Session, ref: { purcha
   promoCodeIds: (session.discounts ?? []).map((d) => (typeof d.promotion_code === "string" ? d.promotion_code : d.promotion_code?.id ?? "")).filter(Boolean),
   linkCreatorId: session.metadata?.creator ?? null, purchaseId: ref.purchaseId ?? null, giftCode: ref.giftCode ?? null,
 }, log);
+/**
+ * Meta Conversions API Purchase (build 10) for a new paid session, only when META_CAPI is on. Called once, by whichever
+ * fulfil inserted the row; event_id is the session id, so a duplicate would be dropped by Meta anyway. Never throws.
+ */
+async function capiPurchase(env: Env, session: Stripe.Checkout.Session, email: string, ref: string, contentName: string) {
+  if (env.META_CAPI !== "on") return;
+  await sendCapiPurchase(env, { eventId: session.id, email, valueCents: session.amount_total ?? 0, currency: session.currency || env.CURRENCY, contentName, at: new Date() }, ref);
+}
 
 async function fulfil(env: Env, session: Stripe.Checkout.Session): Promise<string | null> {
   if (session.metadata?.gift === "1") return fulfilGift(env, session);
@@ -866,6 +882,7 @@ async function fulfil(env: Env, session: Stripe.Checkout.Session): Promise<strin
     ...(tax != null ? { tax } : {}), ...(session.metadata?.arm ? { arm: session.metadata.arm } : {}) });
   await fulfilBump(env, session, tok);
   await creditCreator(env, session, { purchaseId: tok });
+  await capiPurchase(env, session, email, tok, `reading-${tier}`);
   return tok; // the reading is written in its own invocation (kickGenerate / first view) to stay under the per-request CPU cap
 }
 
@@ -931,6 +948,7 @@ async function fulfilGift(env: Env, session: Stripe.Checkout.Session): Promise<s
     .bind(code, now(), email, from, message, session.id, paymentIntentOf(session), session.amount_total ?? 0, tax).run();
   await log(env, "gift_paid", code, { amount: session.amount_total, ...(tax != null ? { tax } : {}) });
   await creditCreator(env, session, { giftCode: code });
+  await capiPurchase(env, session, email, code, "gift");
   if (email) {
     const m = giftEmail({ code, link: `${env.SITE_URL}/gift/${code}`, from, cardUrl: `${env.SITE_URL}/gift/card/${code}.png` });
     const ok = await sendEmail(env, email, m.subject, m.text);
@@ -1161,6 +1179,16 @@ app.post("/webhook/stripe", async (c) => {
         const r = await c.env.DB.prepare("UPDATE subscriptions SET status='past_due' WHERE id=? AND status='active'").bind(subId).run();
         if (r.meta.changes) await log(c.env, "season_past_due", subId, { invoice: inv.id, attempt: inv.attempt_count });
       } else {
+        // Season revenue for the KPI email (build 6): every paid Season invoice, first payment and renewals, once per invoice id
+        if (inv.id && (inv.amount_paid ?? 0) > 0) {
+          const meta = inv.parent?.subscription_details?.metadata as Record<string, string> | null | undefined;
+          const paidAt = inv.status_transitions?.paid_at ? new Date(inv.status_transitions.paid_at * 1000).toISOString() : now();
+          // a failure here (e.g. migration 008 not applied yet) is logged and never blocks the past_due → active step below
+          try {
+            await c.env.DB.prepare("INSERT OR IGNORE INTO season_invoices (invoice_id, subscription_id, purchase_id, paid_at, amount_cents, tax_cents, currency, billing_reason) VALUES (?,?,?,?,?,?,?,?)")
+              .bind(inv.id, subId, meta?.purchase_id ?? null, paidAt, inv.amount_paid, invoiceTaxCents(inv), inv.currency ?? null, inv.billing_reason ?? null).run();
+          } catch (e) { await log(c.env, "error", subId, { where: "season-invoice", invoice: inv.id, e: String(e) }); }
+        }
         const r = await c.env.DB.prepare("UPDATE subscriptions SET status='active' WHERE id=? AND status='past_due'").bind(subId).run();
         if (r.meta.changes) await log(c.env, "season_resumed", subId, { invoice: inv.id });
       }
@@ -1193,6 +1221,9 @@ app.post("/webhook/stripe", async (c) => {
         try {
           const ips = await stripe(c.env).invoicePayments.list({ payment: { type: "payment_intent", payment_intent: pi }, expand: ["data.invoice"], limit: 1 });
           const inv = ips.data[0]?.invoice;
+          const invId = typeof inv === "string" ? inv : inv?.id;
+          // the KPI email's Season revenue nets out refunds (amount_refunded is cumulative on the charge, so MAX is idempotent)
+          if (invId) await c.env.DB.prepare("UPDATE season_invoices SET refunded_cents = MAX(refunded_cents, ?) WHERE invoice_id=?").bind(ch.amount_refunded ?? 0, invId).run();
           const subRef = inv && typeof inv !== "string" && "parent" in inv ? inv.parent?.subscription_details?.subscription : undefined;
           const subId = typeof subRef === "string" ? subRef : subRef?.id;
           const row = subId ? await c.env.DB.prepare("SELECT purchase_id FROM subscriptions WHERE id=? AND status IN ('active','past_due')").bind(subId).first<{ purchase_id: string }>() : null;
@@ -1514,6 +1545,11 @@ app.get("/admin/kpi", async (c) => {
   const r = await buildKpiReport(c.env.DB, new Date(), kpiOpts(c.env));
   return c.text(r.text, 200, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
 });
+// Run the ads controller now (bearer), outside 06:00, still once per Brisbane day and still under ADS (off does nothing).
+app.post("/admin/ads/run", async (c) => {
+  if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
+  return c.json(await runAds(c.env, new Date(), true));
+});
 app.post("/admin/kpi/send", async (c) => {
   if (!adminOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
   return c.json(await runKpiEmail(c.env, new Date(), true));
@@ -1750,7 +1786,7 @@ async function runCleanup(env: Env) {
   if (r.meta.changes) await log(env, "cleanup", null, { previews: r.meta.changes });
 }
 
-const kpiOpts = (env: Env) => ({ siteUrl: env.SITE_URL, creatorsMode: env.CREATORS, visits: posthogVisits({ key: env.POSTHOG_PERSONAL_API_KEY, project: env.POSTHOG_PROJECT_ID, host: env.POSTHOG_HOST }) });
+const kpiOpts = (env: Env) => ({ siteUrl: env.SITE_URL, creatorsMode: env.CREATORS, adsMode: adsMode(env.ADS), visits: posthogVisits({ key: env.POSTHOG_PERSONAL_API_KEY, project: env.POSTHOG_PROJECT_ID, host: env.POSTHOG_HOST }) });
 
 /** Monday KPI email (build 6): Mondays 07:00–07:59 Brisbane, once a week (a non-forced `kpi_sent` row in the last 6 days skips it). */
 async function runKpiEmail(env: Env, nowD = new Date(), force = false): Promise<{ sent: boolean; reason?: string; headline?: string }> {
@@ -1773,6 +1809,13 @@ async function runKpiEmail(env: Env, nowD = new Date(), force = false): Promise<
 async function runCreatorCron(env: Env) {
   try { await runCreatorPayouts(env, new Date(), {}, log); }
   catch (e) { await log(env, "error", null, { where: "creator-payouts", e: String(e).slice(0, 300) }); }
+}
+
+/** Ads budget controller (build 10): 06:00 Brisbane, once a day, only when ADS is "dry-run" or "on". Never throws. */
+async function runAds(env: Env, nowD = new Date(), force = false) {
+  try {
+    return await runAdsController(env, { now: nowD, force, notify: (subject, text) => sendEmail(env, env.ADMIN_EMAIL || env.SUPPORT_EMAIL, subject, text) });
+  } catch (e) { await log(env, "error", null, { where: "ads", e: String(e) }); return { ran: false, reason: "error" }; }
 }
 
 async function runErrorDigest(env: Env) {
@@ -1906,5 +1949,5 @@ export default {
     const raw = new Uint8Array(await new Response(message.raw).arrayBuffer());
     await handleSupportEmail(env, { raw, envelopeFrom: message.from, forward: (to, headers) => message.forward(to, headers) }, ctx, inboxDeps);
   },
-  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runFollowups(env), runErrorDigest(env), runKpiEmail(env), runCleanup(env), runPriceTest(env), runGiftSeason(env), runCreatorCron(env)])); },
+  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runFollowups(env), runErrorDigest(env), runKpiEmail(env), runCleanup(env), runPriceTest(env), runGiftSeason(env), runCreatorCron(env), runAds(env)])); },
 };

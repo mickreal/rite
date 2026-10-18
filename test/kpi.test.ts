@@ -57,12 +57,12 @@ describe("buildKpiReport: a fixture week", () => {
     expect(t).toContain("Previews: 6 vs 4 (+50%)");
     expect(t).toContain("Paid readings: 2 vs 1 (+100%) · plus 1 $0 reading (gift codes), not in revenue");
     expect(t).toContain("Preview→paid: 33.3% vs 25.0%");
-    expect(t).toContain("Revenue: $77 vs $29 (+166%) · readings $48, gifts $29"); // refunded p3, failed p5, refunded G2, $0 p4 all out
+    expect(t).toContain("Revenue: $77 vs $29 (+166%) · readings $48, gifts $29, Season $0"); // refunded p3, failed p5, refunded G2, $0 p4 all out
     expect(t).toContain("Refunds: 1 ($29) vs 0 ($0) · Season refunds 1 ($49)");
-    expect(t).toContain("Season: 2 active (+1 past due), 2 started, 1 cancelled (prev week 0 started, 0 cancelled). Season revenue isn't stored in D1");
+    expect(t).toContain("Season: 2 active (+1 past due), 2 started, 1 cancelled (prev week 0 started, 0 cancelled) · 0 payments (0 renewals), $0 net of tax vs $0");
     expect(t).toContain("Gifts: 2 bought, 1 redeemed (prev 0, 0)");
     // November: $77 this week + $29 the week before; pro-rated over 15 days 7.5 h of 30
-    expect(t).toContain("Month to date (2026-11, day 16 of 30): $106 vs $5,104 pro-rated, 2% (month target $10,000)");
+    expect(t).toContain("Month to date (2026-11, day 16 of 30): $106 vs $5,104 pro-rated, 2% (month target $10,000) · Season $0 of it");
     expect(t).toContain("Follow-ups: 3 sent, 1 skipped · stops: 2");
     expect(t).toContain("Narration: 3 narrated, 1 on the fallback voice");
     expect(t).toContain("Errors: 4 vs 1 · followup 2, (no where) 1, email 1");

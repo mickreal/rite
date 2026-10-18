@@ -127,6 +127,8 @@ About 16 agent days in all. Builds 1–6 (about 7.5 days) fit before and around 
 
 **Done when.** A test send with seeded data; numbers match `/admin` for the same window.
 
+**Season revenue (18 Oct, branch `b10-ads`).** Each paid Season invoice (`invoice.paid` / `invoice.payment_succeeded`, first payment and renewals) is stored once in `season_invoices` (migration 009) with its tax and any refund from `charge.refunded`. The email adds Season, net of tax and refunds, to weekly revenue, month to date and the best month, and the Season line shows payments and renewals. Readings and gifts are still counted tax-included, as before.
+
 ## 7. Birth-month search pages
 
 **Why.** "Saturn return [month year]" and "Saturn return calculator" are searched by exactly the right people, and search traffic compounds without spend.
@@ -186,6 +188,8 @@ About 16 agent days in all. Builds 1–6 (about 7.5 days) fit before and around 
 **Mick provides.** Meta Business account, ad account with a payment method, a Meta app with Marketing API access and a system-user token; the monthly cap.
 
 **Done when.** Rule tests with fixture spend and purchase numbers; a dry-run week logs the changes it would make before it's allowed to make them.
+
+**Status (18 Oct, branch `b10-ads`).** Built and tested, not deployed (`src/ads.ts`, `test/ads.test.ts`): the Conversions API Purchase from the webhook for every new paid reading and gift (`META_CAPI`, off; SHA-256 of the trimmed, lower-cased email; `event_id` = the Checkout Session id; never blocks fulfilment), and the daily controller at 06:00 Brisbane behind `ADS` (`off` | `dry-run` | `on`, default off) with `ADS_DAILY_CAP` / `ADS_MONTHLY_CAP`. It reads the campaign's (or ad set's) budget, status and start date plus 7-day, lifetime and month-to-date spend from the Marketing API, counts buyers from our own `?r=meta` purchases, and applies the rules above plus the growth plan's: $50/day held for the first 7 days (covers the 3-day learning phase), kill line (over $40 per buyer once $300 is spent, applies from day 1), caps as a ceiling of min(daily cap, monthly cap left ÷ days left). Two additions to the spec, both constants in `RULES`: a raise needs at least 3 buyers in the 7 days, and no raise or cut within 3 days of the last one (a change also restarts the "3 days over $20" count). It never un-pauses. Missing config or any Meta error: nothing changes, the `ads_decision` row says why and an `error` row reaches the digest. Pauses email Mick (dry-run too, marked). `POST /admin/ads/run` runs it on demand. The KPI email has an ADS section and Gate B reads the controller's cost per buyer. Not built: the weekly creative upload (creative is set by hand in F6), TikTok (phase 4), browser pixel, `fbc`/IP/user-agent match keys (the webhook doesn't have them). Mick's steps: `docs/launch-checklist.md` F1–F9.
 
 ---
 

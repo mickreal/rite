@@ -24,7 +24,7 @@ export type Gate = (typeof GATES)[number];
 export interface VisitCounts { visitors: number; pageviews: number }
 /** Visits between two UTC instants (ISO), or a throw when the source fails. */
 export type VisitsFn = (fromIso: string, toIso: string) => Promise<VisitCounts>;
-export interface KpiOpts { visits?: VisitsFn | null; siteUrl?: string; creatorsMode?: string }
+export interface KpiOpts { visits?: VisitsFn | null; siteUrl?: string; creatorsMode?: string; adsMode?: string }
 export interface KpiReport { subject: string; headline: string; text: string }
 
 // ---------- dates ----------
@@ -72,18 +72,24 @@ function change(cur: number, prev: number): string {
 // ---------- queries ----------
 interface Week {
   previews: number; paid: number; readingCents: number; zeroReadings: number; giftsBought: number; giftCents: number; giftsRedeemed: number;
-  seasonStarts: number; seasonCancels: number; refunds: number; refundCents: number; seasonRefunds: number; seasonRefundCents: number;
+  seasonCents: number; seasonPayments: number; seasonRenewals: number; seasonStarts: number; seasonCancels: number; refunds: number; refundCents: number; seasonRefunds: number; seasonRefundCents: number;
   followupsSent: number; followupsSkipped: number; stops: number; errors: number; narrated: number; narrationFallbacks: number;
   support: number; supportAuto: number; supportToMick: number;
 }
 const n0 = (v: unknown) => Number(v ?? 0) || 0;
 
+// Saturn Season (season_invoices, migration 009): each paid invoice net of tax, less any refund on it (pro rata, so the
+// refunded share of the tax comes off too). A fully refunded invoice drops out, as a refunded reading does.
+const SEASON_LIVE = "amount_cents > 0 AND refunded_cents < amount_cents";
+const SEASON_NET = "COALESCE(SUM(ROUND((amount_cents - tax_cents) * 1.0 * (amount_cents - refunded_cents) / amount_cents)),0)";
+
 async function revenueBetween(db: D1Database, from: string, to: string) {
-  const [r, g] = await Promise.all([
+  const [r, g, s] = await Promise.all([
     db.prepare(`SELECT COALESCE(SUM(amount_cents),0) c, COUNT(*) n FROM purchases WHERE status IN ${LIVE} AND amount_cents > 0 AND created_at >= ? AND created_at < ?`).bind(from, to).first<{ c: number; n: number }>(),
     db.prepare("SELECT COALESCE(SUM(amount_cents),0) c FROM gifts WHERE COALESCE(redeemed_at,'') != 'refunded' AND created_at >= ? AND created_at < ?").bind(from, to).first<{ c: number }>(),
+    db.prepare(`SELECT ${SEASON_NET} c, COUNT(*) n, COALESCE(SUM(CASE WHEN billing_reason = 'subscription_cycle' THEN 1 ELSE 0 END),0) rn FROM season_invoices WHERE ${SEASON_LIVE} AND paid_at >= ? AND paid_at < ?`).bind(from, to).first<{ c: number; n: number; rn: number }>(),
   ]);
-  return { readingCents: n0(r?.c), paid: n0(r?.n), giftCents: n0(g?.c), cents: n0(r?.c) + n0(g?.c) };
+  return { readingCents: n0(r?.c), paid: n0(r?.n), giftCents: n0(g?.c), seasonCents: n0(s?.c), seasonPayments: n0(s?.n), seasonRenewals: n0(s?.rn), cents: n0(r?.c) + n0(g?.c) + n0(s?.c) };
 }
 
 async function week(db: D1Database, from: string, to: string): Promise<Week> {
@@ -105,7 +111,7 @@ async function week(db: D1Database, from: string, to: string): Promise<Week> {
   ]);
   const k = Object.fromEntries(kinds.results.map((r) => [r.kind, r]));
   return {
-    previews: n0(pv?.n), paid: rev.paid, readingCents: rev.readingCents, zeroReadings: n0(zero?.n), giftsBought: n0(gb?.n), giftCents: rev.giftCents, giftsRedeemed: n0(gr?.n),
+    previews: n0(pv?.n), paid: rev.paid, readingCents: rev.readingCents, seasonCents: rev.seasonCents, seasonPayments: rev.seasonPayments, seasonRenewals: rev.seasonRenewals, zeroReadings: n0(zero?.n), giftsBought: n0(gb?.n), giftCents: rev.giftCents, giftsRedeemed: n0(gr?.n),
     seasonStarts: n0(k.season_start?.refs), seasonCancels: n0(k.season_cancel?.refs), refunds: n0(refunds?.n), refundCents: n0(refunds?.c),
     seasonRefunds: n0(sref?.n), seasonRefundCents: n0(sref?.c), followupsSent: n0(k.followup_sent?.n), followupsSkipped: n0(k.followup_skipped?.n),
     stops: n0(k.stopped?.n), errors: n0(k.error?.n), narrated: n0(narr?.n), narrationFallbacks: n0(narr?.f),
@@ -145,6 +151,7 @@ async function creatorLines(db: D1Database, curFrom: string, curTo: string, prev
 }
 
 // ---------- the report ----------
+interface AdsRow { date: string; mode?: string; action: string; reason: string; from?: number; to?: number; applied?: boolean; status?: string; spend7?: number; buyers7?: number; cpb7?: number | null; spend_month?: number }
 interface Visits { cur: VisitCounts | null; prev: VisitCounts | null; state: "ok" | "missing" | "failed" }
 
 async function getVisits(fn: VisitsFn | null | undefined, ranges: Array<[string, string]>): Promise<{ state: Visits["state"]; out: Array<VisitCounts | null> }> {
@@ -155,7 +162,7 @@ async function getVisits(fn: VisitsFn | null | undefined, ranges: Array<[string,
 
 /**
  * The KPI report for the 7 full Brisbane days before `now` against the 7 before those. Revenue is readings + gifts as D1
- * stores them (status now, so refunded sales are out); Season revenue isn't stored, so Season is counts only.
+ * stores them (status now, so refunded sales are out) + Saturn Season invoices net of tax and refunds (season_invoices).
  */
 export async function buildKpiReport(db: D1Database, now: Date, opts: KpiOpts = {}): Promise<KpiReport> {
   const today = brisDate(now);
@@ -176,10 +183,15 @@ export async function buildKpiReport(db: D1Database, now: Date, opts: KpiOpts = 
     db.prepare(`SELECT m, SUM(c) c FROM (
         SELECT substr(datetime(created_at,'+10 hours'),1,7) m, amount_cents c FROM purchases WHERE status IN ${LIVE} AND amount_cents > 0
         UNION ALL SELECT substr(datetime(created_at,'+10 hours'),1,7) m, amount_cents c FROM gifts WHERE COALESCE(redeemed_at,'') != 'refunded'
+        UNION ALL SELECT substr(datetime(paid_at,'+10 hours'),1,7) m, ROUND((amount_cents - tax_cents) * 1.0 * (amount_cents - refunded_cents) / amount_cents) c FROM season_invoices WHERE ${SEASON_LIVE}
       ) GROUP BY m ORDER BY c DESC LIMIT 1`).first<{ m: string; c: number }>(),
   ]);
+  // ads controller (build 10): its decisions since the start of last week's window, through this morning's run
+  const adsRows = (await db.prepare("SELECT detail FROM events WHERE kind='ads_decision' AND at >= ? AND at < ? AND json_valid(detail) ORDER BY id").bind(curFrom, iso(now.getTime())).all<{ detail: string }>()).results
+    .map((r) => JSON.parse(r.detail) as AdsRow);
+  const adsLast = [...adsRows].reverse().find((r) => typeof r.spend7 === "number") ?? null;
   const visits: Visits = { state: visitsRes.state, cur: visitsRes.out[0] ?? null, prev: visitsRes.out[1] ?? null };
-  const curRev = cur.readingCents + cur.giftCents, prevRev = prev.readingCents + prev.giftCents;
+  const curRev = cur.readingCents + cur.giftCents + cur.seasonCents, prevRev = prev.readingCents + prev.giftCents + prev.seasonCents;
   const pvPaid = [pct(cur.paid, cur.previews), pct(prev.paid, prev.previews)];
   const vPaid = [visits.cur ? pct(cur.paid, visits.cur.visitors) : null, visits.prev ? pct(prev.paid, visits.prev.visitors) : null];
   const sub = Object.fromEntries(subs.results.map((r) => [r.status, n0(r.n)]));
@@ -203,7 +215,9 @@ export async function buildKpiReport(db: D1Database, now: Date, opts: KpiOpts = 
       gateLine = `${gate.name} (${when}): visit→paid over 4 weeks ${v === null ? "n/a" : pctS(v)}, line is 1.5% · ${v === null ? "not measurable without visits" : v < 1.5 ? "BELOW: rework the offer before more spend" : "above"}`;
     } else if (gate.id === "B") {
       gateFailing = false;
-      gateLine = `${gate.name} (${when}): ads cost per buyer under $20 · ads not running`;
+      gateLine = adsLast
+        ? `${gate.name} (${when}): ads cost per buyer under $20 · ${adsLast.cpb7 == null ? (adsLast.spend7 ? "no ?r=meta buyers" : "no spend") : usd(adsLast.cpb7)} over 7 days at ${usd(adsLast.to ?? adsLast.from ?? 0)} a day (target: $200 a day)`
+        : `${gate.name} (${when}): ads cost per buyer under $20 · ads not running`;
     } else {
       const mtd = mt?.rev.cents ?? 0;
       gateFailing = mtd < 100000 * 100 && left <= 21;
@@ -249,15 +263,26 @@ export async function buildKpiReport(db: D1Database, now: Date, opts: KpiOpts = 
   L.push(`  Preview→paid: ${pctS(pvPaid[0] ?? null)} vs ${pctS(pvPaid[1] ?? null)}`);
   if (visits.state === "ok") L.push(`  Visit→paid: ${pctS(vPaid[0] ?? null)} vs ${pctS(vPaid[1] ?? null)} (paid ÷ unique visitors)`);
   L.push("", "MONEY");
-  L.push(`  Revenue: ${usd(curRev)} vs ${usd(prevRev)}${change(curRev, prevRev)} · readings ${usd(cur.readingCents)}, gifts ${usd(cur.giftCents)}`);
+  L.push(`  Revenue: ${usd(curRev)} vs ${usd(prevRev)}${change(curRev, prevRev)} · readings ${usd(cur.readingCents)}, gifts ${usd(cur.giftCents)}, Season ${usd(cur.seasonCents)}`);
   L.push(`  Refunds: ${cur.refunds} (${usd(cur.refundCents)}) vs ${prev.refunds} (${usd(prev.refundCents)})${cur.seasonRefunds ? ` · Season refunds ${cur.seasonRefunds} (${usd(cur.seasonRefundCents)})` : ""}`);
-  L.push(`  Season: ${n0(sub.active)} active${sub.past_due ? ` (+${sub.past_due} past due)` : ""}, ${cur.seasonStarts} started, ${cur.seasonCancels} cancelled (prev week ${prev.seasonStarts} started, ${prev.seasonCancels} cancelled). Season revenue isn't stored in D1; see Stripe.`);
+  L.push(`  Season: ${n0(sub.active)} active${sub.past_due ? ` (+${sub.past_due} past due)` : ""}, ${cur.seasonStarts} started, ${cur.seasonCancels} cancelled (prev week ${prev.seasonStarts} started, ${prev.seasonCancels} cancelled) · ${cur.seasonPayments} payment${cur.seasonPayments === 1 ? "" : "s"} (${cur.seasonRenewals} renewal${cur.seasonRenewals === 1 ? "" : "s"}), ${usd(cur.seasonCents)} net of tax vs ${usd(prev.seasonCents)}${change(cur.seasonCents, prev.seasonCents)}`);
   L.push(`  Gifts: ${cur.giftsBought} bought, ${cur.giftsRedeemed} redeemed (prev ${prev.giftsBought}, ${prev.giftsRedeemed})`);
   if (mt) {
     const p = mt.t.proRatedCents ? Math.round(mt.rev.cents / mt.t.proRatedCents * 100) : 0;
-    L.push(`  Month to date (${mt.t.month}, day ${mt.t.day} of ${mt.t.days}): ${usd(mt.rev.cents)} vs ${usd(mt.t.proRatedCents)} pro-rated, ${p}% (month target ${usd(mt.t.targetCents)})`);
+    L.push(`  Month to date (${mt.t.month}, day ${mt.t.day} of ${mt.t.days}): ${usd(mt.rev.cents)} vs ${usd(mt.t.proRatedCents)} pro-rated, ${p}% (month target ${usd(mt.t.targetCents)}) · Season ${usd(mt.rev.seasonCents)} of it`);
   } else L.push(`  Month to date (${today.slice(0, 7)}): no plan target this month (targets run 2026-11 to 2027-10).`);
   L.push("", "NEXT GATE", `  ${gateLine}`);
+  if (adsRows.length || (opts.adsMode && opts.adsMode !== "off")) {
+    L.push("", `ADS (Meta, ADS=${opts.adsMode ?? adsRows[adsRows.length - 1]?.mode ?? "?"})`);
+    if (adsLast) L.push(`  Last run ${short(adsLast.date)}: ${usd(adsLast.spend7 ?? 0)} spent in 7 days, ${adsLast.buyers7} ?r=meta buyer${adsLast.buyers7 === 1 ? "" : "s"}, cost per buyer ${adsLast.cpb7 == null ? "n/a" : usd(adsLast.cpb7)} · ${usd(adsLast.spend_month ?? 0)} this month · ${adsLast.status ?? "?"} at ${usd(adsLast.to ?? adsLast.from ?? 0)} a day`);
+    if (!adsRows.length) L.push("  No controller run in the last 7 days.");
+    for (const r of adsRows) {
+      const moves = r.action === "raise" || r.action === "cut" || r.action === "pause";
+      const delta = r.action === "raise" || r.action === "cut" ? ` ${usd(r.from ?? 0)} → ${usd(r.to ?? 0)}` : "";
+      const how = !moves ? "" : r.mode === "dry-run" ? " (dry run, not applied)" : r.applied ? "" : " (NOT applied: Meta refused)";
+      L.push(`  ${short(r.date)}: ${r.action}${delta}${how} · ${r.reason}`);
+    }
+  }
   L.push("", "OPERATIONS");
   L.push(`  Follow-ups: ${cur.followupsSent} sent, ${cur.followupsSkipped} skipped · stops: ${cur.stops}`);
   L.push(`  Narration: ${cur.narrated} narrated, ${cur.narrationFallbacks} on the fallback voice`);

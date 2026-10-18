@@ -264,3 +264,18 @@ CREATE TABLE IF NOT EXISTS creator_payouts (
   error TEXT,
   UNIQUE(creator_id, period, currency)
 );
+-- Saturn Season revenue (migration 009): one row per paid Season invoice, keyed on Stripe's invoice id (invoice.paid and
+-- invoice.payment_succeeded both arrive; the second is a no-op). amount_cents is amount_paid, tax included; the tax column is the
+-- tax in it (0 with Stripe Tax off); refunded_cents comes from charge.refunded. The KPI email counts amount − tax, less refunds.
+CREATE TABLE IF NOT EXISTS season_invoices (
+  invoice_id TEXT PRIMARY KEY,
+  subscription_id TEXT NOT NULL,
+  purchase_id TEXT,
+  paid_at TEXT NOT NULL,            -- ISO; Stripe's status_transitions.paid_at, else the time the webhook arrived
+  amount_cents INTEGER NOT NULL,
+  tax_cents INTEGER NOT NULL DEFAULT 0,
+  refunded_cents INTEGER NOT NULL DEFAULT 0,
+  currency TEXT,
+  billing_reason TEXT               -- subscription_create (the first month or year) | subscription_cycle (a renewal) | ...
+);
+CREATE INDEX IF NOT EXISTS idx_season_invoices_paid ON season_invoices(paid_at);
