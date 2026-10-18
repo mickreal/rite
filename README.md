@@ -28,6 +28,9 @@ src/
   views/result.ts   /p/:id       Free result: window chart, passes, remind-me, offer
   views/reading.ts  /r/:tok      Paid reading, ten chapters (see below)
   views/sign.ts     /saturn-return/saturn-in/:sign   Public SEO pages, all dates computed
+  views/born.ts     /saturn-return/born[/YYYY[-MM]]  Birth-month search pages (build 7): index, 66 years, 792 months; facts from born.ts
+  born.ts           Birth-month facts from the engine (KV-cached) + today-dependent status helpers
+  content/born-summary.json  Compact projection of born.ts for all 792 months (scripts/gen-born-summary.ts; drift-tested)
   views/gift.ts     /gift        Buy a gift code; /gift/thanks/:code after payment
   views/season.ts   /season/manage/:tok   Saturn Season: plan, next note, switch monthly/yearly, stop
   views/season-landing.ts  /season       What Saturn Season is, with a sample note computed this week
@@ -124,6 +127,7 @@ Every number comes from code. The model only writes prose and is told it may not
 ## Public pages
 
 - `/saturn-return/saturn-in/:sign` — twelve SEO pages. The transit dates, "first return, born" and "second return, born" ranges come from `content/sign-periods.json`; the birth-date check calls `/api/calc`. Listed in `/sitemap.xml`; `/p/`, `/r/` and `/admin/` are disallowed in `robots.txt`.
+- `/saturn-return/born/1997-03` (792 months, 1940–2005), `/saturn-return/born/1997` (66 years) and `/saturn-return/born` (index) — build 7 search pages. For each month: Saturn's sign and degree range (split months name the change day), every return window, and the exact passes and closest turn for the 1st, 15th and last day (noon UTC, the same maths as `/api/calc` and `compute()`). Facts are computed by `src/born.ts` and cached in KV (`born:v1:YYYY-MM`); the "as of" status is worked out per request, and titles and descriptions use absolute dates only. CTAs go to `/start?d=YYYY-MM-01&r=seo`. No client JavaScript; FAQPage JSON-LD on month pages. All 859 URLs are in `/sitemap.xml`. Out-of-range or malformed slugs are 404 with `x-robots-tag: noindex`.
 - `/season` — what Saturn Season is, for people who land from a forwarded note or the landing's Season row. The sample note is computed per request for a chart born 1 Jun 1997, Melbourne, as of this Monday 07:00 Melbourne. CTA goes to `/#start` (Season needs a reading).
 - `/second` — the landing for people in their second return now: the cohort is whoever was born in the sign Saturn occupies today, 55–63 years before this stretch (`signData().secondBorn`), so the copy rolls over by itself when Saturn changes sign.
 - Both are in `/sitemap.xml`.

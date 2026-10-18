@@ -7,6 +7,9 @@ import { stageAt } from "./astro/cycle";
 import SIGN_PERIODS from "./content/sign-periods.json";
 import { signPage, type SignPageData } from "./views/sign";
 import { whenPage, comparePage, type Cohort } from "./views/guides";
+import { monthPage as bornMonthPage, yearPage as bornYearPage, indexPage as bornIndexPage, bornPath } from "./views/born";
+import { bornFactsCached, parseYm, parseYear, type MonthSummary } from "./born";
+import BORN_SUMMARY from "./content/born-summary.json";
 import { SIGNS, type Sign } from "./astro/saturn";
 import { writePreview, writeReport, writeSeason, datesAreGrounded, parseJsonReply, answerQuestion } from "./llm";
 import { sendEmail, stopUrl, deliveryEmail, giftDeliveryEmail, seasonEmail, seasonCompleteEmail, stageReminderEmail, giftEmail, day3Email, day10Email, giftSeasonEmail } from "./email";
@@ -198,6 +201,22 @@ app.get("/saturn-return/saturn-in/:sign", async (c) => {
   return c.html(signPage({ siteUrl: c.env.SITE_URL, d }), 200, { "cache-control": "public, max-age=3600" });
 });
 app.get("/saturn-return", (c) => c.redirect("/", 301));
+// Birth-month search pages (build 7): facts from the engine (src/born.ts, KV-cached), status worked out per request.
+// An hour of edge cache: every relative phrase on the page carries its "as of" date.
+const BORN_HDRS = { "cache-control": "public, max-age=3600" };
+const BORN_ALL = BORN_SUMMARY as MonthSummary[];
+app.get("/saturn-return/born", (c) => c.html(bornIndexPage({ siteUrl: c.env.SITE_URL, all: BORN_ALL, today: new Date() }), 200, BORN_HDRS));
+app.get("/saturn-return/born/:slug", async (c) => {
+  const slug = c.req.param("slug");
+  const year = parseYear(slug);
+  if (year !== null) return c.html(bornYearPage({ siteUrl: c.env.SITE_URL, year, months: BORN_ALL.filter((m) => m.ym.startsWith(`${year}-`)), today: new Date() }), 200, BORN_HDRS);
+  const ym = parseYm(slug);
+  if (!ym) return c.text("Not found", 404, { "x-robots-tag": "noindex" });
+  const f = await bornFactsCached(c.env.CACHE, ym.year, ym.month, safeCtx(c));
+  return c.html(bornMonthPage({ siteUrl: c.env.SITE_URL, f, today: new Date() }), 200, BORN_HDRS);
+});
+/** executionCtx throws outside a real request (the unit tests); the KV write then just runs inline. */
+const safeCtx = (c: Context) => { try { return c.executionCtx; } catch { return undefined; } };
 // Evergreen explainers (views/guides.ts). Cohorts from sign-periods.json, Saturn today from the table, examples from compute().
 const cohortOf = (sign: Sign): Cohort => { const d = signData(sign); return { sign, current: d.current, firstBorn: d.firstBorn, secondBorn: d.secondBorn, thirdBorn: d.thirdBorn ?? [] }; };
 const WHEN_EXAMPLES = ["1996-09-01", "1997-04-01"]; // one exact pass, three exact passes (both computed, noon UTC)
@@ -243,7 +262,8 @@ app.get("/season", (c) => {
   }), 200, { "cache-control": "public, max-age=3600" });
 });
 app.get("/sitemap.xml", (c) => {
-  const urls = ["/", "/second", "/season", "/gift", "/privacy", "/terms", "/refunds", "/saturn-return/when", "/saturn-return/first-vs-second", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
+  const urls = ["/", "/second", "/season", "/gift", "/privacy", "/terms", "/refunds", "/saturn-return/when", "/saturn-return/first-vs-second", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`),
+    bornPath(), ...[...new Set(BORN_ALL.map((m) => m.ym.slice(0, 4)))].map((y) => bornPath(y)), ...BORN_ALL.map((m) => bornPath(m.ym))];
   return c.body(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join("")}</urlset>`, 200, { "content-type": "application/xml" });
 });
 app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\nDisallow: /p/\nDisallow: /r/\nDisallow: /admin/\nSitemap: ${c.env.SITE_URL}/sitemap.xml\n`));

@@ -107,6 +107,17 @@ export function reportInputs(c: Computed, firstName: string | null, today = new 
 }
 
 
+/** The station (Saturn standing still) inside the window that comes closest to the natal degree, within 5°: "the closest turn".
+ *  Shared by the reading (cycle()) and the birth-month pages (src/born.ts). */
+export function closestTurn(natalLon: number, w: ReturnWindow): { date: string; orb: number } | null {
+  let turn: { date: string; orb: number } | null = null;
+  for (const s of stationsBetween(Date.parse(w.windowStart), Date.parse(w.windowEnd))) {
+    const o = Math.abs(((s.lon - natalLon + 540) % 360) - 180);
+    if (o < 5 && (!turn || o < Math.abs(turn.orb))) turn = { date: s.date, orb: Math.round(o * 10) / 10 };
+  }
+  return turn;
+}
+
 // ---------- the whole cycle, for the reading ----------
 export interface Cycle {
   chart: WindowChart;
@@ -130,12 +141,7 @@ export function cycle(c: Computed, today = new Date()): Cycle {
   const ahead = tensionPoints(birth, c.natalLon, Date.parse(w.hits[0]));
   const stage = stageAt(birth, c.natalLon, w, today);
   const areas = areaWeights(c.house, c.housesData);
-  const st = stationsBetween(Date.parse(w.windowStart), Date.parse(w.windowEnd));
-  let turn: Cycle["turn"] = null;
-  for (const s of st) {
-    const o = Math.abs(((s.lon - c.natalLon + 540) % 360) - 180);
-    if (o < 5 && (!turn || o < Math.abs(turn.orb))) turn = { date: s.date, orb: Math.round(o * 10) / 10 };
-  }
+  const turn = closestTurn(c.natalLon, w);
   const pct = Math.floor(stage.wa / 360 * 100); // floor: just short of the return reads 99%, not 100%
   const stageEvents: Cycle["stageEvents"] = [
     { key: "approach", label: "Approach: your window opens", date: w.windowStart },

@@ -127,7 +127,7 @@ export function signPage(opts: { siteUrl: string; d: SignPageData }) {
 <section class="wrap" style="padding-bottom:120px;display:flex;flex-direction:column;gap:20px">
   <h2 class="disp rv" style="margin:0;font-size:26px;font-weight:600">Saturn return by sign</h2>
   <div class="rv" style="display:flex;flex-wrap:wrap;gap:10px">${SIGNS.map((x) => html`<a href="/saturn-return/saturn-in/${x.toLowerCase()}" class="sign ${x === s ? "cur" : ""}" ${x === s ? 'aria-current="page"' : ""}>${x}</a>`)}</div>
-  <p class="rv" style="margin:0;font-size:17px;line-height:1.6;color:#A7A196">Related: <a href="/saturn-return/when">When is my Saturn return?</a> · <a href="/saturn-return/first-vs-second">First, second and third returns compared</a></p>
+  <p class="rv" style="margin:0;font-size:17px;line-height:1.6;color:#A7A196">Related: <a href="/saturn-return/when">When is my Saturn return?</a> · <a href="/saturn-return/first-vs-second">First, second and third returns compared</a> · <a href="/saturn-return/born">Saturn return by birth year</a></p>
 </section>`;
   const script = `
 (function(){var SIGN=${JSON.stringify(s)};var i=document.getElementById('sd'),a=document.getElementById('ans'),go=document.getElementById('go');var tm;
