@@ -45,6 +45,21 @@ SUPPORT_EMAIL = "hello@rite.report"
 INBOX_AUTO = "off"
 INBOX_REFUNDS_PER_DAY = "20"         # automatic refunds per rolling 24h; past either cap, refunds go to Mick
 INBOX_REFUND_CENTS_PER_DAY = "50000" # $500
+# Ads (docs/automation-builds.md §10, src/ads.ts; launch checklist F). Spends money, so: off by default, hard caps, kill switch.
+# ADS: "off" does nothing; "dry-run" reads Meta spend at 06:00 Brisbane daily, decides and logs (`ads_decision` events, the KPI
+# email) without changing anything; "on" applies (raise 20% / hold / cut 30% / pause), never above the caps, never un-pauses.
+ADS = "off"
+ADS_DAILY_CAP = "200"     # whole USD per day; raise only per Gate B (growth plan §4)
+ADS_MONTHLY_CAP = ""      # whole USD per calendar month (Brisbane); Mick sets it. Empty = the controller reports "missing config"
+ADS_REF = "meta"          # buyers counted are purchases whose preview came in on ?r=meta (or ?r=meta-*), Rite's own data
+META_CAMPAIGN_ID = ""     # the Advantage+ sales campaign (budget at campaign level); META_ADSET_ID instead if the budget is on an ad set
+META_ADSET_ID = ""
+META_API_VERSION = "v24.0"
+# Conversions API: "on" sends a server-side Purchase (hashed email, order value, event_id = Checkout Session id) per paid
+# reading or gift. Needs META_PIXEL_ID and the META_CAPI_TOKEN secret, and the privacy page line (checklist F3) first.
+META_CAPI = "off"
+META_PIXEL_ID = ""
+META_TEST_EVENT_CODE = "" # Events Manager → Test events code, only while testing (F4)
 # Automated data deletion (macro 5) needs an R2 bucket for the D1 export it takes first. Without this binding, delete
 # requests go to Mick. To enable: wrangler r2 bucket create rite-support-exports, then uncomment:
 # [[r2_buckets]]
@@ -54,6 +69,8 @@ INBOX_REFUND_CENTS_PER_DAY = "50000" # $500
 # Secrets (set with `wrangler secret put NAME`):
 #   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, ANTHROPIC_API_KEY, RESEND_API_KEY
 #   optional: POSTHOG_PERSONAL_API_KEY (Monday KPI email visits)
+#   ads (build 10): META_CAPI_TOKEN (dataset token, Conversions API), META_ADS_TOKEN (system user, ads_management + ads_read),
+#   META_APP_SECRET (only if the Meta app requires appsecret_proof)
 
 [[d1_databases]]
 binding = "DB"
