@@ -21,8 +21,8 @@ export const sessionTax = (env: Pick<CommerceEnv, "STRIPE_TAX">) =>
   taxOn(env) ? { automatic_tax: { enabled: true }, billing_address_collection: "required" as const } : {};
 
 // ---------- local prices ----------
-/** Products a LOCAL_PRICES entry can price. `gift` falls back to `full`; arm B of the price test uses `full_b` / `notime_b`. */
-export type PriceProduct = "full" | "notime" | "gift" | "bump" | "season_month" | "season_year" | "full_b" | "notime_b";
+/** Products a LOCAL_PRICES entry can price. `gift` falls back to `full`; arm B of the price test uses `full_b` / `notime_b`; `year_ahead` is build 11. */
+export type PriceProduct = "full" | "notime" | "gift" | "bump" | "season_month" | "season_year" | "full_b" | "notime_b" | "year_ahead";
 export type LocalPrices = Record<string, Partial<Record<PriceProduct, number>>>;
 
 /**

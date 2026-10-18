@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import Stripe from "stripe";
 import { geocode } from "./geo";
-import { compute, cycle, reportInputs, fmtMonth, fmtDay, hitSentence, phaseSentence, houseLabel, type Computed } from "./compute";
+import { compute, cycle, reportInputs, fmtMonth, fmtDay, hitSentence, phaseSentence, houseLabel, type Computed, type Birth } from "./compute";
 import { askSystem, type SeasonInputs } from "./content/prompts";
 import { stageAt } from "./astro/cycle";
 import SIGN_PERIODS from "./content/sign-periods.json";
@@ -11,8 +11,8 @@ import { monthPage as bornMonthPage, yearPage as bornYearPage, indexPage as born
 import { bornFactsCached, parseYm, parseYear, type MonthSummary } from "./born";
 import BORN_SUMMARY from "./content/born-summary.json";
 import { SIGNS, type Sign } from "./astro/saturn";
-import { writePreview, writeReport, writeSeason, datesAreGrounded, parseJsonReply, answerQuestion } from "./llm";
-import { sendEmail, stopUrl, deliveryEmail, giftDeliveryEmail, seasonEmail, seasonCompleteEmail, stageReminderEmail, giftEmail, day3Email, day10Email, giftSeasonEmail } from "./email";
+import { writePreview, writeReport, writeSeason, writeYearAhead, datesAreGrounded, parseJsonReply, answerQuestion } from "./llm";
+import { sendEmail, stopUrl, deliveryEmail, giftDeliveryEmail, seasonEmail, seasonCompleteEmail, stageReminderEmail, giftEmail, day3Email, day10Email, giftSeasonEmail, yearAheadDeliveryEmail, yearAheadOfferEmail } from "./email";
 import { stopPage } from "./views/stop";
 import { followupSchedule, followupDue, followupSkip, stageSeasonLine, type FollowupKind } from "./followups";
 import { readingPage, type ReportJson } from "./views/reading";
@@ -45,6 +45,8 @@ import { creatorsMode, commissionPct, discountPct, holdDays, minPayoutCents, unp
 import { applyCreator, approveCreator, changeCreator, attributeSale, reverseCommission, connectLink, refreshConnect, runCreatorPayouts, creatorNumbers, payoutsOf, recentPayouts,
   activeCreatorByHandle, creatorByToken, CREATOR_ACTIONS, type CreatorRow, type CreatorAction } from "./creator-ops";
 import { creatorsPage, dashboardPage, adminCreatorsPage } from "./views/creators";
+import { yearAhead, yearStart, yearEnd, canBuyNext, yearInputs, yearReportOk, teaser, periodLabel, yearMode, yearCents, januaryDay, OFFER_GAP_DAYS, OFFER_HOUR, RENEW_LEAD_DAYS, type YearAhead, type YearReport } from "./year-ahead";
+import { yearPage, yearOfferPage, yearStatePage } from "./views/year-ahead";
 import { taxOn, sessionTax, localPrices, currencyOptions, priceKeySuffix, bumpCents, armFor, armCents, priceTestStop, priceTestWinner, perPreview, giftSeasonOn, giftEmailDates, TAX_CODE, GIFT_EMAIL_HOUR, dollars, type PriceProduct, type PriceTestState, type ArmStats } from "./commerce";
 
 export interface Env {
@@ -72,6 +74,8 @@ export interface Env {
   ADS?: string; ADS_DAILY_CAP?: string; ADS_MONTHLY_CAP?: string; ADS_REF?: string;
   META_CAPI?: string; META_PIXEL_ID?: string; META_CAPI_TOKEN?: string; META_TEST_EVENT_CODE?: string;
   META_ADS_TOKEN?: string; META_APP_SECRET?: string; META_CAMPAIGN_ID?: string; META_ADSET_ID?: string; META_API_VERSION?: string;
+  // build 11, the year-ahead reading (src/year-ahead.ts): YEAR_AHEAD off | page | on, its price, and the January offer day (MM-DD)
+  YEAR_AHEAD?: string; PRICE_YEAR_AHEAD_CENTS?: string; YEAR_AHEAD_JANUARY?: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -99,7 +103,7 @@ const adminOk = (env: Env, auth: string | undefined, key?: string) =>
 // Worker-to-itself calls (/internal/generate) stay on the webhook secret.
 const internalOk = (env: Env, auth: string | undefined) => adminAuthorized(env.STRIPE_WEBHOOK_SECRET, auth);
 const stripe = (env: Env) => new Stripe(env.STRIPE_SECRET_KEY, { httpClient: Stripe.createFetchHttpClient() });
-const FUNNEL = new Set(["preview", "checkout", "paid", "generated", "gift_paid", "gift_redeemed", "season_start", "season_sent", "ask", "narrated", "refund", "story", "error"]);
+const FUNNEL = new Set(["preview", "checkout", "paid", "generated", "gift_paid", "year_ahead_paid", "gift_redeemed", "season_start", "season_sent", "ask", "narrated", "refund", "story", "error"]);
 async function log(env: Env, kind: string, ref?: string | null, detail?: unknown) {
   try { await env.DB.prepare("INSERT INTO events (at, kind, ref, detail) VALUES (?,?,?,?)").bind(now(), kind, ref ?? null, detail ? JSON.stringify(detail).slice(0, kind === "season_note" ? 16000 : 2000) : null).run(); } catch (e) { console.error("log", e); }
   if (env.POSTHOG_KEY && FUNNEL.has(kind)) {
@@ -653,7 +657,8 @@ app.post("/admin/fulfil", async (c) => {
   const session = await stripe(c.env).checkout.sessions.retrieve(session_id);
   if (session.payment_status !== "paid") return c.json({ ok: false, payment_status: session.payment_status });
   const tok = await fulfil(c.env, session);
-  if (tok && session.metadata?.gift !== "1") kickGenerate(c.env, c.executionCtx, tok);
+  kickAfterFulfil(c.env, c.executionCtx, session, tok);
+  if (session.metadata?.year_ahead === "1") return c.json({ ok: !!tok, year_ahead: tok, url: tok ? `${c.env.SITE_URL}/r/${session.metadata.purchase_id}/year/${(session.metadata.start ?? "").slice(0, 4)}` : null });
   return c.json({ ok: true, token: tok, gift: session.metadata?.gift === "1", url: `${c.env.SITE_URL}/${session.metadata?.gift === "1" ? "gift/thanks" : "r"}/${tok}` });
 });
 
@@ -667,6 +672,8 @@ app.get("/thanks", async (c) => {
     if (pu) return c.redirect(`/r/${pu.id}`);
     const g = await c.env.DB.prepare("SELECT code FROM gifts WHERE stripe_session_id = ?").bind(sid).first<{ code: string }>();
     if (g) return c.redirect(`/gift/thanks/${g.code}`);
+    const ya = await c.env.DB.prepare("SELECT purchase_id, year FROM year_aheads WHERE stripe_session_id = ?").bind(sid).first<{ purchase_id: string; year: number }>().catch(() => null); // before migration 010: no table
+    if (ya) return c.redirect(`/r/${ya.purchase_id}/year/${ya.year}`);
 
     await new Promise((r) => setTimeout(r, 1000));
   }
@@ -675,7 +682,11 @@ app.get("/thanks", async (c) => {
   const session = await s.checkout.sessions.retrieve(sid);
   if (session.payment_status === "paid") {
     const tok = await fulfil(c.env, session);
-    if (tok) { if (session.metadata?.gift !== "1") kickGenerate(c.env, c.executionCtx, tok); return c.redirect(session.metadata?.gift === "1" ? `/gift/thanks/${tok}` : `/r/${tok}`); }
+    if (tok) {
+      kickAfterFulfil(c.env, c.executionCtx, session, tok);
+      if (session.metadata?.year_ahead === "1") return c.redirect(`/r/${session.metadata.purchase_id}/year/${(session.metadata.start ?? "").slice(0, 4)}`);
+      return c.redirect(session.metadata?.gift === "1" ? `/gift/thanks/${tok}` : `/r/${tok}`);
+    }
   }
   return c.html(`<p style="font-family:serif;padding:40px">Payment received — your report is being generated. Refresh in a moment, or check your email.</p>`);
 });
@@ -706,7 +717,7 @@ app.get("/r/:tok", async (c) => {
   const sub = await c.env.DB.prepare("SELECT status FROM subscriptions WHERE purchase_id = ? AND status IN ('active','past_due')").bind(pu.id).first<{ status: string }>(); // past_due still shows the manage link
   const bg = await bumpGiftOf(c.env, pu);
   return c.html(readingPage({ subscribed: !!sub, siteUrl: c.env.SITE_URL, token: pu.id, c: comp, cy, r, firstName: pu.first_name, birthLabel: birthLabelOf(p), placeLabel: p.place_label, askLeft: Math.max(0, ASK_CAP - asks.length), asks,
-    bumpGift: bg ? { code: bg.code, used: !!bg.redeemed_purchase_id } : null, banner: giftSeasonOn(c.env) }));
+    bumpGift: bg ? { code: bg.code, used: !!bg.redeemed_purchase_id } : null, banner: giftSeasonOn(c.env), yearAhead: await yearAheadLine(c.env, pu) }));
 });
 
 const ASK_CAP = 5;
@@ -866,6 +877,7 @@ async function capiPurchase(env: Env, session: Stripe.Checkout.Session, email: s
 
 async function fulfil(env: Env, session: Stripe.Checkout.Session): Promise<string | null> {
   if (session.metadata?.gift === "1") return fulfilGift(env, session);
+  if (session.metadata?.year_ahead === "1") return fulfilYearAhead(env, session);
   const existing = await env.DB.prepare("SELECT id FROM purchases WHERE stripe_session_id = ?").bind(session.id).first<{ id: string }>();
   if (existing) { await fulfilBump(env, session, existing.id); await creditCreator(env, session, { purchaseId: existing.id }); return existing.id; } // a retry also finishes a bump gift (or a creator credit) that failed the first time
   const pid = session.metadata?.preview_id; const tier = session.metadata?.tier ?? "notime";
@@ -998,6 +1010,268 @@ async function generateReport(env: Env, tok: string) {
     const ok = await sendEmail(env, pu.email, m.subject, m.text);
     if (ok) { await env.DB.prepare("UPDATE purchases SET delivered_at=? WHERE id=?").bind(now(), tok).run(); await log(env, "emailed", tok); }
   }
+}
+
+// ---------- year-ahead reading (build 11: src/year-ahead.ts, src/views/year-ahead.ts, migration 010) ----------
+// One-off $19 for someone who already has a reading: the next 12 months of Saturn from their stored birth details, written up
+// month by month under the same date guard as the reading, at /r/:tok/year/:yyyy. YEAR_AHEAD gates the selling and the offers
+// ("off" by default); a year-ahead already bought always opens.
+interface YearRow { id: string; purchase_id: string; year: number; start_date: string; end_date: string; created_at: string; email: string; status: string; writing_at: string | null;
+  facts_json: string | null; report_md: string | null; stripe_session_id: string | null; stripe_payment_intent: string | null; amount_cents: number; delivered_at: string | null }
+const birthOf = (p: PreviewRow): Birth => ({ date: p.birth_date, time: p.birth_time, place: { label: p.place_label, lat: p.lat, lon: p.lon, tz: p.tz } });
+const YEAR_NAME = "Rite — Your year ahead";
+const YEAR_DESCRIPTION = "The next 12 months of Saturn against your chart, month by month, written for the reading you already have.";
+const yearPrice = (env: Env) => dollars(yearCents(env.PRICE_YEAR_AHEAD_CENTS));
+const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
+
+/** A reading's live year-aheads (refunded left out), newest first; [] before migration 010. */
+async function yearAheadsOf(env: Env, purchaseId: string): Promise<YearRow[]> {
+  try { return (await env.DB.prepare("SELECT * FROM year_aheads WHERE purchase_id=? AND status != 'refunded' ORDER BY start_date DESC").bind(purchaseId).all<YearRow>()).results ?? []; }
+  catch (e) { if (/no such table/i.test(String(e))) return []; throw e; }
+}
+/** The next year-ahead a reading could have: where it starts, and whether it's on sale yet (the last one ends within 60 days). */
+function nextYearOf(rows: YearRow[], at = new Date()) {
+  const latestEnd = rows[0]?.end_date ?? null;
+  return { start: yearStart(at, latestEnd), available: canBuyNext(at, latestEnd), latestEnd };
+}
+/** Only a written reading that wasn't refunded can have a year-ahead (the birth details are what it is computed from). */
+const yearEligible = (pu: PurchaseRow) => pu.status === "generated";
+
+/** The reading page's year-ahead line: years bought, and the offer when YEAR_AHEAD is on and one can be bought now. */
+async function yearAheadLine(env: Env, pu: PurchaseRow) {
+  try {
+    const rows = await yearAheadsOf(env, pu.id);
+    const mode = yearMode(env.YEAR_AHEAD);
+    if (mode === "off" && !rows.length) return null;
+    const nx = nextYearOf(rows);
+    return {
+      bought: rows.map((r) => ({ year: r.year, label: periodLabel({ start: r.start_date, end: r.end_date }), ready: r.status === "generated" })),
+      offer: mode !== "off" && yearEligible(pu) && nx.available ? { label: periodLabel({ start: nx.start, end: yearEnd(nx.start) }), price: yearPrice(env) } : null,
+    };
+  } catch (e) { await log(env, "error", pu.id, { where: "year-ahead-line", e: String(e) }); return null; }
+}
+
+// The offer: what the next twelve months hold (counts and months, no dates), and the button.
+app.get("/r/:tok/year", async (c) => {
+  const pu = await getPurchase(c.env, c.req.param("tok"));
+  if (!pu) return c.notFound();
+  if (yearMode(c.env.YEAR_AHEAD) === "off" || !yearEligible(pu)) return c.redirect(`/r/${pu.id}`);
+  const p = await getPreview(c.env, pu.preview_id);
+  if (!p) return c.notFound();
+  const rows = await yearAheadsOf(c.env, pu.id);
+  const nx = nextYearOf(rows);
+  const cur = rows[0] && rows[0].end_date > isoDay(Date.now()) ? { year: rows[0].year, label: periodLabel({ start: rows[0].start_date, end: rows[0].end_date }) } : null;
+  let y: YearAhead | null = null;
+  if (nx.available) {
+    if (rows.some((r) => r.year === +nx.start.slice(0, 4))) return c.redirect(`/r/${pu.id}/year/${nx.start.slice(0, 4)}`);
+    try { y = yearAhead(birthOf(p), nx.start); }
+    catch (e) { await log(c.env, "error", pu.id, { where: "year-ahead-engine", start: nx.start, e: String(e) }); return c.redirect(`/r/${pu.id}`); }
+  }
+  return c.html(yearOfferPage({ token: pu.id, y, price: yearPrice(c.env), current: cur, cancelled: c.req.query("c") === "1",
+    nextFrom: nx.available || !nx.latestEnd ? null : isoDay(Date.parse(nx.latestEnd) - RENEW_LEAD_DAYS * 86400000) }), 200, { "cache-control": "no-store", "x-robots-tag": "noindex" });
+});
+
+// Checkout: one Stripe Price under a lookup key (ensurePrice: tax-inclusive with STRIPE_TAX, LOCAL_PRICES "year_ahead"), the
+// reading's email prefilled, creator link codes applied as on any Checkout (createPaymentSession).
+app.post("/r/:tok/year/checkout", async (c) => {
+  if (yearMode(c.env.YEAR_AHEAD) === "off") return c.notFound();
+  const pu = await getPurchase(c.env, c.req.param("tok"));
+  if (!pu) return c.notFound();
+  if (!yearEligible(pu)) return c.redirect(`/r/${pu.id}`, 303);
+  const p = await getPreview(c.env, pu.preview_id);
+  if (!p) return c.notFound();
+  const rows = await yearAheadsOf(c.env, pu.id);
+  const nx = nextYearOf(rows);
+  const year = +nx.start.slice(0, 4);
+  if (rows.some((r) => r.year === year)) return c.redirect(`/r/${pu.id}/year/${year}`, 303); // one per reading per year
+  if (!nx.available) return c.redirect(`/r/${pu.id}/year`, 303);
+  try { yearAhead(birthOf(p), nx.start); } // never sell a year the engine can't compute
+  catch (e) { await log(c.env, "error", pu.id, { where: "year-ahead-engine", start: nx.start, e: String(e) }); return c.redirect(`/r/${pu.id}`, 303); }
+  const cents = yearCents(c.env.PRICE_YEAR_AHEAD_CENTS);
+  let price: string;
+  try { price = await ensurePrice(c.env, { product: "year_ahead", cents, name: YEAR_NAME, description: YEAR_DESCRIPTION }); }
+  catch (e) { await log(c.env, "error", pu.id, { where: "year-ahead-price", e: String(e) }); return c.redirect(`/r/${pu.id}/year`, 303); }
+  const creator = await activeCreatorByHandle(c.env.DB, cookieValue(c.req.header("cookie"), REF_COOKIE));
+  const session = await createPaymentSession(c.env, {
+    mode: "payment",
+    line_items: [{ price, quantity: 1 }],
+    ...sessionTax(c.env),
+    ...(pu.email ? { customer_email: pu.email } : {}),
+    metadata: { year_ahead: "1", purchase_id: pu.id, start: nx.start, year: String(year) },
+    success_url: `${c.env.SITE_URL}/thanks?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${c.env.SITE_URL}/r/${pu.id}/year?c=1`,
+  }, creator, pu.id);
+  await log(c.env, "year_ahead_checkout", pu.id, { year, start: nx.start, amount: cents, tax: taxOn(c.env), ...(creator ? { creator: creator.id } : {}) });
+  return c.redirect(session.url!, 303);
+});
+
+/** A paid year-ahead session: one row per session (idempotent), creator credit and the Conversions API as for any sale. */
+async function fulfilYearAhead(env: Env, session: Stripe.Checkout.Session): Promise<string | null> {
+  const existing = await env.DB.prepare("SELECT id FROM year_aheads WHERE stripe_session_id = ?").bind(session.id).first<{ id: string }>();
+  if (existing) { await creditCreator(env, session, { purchaseId: existing.id }); return existing.id; }
+  const purchaseId = session.metadata?.purchase_id ?? "", start = session.metadata?.start ?? "";
+  if (!purchaseId || !/^\d{4}-\d{2}-01$/.test(start)) { await log(env, "error", purchaseId || null, { where: "year-ahead-fulfil", e: "bad metadata", session: session.id }); return null; }
+  const email = session.customer_details?.email ?? session.customer_email ?? "";
+  const id = token(), tax = taxCents(session);
+  const ins = await env.DB.prepare(`INSERT OR IGNORE INTO year_aheads (id, purchase_id, year, start_date, end_date, created_at, email, stripe_session_id, stripe_payment_intent, amount_cents, tax_cents, currency, status)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'paid')`).bind(id, purchaseId, +start.slice(0, 4), start, yearEnd(start), now(), email, session.id, paymentIntentOf(session), session.amount_total ?? 0, tax, session.currency ?? env.CURRENCY).run();
+  if (!ins.meta.changes) {
+    const won = await env.DB.prepare("SELECT id FROM year_aheads WHERE stripe_session_id = ?").bind(session.id).first<{ id: string }>();
+    if (won) return won.id; // a parallel delivery of the same event
+    // A second payment for a year this reading already has (two Checkouts open at once). Money stays put; Mick decides.
+    await log(env, "error", purchaseId, { where: "year-ahead-duplicate", session: session.id, pi: paymentIntentOf(session), start });
+    await sendEmail(env, env.ADMIN_EMAIL || env.SUPPORT_EMAIL, `Rite: a second year-ahead payment for the same year (${start.slice(0, 4)})`,
+      `Reading ${env.SITE_URL}/r/${purchaseId} already has a year-ahead for ${start.slice(0, 4)}, and another payment came in for it.\n\nSession: ${session.id}\nPayment: ${paymentIntentOf(session) ?? "?"}\nEmail: ${email}\nAmount: ${session.amount_total ?? 0} ${session.currency ?? ""}\n\nNothing was written for the second payment. Refund it in Stripe (the webhook ignores refunds of unknown payments).`);
+    return null;
+  }
+  await log(env, "year_ahead_paid", id, { purchase: purchaseId, year: +start.slice(0, 4), amount: session.amount_total, ...(tax != null ? { tax } : {}) });
+  await creditCreator(env, session, { purchaseId: id });
+  await capiPurchase(env, session, email, id, "year-ahead");
+  return id;
+}
+
+/** After fulfil: write the reading or the year-ahead in its own invocation (gifts have nothing to write). */
+function kickAfterFulfil(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, session: Stripe.Checkout.Session, tok: string | null) {
+  if (!tok) return;
+  if (session.metadata?.year_ahead === "1") kickYearAhead(env, ctx, tok);
+  else if (session.metadata?.gift !== "1") kickGenerate(env, ctx, tok);
+}
+const YEAR_LOCK = "UPDATE year_aheads SET status='writing', writing_at=? WHERE id=? AND (status='paid' OR status='failed' OR (status='writing' AND writing_at < ?))";
+const lockYear = async (env: Env, yid: string) => !!(await env.DB.prepare(YEAR_LOCK).bind(now(), yid, new Date(Date.now() - 3 * 60000).toISOString()).run()).meta.changes;
+/** As kickGenerate: a fresh invocation through the Worker's own URL, or inline if Cloudflare refuses the self-call. */
+function kickYearAhead(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, yid: string) {
+  ctx.waitUntil((async () => {
+    try {
+      const res = await fetch(`${env.SITE_URL}/internal/year/${yid}`, { method: "POST", headers: { authorization: `Bearer ${env.STRIPE_WEBHOOK_SECRET}` } });
+      if (res.ok) return;
+      await log(env, "error", yid, { where: "kick-year-ahead", status: res.status, body: (await res.text()).slice(0, 200) });
+    } catch (e) { await log(env, "error", yid, { where: "kick-year-ahead", e: String(e) }); }
+    if (await lockYear(env, yid)) await generateYearAhead(env, yid);
+  })());
+}
+app.post("/internal/year/:id", async (c) => {
+  if (!internalOk(c.env, c.req.header("authorization"))) return c.text("no", 401);
+  if (!(await lockYear(c.env, c.req.param("id")))) return c.text("busy or done");
+  await generateYearAhead(c.env, c.req.param("id"));
+  return c.text("ok");
+});
+
+/**
+ * Write a year-ahead: the engine's twelve months (src/year-ahead.ts), then the model's prose around them, which must name
+ * only the engine's dates (datesAreGrounded, the same guard as the reading) and have all twelve months. Two tries, then
+ * 'failed' (the page offers a retry, as the reading does). On success the buyer gets the link.
+ */
+async function generateYearAhead(env: Env, yid: string) {
+  const ya = await env.DB.prepare("SELECT * FROM year_aheads WHERE id=?").bind(yid).first<YearRow>(); if (!ya) return;
+  const pu = await getPurchase(env, ya.purchase_id); if (!pu) return;
+  const p = await getPreview(env, pu.preview_id); if (!p) return;
+  const fail = () => env.DB.prepare("UPDATE year_aheads SET status='failed' WHERE id=?").bind(yid).run();
+  let y: YearAhead;
+  try { y = yearAhead(birthOf(p), ya.start_date); }
+  catch (e) { await log(env, "error", yid, { where: "year-ahead-engine", start: ya.start_date, e: String(e) }); await fail(); return; }
+  const { inputs, allowed } = yearInputs(y, recompute(p), pu.first_name);
+  let md = "";
+  for (let attempt = 0; attempt < 2 && !md; attempt++) {
+    try {
+      const r = parseJsonReply<YearReport>(await writeYearAhead(env, inputs));
+      if (!yearReportOk(r, y)) { await log(env, "error", yid, { where: "year-ahead-shape", attempt }); continue; }
+      if (!datesAreGrounded(JSON.stringify(r), allowed)) { await log(env, "error", yid, { where: "year-ahead-dates-ungrounded", attempt }); continue; }
+      md = JSON.stringify({ intro: r.intro, months: r.months.map((m) => ({ ym: m.ym, body: m.body })), carry: r.carry });
+    } catch (e) { await log(env, "error", yid, { where: "year-ahead-llm", e: String(e), attempt }); }
+  }
+  if (!md) { await fail(); return; }
+  await env.DB.prepare("UPDATE year_aheads SET report_md=?, facts_json=?, inputs_json=?, status='generated' WHERE id=?").bind(md, JSON.stringify(y), JSON.stringify(inputs), yid).run();
+  await log(env, "year_ahead_generated", yid, { purchase: pu.id, year: ya.year });
+  const to = ya.email || pu.email;
+  if (to) {
+    const m = yearAheadDeliveryEmail({ firstName: pu.first_name, period: periodLabel(y), url: `${env.SITE_URL}/r/${pu.id}/year/${ya.year}`, readingUrl: `${env.SITE_URL}/r/${pu.id}`, dates: y.events.length });
+    const ok = await sendEmail(env, to, m.subject, m.text);
+    if (ok) { await env.DB.prepare("UPDATE year_aheads SET delivered_at=? WHERE id=?").bind(now(), yid).run(); await log(env, "emailed", yid, { year_ahead: true }); }
+  }
+}
+
+app.get("/r/:tok/year/:yyyy", async (c) => {
+  const pu = await getPurchase(c.env, c.req.param("tok"));
+  const yyyy = c.req.param("yyyy");
+  if (!pu || !/^\d{4}$/.test(yyyy)) return c.notFound();
+  const rows = await yearAheadsOf(c.env, pu.id);
+  const ya = rows.find((r) => r.year === +yyyy);
+  if (!ya) return c.notFound();
+  const period = periodLabel({ start: ya.start_date, end: ya.end_date });
+  let r: YearReport | null = null, y: YearAhead | null = null;
+  try { r = ya.report_md ? JSON.parse(ya.report_md) as YearReport : null; y = ya.facts_json ? JSON.parse(ya.facts_json) as YearAhead : null; } catch { r = null; }
+  if (!r || !y || ya.status !== "generated") {
+    const stale = ya.status === "writing" && Date.now() - Date.parse(ya.writing_at ?? "0") > 3 * 60000;
+    if (ya.status === "paid" || stale || (ya.status === "failed" && c.req.query("retry") === "1")) kickYearAhead(c.env, c.executionCtx, ya.id);
+    const failed = ya.status === "failed" && c.req.query("retry") !== "1";
+    return c.html(yearStatePage({ token: pu.id, year: ya.year, state: failed ? "failed" : "writing", supportEmail: c.env.SUPPORT_EMAIL, period }), failed ? 500 : 200, { "cache-control": "no-store" });
+  }
+  const p = await getPreview(c.env, pu.preview_id);
+  if (!p) return c.notFound();
+  const others = rows.filter((x) => x.id !== ya.id && x.status === "generated").map((x) => ({ year: x.year, label: periodLabel({ start: x.start_date, end: x.end_date }) }));
+  return c.html(yearPage({ siteUrl: c.env.SITE_URL, token: pu.id, y, r, firstName: pu.first_name, birthLabel: birthLabelOf(p), placeLabel: p.place_label, others }), 200, { "x-robots-tag": "noindex" });
+});
+
+/**
+ * Offer emails (YEAR_AHEAD = "on"), hourly from 09:00 in the buyer's birthplace zone: on the anniversary of their latest paid
+ * reading, and on YEAR_AHEAD_JANUARY (default 5 Jan). Only to buyers with a written, unrefunded reading who haven't stopped
+ * emails (the gift-season rule), haven't bought a year-ahead this calendar year and have none running past the next 60 days,
+ * and at most one such email per address in 60 days. Claimed in campaign_sends first (year-ahead-<kind>-<year>, so one of
+ * each kind a year); a failed send drops its claim.
+ */
+async function runYearAheadOffers(env: Env, at = new Date()) {
+  if (yearMode(env.YEAR_AHEAD) !== "on") return;
+  try {
+    if (!(await env.DB.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='year_aheads'").first())) return; // before migration 010
+    const jan = januaryDay(env.YEAR_AHEAD_JANUARY);
+    // birthplace zones run up to a day either side of UTC: look at yesterday, today and tomorrow (UTC), as month-day
+    const days = [-1, 0, 1].map((k) => isoDay(at.getTime() + k * 86400000));
+    const mds = new Set(days.map((d) => d.slice(5)));
+    if (mds.has("02-28") || mds.has("03-01")) mds.add("02-29"); // a 29 Feb reading has its anniversary on 28 Feb (or 1 Mar's eve) in other years
+    const janNear = mds.has(jan);
+    type Row = { email: string; purchase_id: string; first_name: string | null; created_at: string } & PreviewRow;
+    const md = [...mds];
+    const rows = await env.DB.prepare(`SELECT pv.*, p.email, p.id purchase_id, p.first_name, p.created_at FROM purchases p JOIN previews pv ON pv.id = p.preview_id
+      WHERE p.amount_cents > 0 AND p.email != '' AND p.status = 'generated'
+        AND (${janNear ? "1" : "0"} OR substr(p.created_at,6,5) IN (${md.map(() => "?").join(",")}))
+        AND p.created_at = (SELECT MAX(p2.created_at) FROM purchases p2 WHERE p2.email = p.email AND p2.amount_cents > 0)
+        AND NOT EXISTS (SELECT 1 FROM purchases r WHERE r.email = p.email AND r.status = 'refunded')
+        AND NOT EXISTS (SELECT 1 FROM purchases x WHERE x.email = p.email AND (
+          EXISTS (SELECT 1 FROM followups f WHERE f.purchase_id = x.id AND f.sent_at = 'skipped:stop')
+          OR EXISTS (SELECT 1 FROM stage_reminders s WHERE s.purchase_id = x.id AND s.sent_at = 'skipped:stop')
+          OR EXISTS (SELECT 1 FROM events e WHERE e.kind = 'stopped' AND (e.ref = x.id OR e.ref = x.preview_id))))
+      ORDER BY p.created_at DESC, p.id DESC LIMIT 2000`).bind(...md).all<Row>();
+    for (const r of rows.results ?? []) {
+      try {
+        const { date, hour } = localParts(r.tz, at);
+        if (hour < OFFER_HOUR) continue;
+        const created = r.created_at.slice(0, 10), y = date.slice(0, 4);
+        const leap = (n: number) => (n % 4 === 0 && n % 100 !== 0) || n % 400 === 0;
+        const annMd = created.slice(5) === "02-29" && !leap(+y) ? "02-28" : created.slice(5);
+        const kind = date.slice(5) === annMd && y > created.slice(0, 4) ? "anniversary" as const
+          : date.slice(5) === jan && at.getTime() - Date.parse(r.created_at) > 30 * 86400000 ? "january" as const : null;
+        if (!kind) continue;
+        const campaign = `year-ahead-${kind}-${y}`;
+        if (await env.DB.prepare("SELECT 1 FROM campaign_sends WHERE campaign=? AND email=?").bind(campaign, r.email).first()) continue;
+        const recent = await env.DB.prepare("SELECT 1 FROM campaign_sends WHERE email=? AND campaign LIKE 'year-ahead-%' AND sent_at > ?").bind(r.email, new Date(at.getTime() - OFFER_GAP_DAYS * 86400000).toISOString()).first();
+        if (recent) continue;
+        const ya = await env.DB.prepare(`SELECT MAX(y.end_date) e, COALESCE(SUM(substr(y.created_at,1,4) = ?),0) thisYear FROM year_aheads y JOIN purchases p ON p.id = y.purchase_id
+          WHERE (p.email = ? OR y.email = ?) AND y.status != 'refunded'`).bind(String(at.getUTCFullYear()), r.email, r.email).first<{ e: string | null; thisYear: number }>();
+        if ((ya?.thisYear ?? 0) > 0 || !canBuyNext(at, ya?.e ?? null)) continue; // bought this year, or one still running
+        // the reading they'd buy for: the one this email is about (its own year-aheads decide where the next one starts)
+        const start = nextYearOf(await yearAheadsOf(env, r.purchase_id), at).start;
+        const year = yearAhead(birthOf(r), start);
+        const claimed = now();
+        const ins = await env.DB.prepare("INSERT OR IGNORE INTO campaign_sends (campaign, email, purchase_id, sent_at) VALUES (?,?,?,?)").bind(campaign, r.email, r.purchase_id, claimed).run();
+        if (!ins.meta.changes) continue;
+        const stop = stopUrl(env.SITE_URL, r.purchase_id);
+        const m = yearAheadOfferEmail({ firstName: r.first_name, kind, period: periodLabel(year), lines: teaser(year), offerUrl: `${env.SITE_URL}/r/${r.purchase_id}/year`, price: yearPrice(env), stopUrl: stop });
+        const ok = await sendEmail(env, r.email, m.subject, m.text, undefined, { unsubscribe: stop });
+        if (ok) await log(env, "year_ahead_offer", r.purchase_id, { kind, campaign, start });
+        else await env.DB.prepare("DELETE FROM campaign_sends WHERE campaign=? AND email=? AND sent_at=?").bind(campaign, r.email, claimed).run(); // retry next hour
+      } catch (e) { await log(env, "error", r.purchase_id, { where: "year-ahead-offer", e: String(e) }); }
+    }
+  } catch (e) { await log(env, "error", null, { where: "year-ahead-offers", e: String(e) }); }
 }
 
 // ---------- Saturn Season subscription ----------
@@ -1148,7 +1422,7 @@ app.post("/webhook/stripe", async (c) => {
     const session = event.data.object as Stripe.Checkout.Session;
     if (session.mode === "payment" && session.payment_status === "paid") {
       const tok = await fulfil(c.env, session);
-      if (tok && session.metadata?.gift !== "1") kickGenerate(c.env, c.executionCtx, tok);
+      kickAfterFulfil(c.env, c.executionCtx, session, tok);
     } else if (session.mode === "subscription" && session.metadata?.purchase_id && session.subscription) {
       const subId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
       const purchaseId = session.metadata.purchase_id;
@@ -1206,7 +1480,15 @@ app.post("/webhook/stripe", async (c) => {
       // (README "Order bump"). A redeemed bump code keeps its reading, as for any gift.
       const pu = await c.env.DB.prepare("SELECT id FROM purchases WHERE stripe_payment_intent=?").bind(pi).first<{ id: string }>();
       const gi = await c.env.DB.prepare("SELECT code FROM gifts WHERE stripe_payment_intent=?").bind(pi).first<{ code: string }>();
-      if (pu || gi) {
+      // Year-ahead readings (build 11) follow the same rule: a full refund marks it refunded (its page closes, and the reading
+      // can buy that year again); a partial one is logged and changes nothing. No table before migration 010: not one of these.
+      const ya = pu || gi ? null : await c.env.DB.prepare("SELECT id FROM year_aheads WHERE stripe_payment_intent=?").bind(pi).first<{ id: string }>().catch(() => null);
+      if (ya) {
+        if (ch.refunded) {
+          const ry = await c.env.DB.prepare("UPDATE year_aheads SET status='refunded' WHERE stripe_payment_intent=? AND status != 'refunded'").bind(pi).run();
+          if (ry.meta.changes) await log(c.env, "refund", ya.id, { via: "stripe", year_ahead: true, amount: ch.amount_refunded });
+        } else await log(c.env, "partial_refund_ignored", ya.id, { pi, amount_refunded: ch.amount_refunded, year_ahead: true });
+      } else if (pu || gi) {
         if (ch.refunded) {
           const rp = await c.env.DB.prepare("UPDATE purchases SET status='refunded' WHERE stripe_payment_intent=? AND status != 'refunded'").bind(pi).run();
           // a refunded, unredeemed gift code stops working (same marker as /admin/refund); a redeemed one keeps its reading
@@ -1605,7 +1887,8 @@ async function sendSeasonNote(env: Env, r: SeasonRow, today = new Date(), to?: s
   const dest = to ?? r.email;
   if (comp.phase === "complete") { // Saturn has left the natal sign: the window everyone was shown is closed
     const ahead = cycle(comp, today).ahead[0];
-    const m = seasonCompleteEmail({ firstName: r.first_name, readingUrl: `${env.SITE_URL}/r/${r.purchase_id}`, nextAge: ahead?.ageApprox ?? null });
+    const m = seasonCompleteEmail({ firstName: r.first_name, readingUrl: `${env.SITE_URL}/r/${r.purchase_id}`, nextAge: ahead?.ageApprox ?? null,
+      yearAheadUrl: yearMode(env.YEAR_AHEAD) !== "off" ? `${env.SITE_URL}/r/${r.purchase_id}/year` : null });
     await sendEmail(env, dest, m.subject, m.text);
     if (!to) {
       await closeSeasonSubscription(env, r, today);
@@ -1786,7 +2069,7 @@ async function runCleanup(env: Env) {
   if (r.meta.changes) await log(env, "cleanup", null, { previews: r.meta.changes });
 }
 
-const kpiOpts = (env: Env) => ({ siteUrl: env.SITE_URL, creatorsMode: env.CREATORS, adsMode: adsMode(env.ADS), visits: posthogVisits({ key: env.POSTHOG_PERSONAL_API_KEY, project: env.POSTHOG_PROJECT_ID, host: env.POSTHOG_HOST }) });
+const kpiOpts = (env: Env) => ({ siteUrl: env.SITE_URL, creatorsMode: env.CREATORS, adsMode: adsMode(env.ADS), yearAheadMode: yearMode(env.YEAR_AHEAD), visits: posthogVisits({ key: env.POSTHOG_PERSONAL_API_KEY, project: env.POSTHOG_PROJECT_ID, host: env.POSTHOG_HOST }) });
 
 /** Monday KPI email (build 6): Mondays 07:00–07:59 Brisbane, once a week (a non-forced `kpi_sent` row in the last 6 days skips it). */
 async function runKpiEmail(env: Env, nowD = new Date(), force = false): Promise<{ sent: boolean; reason?: string; headline?: string }> {
@@ -1949,5 +2232,5 @@ export default {
     const raw = new Uint8Array(await new Response(message.raw).arrayBuffer());
     await handleSupportEmail(env, { raw, envelopeFrom: message.from, forward: (to, headers) => message.forward(to, headers) }, ctx, inboxDeps);
   },
-  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runFollowups(env), runErrorDigest(env), runKpiEmail(env), runCleanup(env), runPriceTest(env), runGiftSeason(env), runCreatorCron(env), runAds(env)])); },
+  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runFollowups(env), runErrorDigest(env), runKpiEmail(env), runCleanup(env), runPriceTest(env), runGiftSeason(env), runCreatorCron(env), runAds(env), runYearAheadOffers(env)])); },
 };

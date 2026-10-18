@@ -24,7 +24,7 @@ export type Gate = (typeof GATES)[number];
 export interface VisitCounts { visitors: number; pageviews: number }
 /** Visits between two UTC instants (ISO), or a throw when the source fails. */
 export type VisitsFn = (fromIso: string, toIso: string) => Promise<VisitCounts>;
-export interface KpiOpts { visits?: VisitsFn | null; siteUrl?: string; creatorsMode?: string; adsMode?: string }
+export interface KpiOpts { visits?: VisitsFn | null; siteUrl?: string; creatorsMode?: string; adsMode?: string; yearAheadMode?: string }
 export interface KpiReport { subject: string; headline: string; text: string }
 
 // ---------- dates ----------
@@ -72,6 +72,7 @@ function change(cur: number, prev: number): string {
 // ---------- queries ----------
 interface Week {
   previews: number; paid: number; readingCents: number; zeroReadings: number; giftsBought: number; giftCents: number; giftsRedeemed: number;
+  yearCents: number; yearSold: number; yearOffers: number;
   seasonCents: number; seasonPayments: number; seasonRenewals: number; seasonStarts: number; seasonCancels: number; refunds: number; refundCents: number; seasonRefunds: number; seasonRefundCents: number;
   followupsSent: number; followupsSkipped: number; stops: number; errors: number; narrated: number; narrationFallbacks: number;
   support: number; supportAuto: number; supportToMick: number;
@@ -83,28 +84,34 @@ const n0 = (v: unknown) => Number(v ?? 0) || 0;
 const SEASON_LIVE = "amount_cents > 0 AND refunded_cents < amount_cents";
 const SEASON_NET = "COALESCE(SUM(ROUND((amount_cents - tax_cents) * 1.0 * (amount_cents - refunded_cents) / amount_cents)),0)";
 
-// Revenue is net of tax throughout (readings, gifts and Season): the tax Stripe collects is owed to tax offices, not Rite's.
-async function revenueBetween(db: D1Database, from: string, to: string) {
-  const [r, g, s] = await Promise.all([
+// Year-ahead readings (build 11, migration 010): live (not refunded) year_aheads, net of tax. `ya` says the table exists.
+const YEAR_LIVE = "status IN ('paid','writing','generated','failed')";
+const hasYearTable = async (db: D1Database) => { try { return !!(await db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='year_aheads'").first()); } catch { return false; } };
+
+// Revenue is net of tax throughout (readings, gifts, Season and year-ahead): the tax Stripe collects is owed to tax offices, not Rite's.
+async function revenueBetween(db: D1Database, from: string, to: string, ya = false) {
+  const [r, g, s, y] = await Promise.all([
     db.prepare(`SELECT COALESCE(SUM(amount_cents - COALESCE(tax_cents,0)),0) c, COUNT(*) n FROM purchases WHERE status IN ${LIVE} AND amount_cents > 0 AND created_at >= ? AND created_at < ?`).bind(from, to).first<{ c: number; n: number }>(),
     db.prepare("SELECT COALESCE(SUM(amount_cents - COALESCE(tax_cents,0)),0) c FROM gifts WHERE COALESCE(redeemed_at,'') != 'refunded' AND created_at >= ? AND created_at < ?").bind(from, to).first<{ c: number }>(),
     db.prepare(`SELECT ${SEASON_NET} c, COUNT(*) n, COALESCE(SUM(CASE WHEN billing_reason = 'subscription_cycle' THEN 1 ELSE 0 END),0) rn FROM season_invoices WHERE ${SEASON_LIVE} AND paid_at >= ? AND paid_at < ?`).bind(from, to).first<{ c: number; n: number; rn: number }>(),
+    ya ? db.prepare(`SELECT COALESCE(SUM(amount_cents - COALESCE(tax_cents,0)),0) c, COUNT(*) n FROM year_aheads WHERE ${YEAR_LIVE} AND amount_cents > 0 AND created_at >= ? AND created_at < ?`).bind(from, to).first<{ c: number; n: number }>() : Promise.resolve(null),
   ]);
-  return { readingCents: n0(r?.c), paid: n0(r?.n), giftCents: n0(g?.c), seasonCents: n0(s?.c), seasonPayments: n0(s?.n), seasonRenewals: n0(s?.rn), cents: n0(r?.c) + n0(g?.c) + n0(s?.c) };
+  return { readingCents: n0(r?.c), paid: n0(r?.n), giftCents: n0(g?.c), seasonCents: n0(s?.c), seasonPayments: n0(s?.n), seasonRenewals: n0(s?.rn), yearCents: n0(y?.c), yearSold: n0(y?.n),
+    cents: n0(r?.c) + n0(g?.c) + n0(s?.c) + n0(y?.c) };
 }
 
-async function week(db: D1Database, from: string, to: string): Promise<Week> {
+async function week(db: D1Database, from: string, to: string, ya = false): Promise<Week> {
   const b = (sql: string) => db.prepare(sql).bind(from, to);
   const E = "at >= ? AND at < ?";
   const [pv, rev, zero, gb, gr, kinds, refunds, sref, narr, sup] = await Promise.all([
     b("SELECT COUNT(*) n FROM previews WHERE created_at >= ? AND created_at < ?").first<{ n: number }>(),
-    revenueBetween(db, from, to),
+    revenueBetween(db, from, to, ya),
     b(`SELECT COUNT(*) n FROM purchases WHERE status IN ${LIVE} AND amount_cents = 0 AND created_at >= ? AND created_at < ?`).first<{ n: number }>(),
     b("SELECT COUNT(*) n FROM gifts WHERE created_at >= ? AND created_at < ?").first<{ n: number }>(),
     b("SELECT COUNT(*) n FROM gifts WHERE redeemed_purchase_id IS NOT NULL AND redeemed_at >= ? AND redeemed_at < ?").first<{ n: number }>(),
-    b(`SELECT kind, COUNT(*) n, COUNT(DISTINCT ref) refs FROM events WHERE ${E} AND kind IN ('season_start','season_cancel','followup_sent','followup_skipped','stopped','error') GROUP BY kind`).all<{ kind: string; n: number; refs: number }>(),
+    b(`SELECT kind, COUNT(*) n, COUNT(DISTINCT ref) refs FROM events WHERE ${E} AND kind IN ('season_start','season_cancel','followup_sent','followup_skipped','stopped','error','year_ahead_offer') GROUP BY kind`).all<{ kind: string; n: number; refs: number }>(),
     // A refund can be logged twice (POST /admin/refund, then Stripe's charge.refunded echo): count each purchase or gift once.
-    b(`SELECT COUNT(*) n, COALESCE(SUM(COALESCE(p.amount_cents, g.amount_cents, 0)),0) c FROM (SELECT DISTINCT ref FROM events WHERE kind='refund' AND ${E} AND ref IS NOT NULL) r LEFT JOIN purchases p ON p.id = r.ref LEFT JOIN gifts g ON g.code = r.ref`).first<{ n: number; c: number }>(),
+    b(`SELECT COUNT(*) n, COALESCE(SUM(COALESCE(p.amount_cents, g.amount_cents, ${ya ? "y.amount_cents, " : ""}0)),0) c FROM (SELECT DISTINCT ref FROM events WHERE kind='refund' AND ${E} AND ref IS NOT NULL) r LEFT JOIN purchases p ON p.id = r.ref LEFT JOIN gifts g ON g.code = r.ref${ya ? " LEFT JOIN year_aheads y ON y.id = r.ref" : ""}`).first<{ n: number; c: number }>(),
     b(`SELECT COUNT(*) n, COALESCE(SUM(json_extract(detail,'$.amount')),0) c FROM events WHERE kind='season_refund' AND ${E} AND json_valid(detail) AND json_extract(detail,'$.amount') > 0`).first<{ n: number; c: number }>(),
     b(`SELECT COUNT(*) n, COALESCE(SUM(CASE WHEN json_valid(detail) AND json_extract(detail,'$.fallback') = 1 THEN 1 ELSE 0 END),0) f FROM events WHERE kind='narrated' AND ${E}`).first<{ n: number; f: number }>(),
     // support inbox (build 3): one support_auto row per email; to_mick = forwarded, action 'ignore' = an auto-reply or bounce
@@ -117,6 +124,7 @@ async function week(db: D1Database, from: string, to: string): Promise<Week> {
     seasonRefunds: n0(sref?.n), seasonRefundCents: n0(sref?.c), followupsSent: n0(k.followup_sent?.n), followupsSkipped: n0(k.followup_skipped?.n),
     stops: n0(k.stopped?.n), errors: n0(k.error?.n), narrated: n0(narr?.n), narrationFallbacks: n0(narr?.f),
     support: n0(sup?.n), supportAuto: n0(sup?.n) - n0(sup?.f) - n0(sup?.i), supportToMick: n0(sup?.f),
+    yearCents: rev.yearCents, yearSold: rev.yearSold, yearOffers: n0(k.year_ahead_offer?.n),
   };
 }
 
@@ -175,16 +183,18 @@ export async function buildKpiReport(db: D1Database, now: Date, opts: KpiOpts = 
 
   const ranges: Array<[string, string]> = [[curFrom, curTo], [prevFrom, curFrom]];
   if (gate?.id === "kill") ranges.push(killRange);
+  const ya = await hasYearTable(db);
   const [cur, prev, visitsRes, refPv, refPaid, subs, mt, best] = await Promise.all([
-    week(db, curFrom, curTo), week(db, prevFrom, curFrom), getVisits(opts.visits, ranges),
+    week(db, curFrom, curTo, ya), week(db, prevFrom, curFrom, ya), getVisits(opts.visits, ranges),
     db.prepare("SELECT COALESCE(ref,'(none)') ref, COUNT(*) n FROM previews WHERE created_at >= ? AND created_at < ? GROUP BY 1 ORDER BY n DESC, ref LIMIT 5").bind(curFrom, curTo).all<{ ref: string; n: number }>(),
     db.prepare(`SELECT COALESCE(pv.ref,'(none)') ref, COUNT(*) n, SUM(pu.amount_cents) c FROM purchases pu JOIN previews pv ON pv.id = pu.preview_id WHERE pu.status IN ${LIVE} AND pu.amount_cents > 0 AND pu.created_at >= ? AND pu.created_at < ? GROUP BY 1 ORDER BY n DESC, c DESC, ref LIMIT 5`).bind(curFrom, curTo).all<{ ref: string; n: number; c: number }>(),
     db.prepare("SELECT status, COUNT(*) n FROM subscriptions GROUP BY status").all<{ status: string; n: number }>(),
-    (async () => { const t = monthTarget(now); return t ? { t, rev: await revenueBetween(db, t.startIso, iso(now.getTime())) } : null; })(),
+    (async () => { const t = monthTarget(now); return t ? { t, rev: await revenueBetween(db, t.startIso, iso(now.getTime()), ya) } : null; })(),
     db.prepare(`SELECT m, SUM(c) c FROM (
         SELECT substr(datetime(created_at,'+10 hours'),1,7) m, amount_cents c FROM purchases WHERE status IN ${LIVE} AND amount_cents > 0
         UNION ALL SELECT substr(datetime(created_at,'+10 hours'),1,7) m, amount_cents c FROM gifts WHERE COALESCE(redeemed_at,'') != 'refunded'
-        UNION ALL SELECT substr(datetime(paid_at,'+10 hours'),1,7) m, ROUND((amount_cents - tax_cents) * 1.0 * (amount_cents - refunded_cents) / amount_cents) c FROM season_invoices WHERE ${SEASON_LIVE}
+        UNION ALL SELECT substr(datetime(paid_at,'+10 hours'),1,7) m, ROUND((amount_cents - tax_cents) * 1.0 * (amount_cents - refunded_cents) / amount_cents) c FROM season_invoices WHERE ${SEASON_LIVE}${ya ? `
+        UNION ALL SELECT substr(datetime(created_at,'+10 hours'),1,7) m, amount_cents c FROM year_aheads WHERE ${YEAR_LIVE} AND amount_cents > 0` : ""}
       ) GROUP BY m ORDER BY c DESC LIMIT 1`).first<{ m: string; c: number }>(),
   ]);
   // ads controller (build 10): its decisions since the start of last week's window, through this morning's run
@@ -192,7 +202,7 @@ export async function buildKpiReport(db: D1Database, now: Date, opts: KpiOpts = 
     .map((r) => JSON.parse(r.detail) as AdsRow);
   const adsLast = [...adsRows].reverse().find((r) => typeof r.spend7 === "number") ?? null;
   const visits: Visits = { state: visitsRes.state, cur: visitsRes.out[0] ?? null, prev: visitsRes.out[1] ?? null };
-  const curRev = cur.readingCents + cur.giftCents + cur.seasonCents, prevRev = prev.readingCents + prev.giftCents + prev.seasonCents;
+  const curRev = cur.readingCents + cur.giftCents + cur.seasonCents + cur.yearCents, prevRev = prev.readingCents + prev.giftCents + prev.seasonCents + prev.yearCents;
   const pvPaid = [pct(cur.paid, cur.previews), pct(prev.paid, prev.previews)];
   const vPaid = [visits.cur ? pct(cur.paid, visits.cur.visitors) : null, visits.prev ? pct(prev.paid, visits.prev.visitors) : null];
   const sub = Object.fromEntries(subs.results.map((r) => [r.status, n0(r.n)]));
@@ -264,10 +274,13 @@ export async function buildKpiReport(db: D1Database, now: Date, opts: KpiOpts = 
   L.push(`  Preview→paid: ${pctS(pvPaid[0] ?? null)} vs ${pctS(pvPaid[1] ?? null)}`);
   if (visits.state === "ok") L.push(`  Visit→paid: ${pctS(vPaid[0] ?? null)} vs ${pctS(vPaid[1] ?? null)} (paid ÷ unique visitors)`);
   L.push("", "MONEY");
-  L.push(`  Revenue: ${usd(curRev)} vs ${usd(prevRev)}${change(curRev, prevRev)} · readings ${usd(cur.readingCents)}, gifts ${usd(cur.giftCents)}, Season ${usd(cur.seasonCents)}`);
+  L.push(`  Revenue: ${usd(curRev)} vs ${usd(prevRev)}${change(curRev, prevRev)} · readings ${usd(cur.readingCents)}, gifts ${usd(cur.giftCents)}, Season ${usd(cur.seasonCents)}${ya ? `, year ahead ${usd(cur.yearCents)}` : ""}`);
   L.push(`  Refunds: ${cur.refunds} (${usd(cur.refundCents)}) vs ${prev.refunds} (${usd(prev.refundCents)})${cur.seasonRefunds ? ` · Season refunds ${cur.seasonRefunds} (${usd(cur.seasonRefundCents)})` : ""}`);
   L.push(`  Season: ${n0(sub.active)} active${sub.past_due ? ` (+${sub.past_due} past due)` : ""}, ${cur.seasonStarts} started, ${cur.seasonCancels} cancelled (prev week ${prev.seasonStarts} started, ${prev.seasonCancels} cancelled) · ${cur.seasonPayments} payment${cur.seasonPayments === 1 ? "" : "s"} (${cur.seasonRenewals} renewal${cur.seasonRenewals === 1 ? "" : "s"}), ${usd(cur.seasonCents)} net of tax vs ${usd(prev.seasonCents)}${change(cur.seasonCents, prev.seasonCents)}`);
   L.push(`  Gifts: ${cur.giftsBought} bought, ${cur.giftsRedeemed} redeemed (prev ${prev.giftsBought}, ${prev.giftsRedeemed})`);
+  const yMode = (opts.yearAheadMode ?? "off").trim().toLowerCase();
+  if (ya && (yMode !== "off" || cur.yearSold || prev.yearSold)) L.push(`  Year ahead: ${cur.yearSold} sold (${usd(cur.yearCents)} net of tax) vs ${prev.yearSold} (${usd(prev.yearCents)})${change(cur.yearSold, prev.yearSold)} · ${cur.yearOffers} offer email${cur.yearOffers === 1 ? "" : "s"} sent (YEAR_AHEAD=${yMode === "on" || yMode === "page" ? yMode : "off"})`);
+  else if (!ya && yMode !== "off") L.push("  Year ahead: YEAR_AHEAD is on but migration 010 isn't applied (npm run db:migrate:b11): nothing can be sold.");
   if (mt) {
     const p = mt.t.proRatedCents ? Math.round(mt.rev.cents / mt.t.proRatedCents * 100) : 0;
     L.push(`  Month to date (${mt.t.month}, day ${mt.t.day} of ${mt.t.days}): ${usd(mt.rev.cents)} vs ${usd(mt.t.proRatedCents)} pro-rated, ${p}% (month target ${usd(mt.t.targetCents)}) · Season ${usd(mt.rev.seasonCents)} of it`);

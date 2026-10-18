@@ -176,3 +176,55 @@ The order-bump line in the delivery email (§1 `deliveryEmail`, only when "Add a
 ```
 The reading you added for someone else: code {code}, or send them {site}/gift/{code}. They open it with their own birth details, with or without a birth time. One use, no expiry. A card to print or send: {site}/gift/card/{code}.png
 ```
+
+---
+
+## 7. Year-ahead delivery (build 11)
+
+Trigger: a year-ahead is written (`generateYearAhead`). Transactional, so no stop link (as the reading's delivery). `{dates}` is the number of engine dates in the year. Template: `yearAheadDeliveryEmail` in `src/email.ts`.
+
+**Subject:** Your year ahead: {period}   (e.g. "November 2026 to October 2027")
+
+```
+{first_name},
+
+Your year ahead is ready: {site}/r/{tok}/year/{yyyy}
+
+Twelve months of Saturn against your chart, {period}, month by month, with {n} dates worth putting in your calendar. It sits under your Saturn return reading, which is still at {site}/r/{tok}
+
+It follows Saturn only: its exact contacts with your natal Saturn, where it stands still and turns, and when it changes sign.
+
+If something looks wrong, reply to this and I'll fix it or refund you.
+
+— Mick, Rite
+```
+
+## 8. Year-ahead offer: anniversary and January (build 11)
+
+Trigger: `runYearAheadOffers`, only with `YEAR_AHEAD = "on"`, from 09:00 in the birthplace zone, on the anniversary of the buyer's latest paid reading or on `YEAR_AHEAD_JANUARY` (default 5 Jan). Skipped: stops, refunds, gift recipients, anyone who bought a year-ahead this calendar year or has one running past the next 60 days, and a second year-ahead email within 60 days. The bullet lines are code (`teaser()`: counts and months, never a day-level date). Template: `yearAheadOfferEmail`.
+
+**Subject (anniversary):** A year since your Saturn return reading
+**Subject (January):** Your Saturn year: {period}
+
+```
+{first_name},
+
+It's a year since your Saturn return reading.   ← January: "A new year, and a new stretch of your Saturn cycle."
+Saturn's next twelve months against your chart, {period}, are worked out:
+
+- One exact contact with your natal Saturn (April).
+- Saturn stands still and changes direction twice (August, December).
+- You start the year in "Your return: approach" and end it in "Your return: integration".
+
+The year-ahead reading takes each month in turn: where Saturn is against your natal Saturn, what's dated, and what the month is good for. No birth details to enter again. ${price}: {site}/r/{tok}/year
+
+— Rite
+
+Sent at most once a year (on your reading's anniversary or in January), to people who've bought a reading. Stop these and all other reminders: {stop_url}
+```
+
+The line added to the Season-complete email (§1 `seasonCompleteEmail`) while `YEAR_AHEAD` isn't "off":
+
+```
+If you'd like the next twelve months dated the same way, the year-ahead reading picks up from here: {site}/r/{tok}/year
+```

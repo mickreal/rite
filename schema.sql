@@ -279,3 +279,28 @@ CREATE TABLE IF NOT EXISTS season_invoices (
   billing_reason TEXT               -- subscription_create (the first month or year) | subscription_cycle (a renewal) | ...
 );
 CREATE INDEX IF NOT EXISTS idx_season_invoices_paid ON season_invoices(paid_at);
+-- Year-ahead reading (build 11, migration 010): one row per year-ahead bought for an existing reading. Comments in
+-- migrations/010-year-ahead.sql.
+CREATE TABLE IF NOT EXISTS year_aheads (
+  id TEXT PRIMARY KEY,
+  purchase_id TEXT NOT NULL REFERENCES purchases(id),
+  year INTEGER NOT NULL,
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  email TEXT NOT NULL,
+  stripe_session_id TEXT UNIQUE,
+  stripe_payment_intent TEXT,
+  amount_cents INTEGER NOT NULL,
+  tax_cents INTEGER,
+  currency TEXT,
+  status TEXT NOT NULL DEFAULT 'paid',
+  writing_at TEXT,
+  facts_json TEXT,
+  inputs_json TEXT,
+  report_md TEXT,
+  delivered_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_year_aheads_live ON year_aheads(purchase_id, year) WHERE status != 'refunded';
+CREATE INDEX IF NOT EXISTS idx_year_aheads_pi ON year_aheads(stripe_payment_intent);
+CREATE INDEX IF NOT EXISTS idx_year_aheads_created ON year_aheads(created_at);

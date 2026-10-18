@@ -70,6 +70,6 @@ $29 vs $39 for the reading with a birth time ($19 vs $25 without), 50/50 by prev
 ## 8. After the reading (phase 3 products)
 
 In order of expected value per build day:
-1. **Year-ahead reading ($19, yearly):** next 12 months of Saturn against the chart, offered on the purchase anniversary and in January. The only repeat purchase in the line.
+1. **Year-ahead reading ($19, yearly):** next 12 months of Saturn against the chart, offered on the purchase anniversary and in January. The only repeat purchase in the line. **Built 18 Oct (branch `b11-year-ahead`, build 11 in `automation-builds.md`), off until Mick switches `YEAR_AHEAD`.** Saturn against natal Saturn only (the engine's scope): passes, squares, opposition, stations, sign changes, month by month.
 2. **Couples reading ($39):** two charts, both Saturn cycles side by side, where they overlap; gift-friendly.
 3. **Another cycle:** Jupiter return (every 12 years: 24, 36, 48), Uranus opposition (around 40) or Chiron return (around 50), whichever the buyer survey asks for most. Same engine, same pages, same list.
