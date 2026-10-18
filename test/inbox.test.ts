@@ -173,7 +173,7 @@ describe("refunds", () => {
     expect(mick[0]!.text).toContain("The refund window is 14 days from purchase");
     // build 3b: the note is short and links to the thread page, which has the history
     const link = /https:\/\/rite\.test(\/admin\/inbox\/t\/[A-Za-z0-9_-]+)/.exec(mick[0]!.text)![1]!;
-    const page = await (await h.request(`${link}?key=${KEY}`)).text();
+    const page = await (await h.request(link, { headers: { authorization: `Bearer ${KEY}` } })).text();
     expect(page).toMatch(/Purchases: tok_test… \S+ generated \$29 full \(15d ago\)/);
     expect(lastSupport()).toMatchObject({ action: "forward", outcome: "over_14_days", auto: "on" });
   });
@@ -417,13 +417,13 @@ describe("admin and KPI", () => {
     const anon = await h.request("/admin/inbox");
     expect(anon.status).toBe(303);
     expect(anon.headers.get("location")).toBe("/admin/login?next=%2Fadmin%2Finbox");
-    const r = await h.request(`/admin/inbox?key=${KEY}&tab=all`);
+    const r = await h.request("/admin/inbox?tab=all", { headers: { authorization: `Bearer ${KEY}` } });
     expect(r.status).toBe(200);
     const page = await r.text();
     expect(page).toContain("Is it &lt;real&gt;?");
     expect(page).toContain("INBOX_AUTO is <b");
     const thread = /href="(\/admin\/inbox\/t\/[^"?]+)/.exec(page)![1]!;
-    expect(await (await h.request(`${thread}?key=${KEY}`)).text()).toContain("macro7");
+    expect(await (await h.request(thread, { headers: { authorization: `Bearer ${KEY}` } })).text()).toContain("macro7");
   });
 
   it("the Monday KPI email counts support emails, handled and forwarded", async () => {

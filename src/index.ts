@@ -34,12 +34,16 @@ import { seasonLandingPage } from "./views/season-landing";
 import { seasonAvailable, nextNoteDate, nextNoteAfterLast, yearlyAllowed, unusedMonths, yearlyRefundCents, comingUpText, windowOpenSendOn, noteFacts, seasonFallbackBody, sampleNote, lastMondayLocal, localParts, type SeasonPlan } from "./season";
 import { SIGN_NOTES } from "./content/notes";
 import { localHour, localToUtc } from "./geo";
-import { adminAuthorized, adminStats, adminExtras, adminDays, adminMoney, makeSession, sessionValid, cookieValue, sessionCookie, csrfToken, sameOrigin, safeNext, safeEqual, SESSION_COOKIE } from "./admin";
-import { adminPage } from "./views/admin";
+import { adminAuthorized, adminStats, adminExtras, adminDays, adminMoney, adminLogins, makeSession, readSession, makePending, pendingValid, cookieValue, sessionCookie, csrfToken, sameOrigin, safeNext, safeEqual, SESSION_COOKIE,
+  sessionVersion, rotateSessionVersion, claimTotpStep, loginBlocked, loginFailed } from "./admin";
+import { adminPage, kpiPage } from "./views/admin";
+import { loginPage, type LoginNotice } from "./views/login";
+import type { AdminNav, AdminSection } from "./views/admin-shell";
+import { verifyTotp, totpSecretOk } from "./totp";
 import { buildKpiReport, kpiSendHour, posthogVisits } from "./kpi";
 import { runAdsController, sendCapiPurchase, adsMode } from "./ads";
 import { handleSupportEmail, type InboxDeps } from "./inbox";
-import { threadsPage, threadPage, loginPage } from "./views/inbox";
+import { threadsPage, threadPage } from "./views/inbox";
 import { listThreads, loadThread, sendReply, changeThread, threadKeyFromUrl, tabOf, newNonce, THREAD_ACTIONS, type ThreadAction } from "./inbox-ui";
 import { creatorsMode, commissionPct, discountPct, holdDays, minPayoutCents, unpaidCapCents, nextPayoutDate, refCookie, REF_COOKIE } from "./creators";
 import { applyCreator, approveCreator, changeCreator, attributeSale, reverseCommission, connectLink, refreshConnect, runCreatorPayouts, creatorNumbers, payoutsOf, recentPayouts,
@@ -58,6 +62,7 @@ export interface Env {
   MODEL_REPORT: string; MODEL_PREVIEW: string;
   FROM_EMAIL: string; SUPPORT_EMAIL: string;
   STRIPE_SECRET_KEY: string; STRIPE_WEBHOOK_SECRET: string; ADMIN_KEY?: string; ANTHROPIC_API_KEY: string; RESEND_API_KEY: string;
+  ADMIN_TOTP_SECRET?: string; // base32; when set, /admin/login asks for an authenticator code after the key (npm run admin:totp)
   AI?: Ai; TTS_MODEL?: string; TTS_VOICE?: string; ELEVENLABS_API_KEY?: string; ADMIN_EMAIL?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string;
   POSTHOG_PERSONAL_API_KEY?: string; POSTHOG_PROJECT_ID?: string; // optional: visits in the Monday KPI email (HogQL query API)
   // builds 1 + 2 (docs/automation-builds.md); wrangler.toml has the defaults and what each does
@@ -96,10 +101,10 @@ app.use("*", async (c, next) => {
 const id = (n = 12) => { const b = new Uint8Array(n); crypto.getRandomValues(b); return [...b].map((x) => x.toString(36).padStart(2, "0")).join("").slice(0, n); };
 const token = () => id(32);
 const now = () => new Date().toISOString();
-// Human admin routes use ADMIN_KEY (bearer, or ?key= on GET /admin only). Until ADMIN_KEY is set, the bearer routes fall back to the
-// webhook secret so existing curl commands keep working; the browser page never accepts the webhook secret, so it can't land in history.
-const adminOk = (env: Env, auth: string | undefined, key?: string) =>
-  env.ADMIN_KEY ? adminAuthorized(env.ADMIN_KEY, auth, key) : key === undefined && adminAuthorized(env.STRIPE_WEBHOOK_SECRET, auth);
+// Admin APIs (curl, scripts) take ADMIN_KEY as a bearer header. Until ADMIN_KEY is set, they fall back to the webhook secret so
+// existing curl commands keep working; the browser pages never accept the webhook secret. No admin route reads a key from a URL.
+const adminOk = (env: Env, auth: string | undefined) =>
+  env.ADMIN_KEY ? adminAuthorized(env.ADMIN_KEY, auth) : adminAuthorized(env.STRIPE_WEBHOOK_SECRET, auth);
 // Worker-to-itself calls (/internal/generate) stay on the webhook secret.
 const internalOk = (env: Env, auth: string | undefined) => adminAuthorized(env.STRIPE_WEBHOOK_SECRET, auth);
 const stripe = (env: Env) => new Stripe(env.STRIPE_SECRET_KEY, { httpClient: Stripe.createFetchHttpClient() });
@@ -118,7 +123,7 @@ async function log(env: Env, kind: string, ref?: string | null, detail?: unknown
 // pages call window.rite.track(name, props) for the funnel events, and every page sends one pageview.
 function withAnalytics(env: Env, res: Response, path: string): Response {
   if (!env.POSTHOG_KEY || !(res.headers.get("content-type") || "").includes("text/html")) return res;
-  if (path === "/admin" || path.startsWith("/admin/")) return res; // admin pages carry the secret in the URL
+  if (path === "/admin" || path.startsWith("/admin/")) return res; // admin pages are private: never tagged
   if (path.startsWith("/stop/")) return res; // an unsubscribe page is no place for tracking
   // never tag the private pages with their tokens
   const page = path.startsWith("/creators/d/") ? "/creators/d/:tok" : path.startsWith("/r/") ? "/r/:tok" : path.startsWith("/p/") ? "/p/:id" : path.startsWith("/gift/") ? "/gift/:code" : path;
@@ -643,7 +648,9 @@ app.post("/admin/season/:tok", async (c) => {
 
 app.get("/admin/season/:tok/notes", async (c) => {
   // Every Season note built for a purchase, newest first, as plain text (kept whether or not the email was delivered).
-  if (!c.env.ADMIN_KEY || !adminAuthorized(c.env.ADMIN_KEY, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
+  // Signed-in browser or bearer (like every admin page); no session sends you to /admin/login.
+  const g = await adminPage_(c);
+  if ("res" in g) return g.res;
   const rows = await c.env.DB.prepare("SELECT at, detail FROM events WHERE kind='season_note' AND ref=? ORDER BY id DESC LIMIT 20").bind(c.req.param("tok")).all<{ at: string; detail: string }>();
   const text = rows.results.map((r) => { let d: { subject: string; text: string; delivered: boolean; forced: boolean };
     try { d = JSON.parse(r.detail); } catch { return `${r.at} (unreadable row)`; }
@@ -1574,83 +1581,155 @@ async function cancelSeason(env: Env, sub: { id: string; plan: string | null; pu
 // ---------- support inbox (build 3, src/inbox.ts) ----------
 const inboxDeps: InboxDeps = { log, refundPurchase, refundGift, cancelSeason, stopReading, stopPreview, kickGenerate };
 
-// ---------- admin session + the inbox UI (build 3b, src/inbox-ui.ts, src/views/inbox.ts) ----------
-// Browser admin pages accept ADMIN_KEY as a bearer, as ?key=, or a signed session cookie from /admin/login (HttpOnly,
-// Secure, SameSite=Strict, Path=/admin, 30 days, HMAC'd with ADMIN_KEY). Inbox POSTs also need the per-session CSRF token
-// and, when the browser sends one, a same-origin Sec-Fetch-Site / Origin. Bearer POSTs (curl) skip both: no ambient credential.
+// ---------- admin session + the inbox UI (build 3b, src/inbox-ui.ts, src/views/inbox.ts; hardened in b12-admin) ----------
+// Admin HTML pages accept a signed session cookie from /admin/login (HttpOnly, Secure, SameSite=Strict, Path=/admin, 14 days,
+// HMAC'd with ADMIN_KEY, carrying the session version and, with ADMIN_TOTP_SECRET set, proof the code was given) or the
+// ADMIN_KEY bearer header. ?key= is never honoured: a page opened with it redirects to /admin/login with an explanation.
+// No session: 303 to /admin/login?next=… (404 only while ADMIN_KEY is unset). Browser POSTs also need the per-session CSRF
+// token and, when the browser sends one, a same-origin Sec-Fetch-Site / Origin. Bearer POSTs (curl) skip both.
 type AdminCtx = { env: Env; req: { header(n: string): string | undefined; query(n: string): string | undefined } };
-async function adminSession(c: AdminCtx): Promise<{ ok: boolean; sid: string; key: string | null; bearer: boolean; cookie: boolean }> {
-  const no = { ok: false, sid: "", key: null, bearer: false, cookie: false };
+type AdminSession = { ok: boolean; sid: string; bearer: boolean; cookie: boolean; mfa: boolean };
+const totpOn = (env: Env) => !!(env.ADMIN_TOTP_SECRET ?? "").trim();
+async function adminSession(c: AdminCtx): Promise<AdminSession> {
+  const no = { ok: false, sid: "", bearer: false, cookie: false, mfa: false };
   const secret = c.env.ADMIN_KEY;
   if (!secret) return no;
   const auth = c.req.header("authorization");
-  if (auth && adminAuthorized(secret, auth)) return { ok: true, sid: "bearer", key: null, bearer: true, cookie: false };
-  const key = c.req.query("key");
-  if (key !== undefined && adminAuthorized(secret, undefined, key)) return { ok: true, sid: "key", key, bearer: false, cookie: false };
+  if (auth && adminAuthorized(secret, auth)) return { ok: true, sid: "bearer", bearer: true, cookie: false, mfa: false };
   const ck = cookieValue(c.req.header("cookie"), SESSION_COOKIE);
-  if (ck && await sessionValid(secret, ck)) return { ok: true, sid: ck, key: null, bearer: false, cookie: true };
-  return no;
+  if (!ck) return no;
+  const r = await readSession(secret, ck, Date.now(), { version: await sessionVersion(c.env), mfaRequired: totpOn(c.env) });
+  return r ? { ok: true, sid: ck, bearer: false, cookie: true, mfa: r.mfa } : no;
 }
-const INBOX_HDRS = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY" };
+// same-origin (not no-referrer): with no-referrer, older browsers send Origin: null on form POSTs and sameOrigin() refuses them
+const ADMIN_PAGE_HDRS = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "same-origin", "X-Frame-Options": "DENY",
+  "Content-Security-Policy": "frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'" };
+const INBOX_HDRS = ADMIN_PAGE_HDRS;
+const ADMIN_TEXT_HDRS = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" };
 const inboxAuto = (env: Env) => (env.INBOX_AUTO ?? "off").trim().toLowerCase() === "on";
+const loginRedirect = (next: string, extra = "") => new Response(null, { status: 303, headers: { Location: `/admin/login?next=${encodeURIComponent(safeNext(next))}${extra}`, ...ADMIN_PAGE_HDRS } });
 const toLogin = (c: { env: Env; req: { url: string; method: string } }) => {
   if (!c.env.ADMIN_KEY) return null;
   const u = new URL(c.req.url);
-  u.searchParams.delete("key"); // a wrong key never ends up in the next URL
-  const next = safeNext(c.req.method === "GET" ? u.pathname + u.search : u.pathname.replace(/\/(reply|state)$/, ""));
-  return new Response(null, { status: 303, headers: { Location: `/admin/login?next=${encodeURIComponent(next)}`, ...INBOX_HDRS } });
+  u.searchParams.delete("key"); // a key never ends up in the next URL
+  return loginRedirect(c.req.method === "GET" ? u.pathname + u.search : u.pathname.replace(/\/(reply|state|approve|payouts)$/, "").replace(/\/creators\/.*$/, "/creators"));
 };
-/** A browser POST to an inbox route: same origin (when the browser says) and the session's CSRF token. */
+/**
+ * The gate in front of every admin GET page: 404 while ADMIN_KEY is unset; ?key= in the URL → /admin/login with the
+ * reason (never honoured, whatever the value); no session → /admin/login?next=this page.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function adminPage_(c: Context<{ Bindings: Env }, any>): Promise<{ s: AdminSession } | { res: Response }> {
+  if (!c.env.ADMIN_KEY) return { res: c.notFound() as Response };
+  const u = new URL(c.req.url);
+  if (u.searchParams.has("key")) { u.searchParams.delete("key"); return { res: loginRedirect(u.pathname + u.search, "&why=key") }; }
+  const s = await adminSession(c);
+  return s.ok ? { s } : { res: toLogin(c)! };
+}
+/** "Needs me" threads, for the nav badge; null when the inbox tables aren't there. */
+async function needsCount(env: Env): Promise<number | null> {
+  try { const r = await listThreads(env.DB, "needs"); return r.missing006 ? null : r.counts.needs; } catch { return null; }
+}
+async function adminNav(env: Env, s: { sid: string }, section: AdminSection | null, needs?: number | null): Promise<AdminNav> {
+  return { section, csrf: await csrfToken(env.ADMIN_KEY!, s.sid), needs: needs === undefined ? await needsCount(env) : needs };
+}
+/** A browser POST to an admin route: same origin (when the browser says) and the session's CSRF token. */
 async function postOk(c: { env: Env; req: { raw: Request } }, s: { sid: string; bearer: boolean }, csrf: unknown): Promise<boolean> {
   if (s.bearer) return true;
   if (!sameOrigin(c.req.raw)) return false;
   return typeof csrf === "string" && safeEqual(csrf, await csrfToken(c.env.ADMIN_KEY!, s.sid));
 }
 const formStr = (v: unknown) => (typeof v === "string" ? v : "");
-const back = (path: string, key: string | null, q = "") => new Response(null, { status: 303, headers: { Location: `${path}${q ? `?${q}` : ""}${key ? `${q ? "&" : "?"}key=${encodeURIComponent(key)}` : ""}`, ...INBOX_HDRS } });
+const back = (path: string, q = "") => new Response(null, { status: 303, headers: { Location: `${path}${q ? `?${q}` : ""}`, ...INBOX_HDRS } });
+
+// Sign-in. Step 1 the key; with ADMIN_TOTP_SECRET set, step 2 a 6-digit code (RFC 6238, ±30 s, each step usable once,
+// src/totp.ts) carried by a signed 5-minute pending token. Wrong keys and wrong codes both count towards the limits:
+// 10 an hour per IP, 50 an hour for the whole admin (src/admin.ts loginBlocked), then 429 with the time it reopens.
+const LOGIN_NOTICES: Record<string, LoginNotice> = { key: "key-in-url", out: "signed-out", all: "signed-out-all", expired: "expired" };
+const clientIp = (c: AdminCtx) => c.req.header("cf-connecting-ip") ?? "unknown";
+const hhmm = (unixS: number) => new Date(unixS * 1000).toISOString().slice(11, 16);
+function blockedMessage(b: { scope: "ip" | "global"; retryAt: number }) {
+  const mins = Math.max(1, Math.ceil((b.retryAt * 1000 - Date.now()) / 60000));
+  return b.scope === "ip"
+    ? `Too many wrong attempts from your network. Try again in ${mins} minute${mins === 1 ? "" : "s"} (at ${hhmm(b.retryAt)} UTC).`
+    : `Too many wrong attempts on the admin as a whole, so sign-in is paused for everyone for ${mins} minute${mins === 1 ? "" : "s"} (until ${hhmm(b.retryAt)} UTC). The bearer API still works.`;
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function loginHtml(c: Context<{ Bindings: Env }, any>, d: Parameters<typeof loginPage>[0], status: 200 | 401 | 403 | 429 | 503 = 200, extra: Record<string, string> = {}) {
+  return c.html(loginPage(d), status, { ...ADMIN_PAGE_HDRS, ...extra });
+}
+async function loginSucceeded(c: { env: Env; req: AdminCtx["req"] }, next: string, mfa: boolean): Promise<Response> {
+  const value = await makeSession(c.env.ADMIN_KEY!, Date.now(), { version: await sessionVersion(c.env), mfa });
+  await log(c.env, "admin_login", null, { ip: clientIp(c), country: c.req.header("cf-ipcountry") ?? null, ua: (c.req.header("user-agent") ?? "").slice(0, 160), mfa });
+  return new Response(null, { status: 303, headers: { Location: next, "Set-Cookie": sessionCookie(value), ...ADMIN_PAGE_HDRS } });
+}
 
 app.get("/admin/login", async (c) => {
   if (!c.env.ADMIN_KEY) return c.notFound();
   const next = safeNext(c.req.query("next"));
-  if (await sessionValid(c.env.ADMIN_KEY, cookieValue(c.req.header("cookie"), SESSION_COOKIE))) return c.redirect(next, 303);
-  return c.html(loginPage({ next }), 200, INBOX_HDRS);
+  if (c.req.query("key") !== undefined) return loginRedirect(next, "&why=key"); // drop it from the address bar too
+  if ((await adminSession(c)).cookie) return c.redirect(next, 303);
+  return loginHtml(c, { next, notice: LOGIN_NOTICES[c.req.query("why") ?? c.req.query("bye") ?? ""] ?? null });
 });
-// At most 10 wrong keys an hour per IP (KV), then 429 until the hour is up.
 app.post("/admin/login", async (c) => {
   if (!c.env.ADMIN_KEY) return c.notFound();
   if (!sameOrigin(c.req.raw)) return c.text("cross-site request refused", 403);
   const f = await c.req.parseBody();
   const next = safeNext(formStr(f.next));
-  const tkey = `adminlogin:${c.req.header("cf-connecting-ip") ?? "unknown"}`;
-  const fails = parseInt((await c.env.CACHE.get(tkey)) ?? "0", 10) || 0;
-  if (fails >= 10) return c.html(loginPage({ next, error: "Too many wrong keys. Try again in an hour." }), 429, INBOX_HDRS);
-  if (!adminAuthorized(c.env.ADMIN_KEY, undefined, formStr(f.key))) {
-    await c.env.CACHE.put(tkey, String(fails + 1), { expirationTtl: 3600 });
-    return c.html(loginPage({ next, error: "That's not the key." }), 401, INBOX_HDRS);
+  const ip = clientIp(c), kv = c.env.CACHE;
+  const blocked = await loginBlocked(kv, ip);
+  const codeStep = typeof f.pending === "string";
+  if (blocked) return loginHtml(c, { next, error: blockedMessage(blocked) }, 429, { "Retry-After": String(Math.max(1, blocked.retryAt - Math.floor(Date.now() / 1000))) });
+  const fail = async (reason: string, d: Parameters<typeof loginPage>[0]) => {
+    await loginFailed(kv, ip);
+    await log(c.env, "admin_login_failed", null, { ip, country: c.req.header("cf-ipcountry") ?? null, reason });
+    return loginHtml(c, d, 401);
+  };
+  const secret = (c.env.ADMIN_TOTP_SECRET ?? "").trim();
+  if (codeStep) {
+    if (!secret) return loginHtml(c, { next });
+    if (!(await pendingValid(c.env.ADMIN_KEY, formStr(f.pending)))) return loginHtml(c, { next, notice: "expired", error: "That took longer than 5 minutes. Enter the key again." }, 401);
+    const code = formStr(f.code).replace(/\s/g, "");
+    if (!/^\d{6}$/.test(code)) return fail("code_format", { next, step: "code", pending: formStr(f.pending), error: "Enter the 6 digits your authenticator app shows for Rite." });
+    const step = await verifyTotp(secret, code, Date.now());
+    if (step === null) return fail("code", { next, step: "code", pending: formStr(f.pending), error: "That code didn't match. Check your phone's time is set automatically, wait for the next code and try again." });
+    if (!(await claimTotpStep(c.env, step))) return fail("code_replay", { next, step: "code", pending: formStr(f.pending), error: "That code has already been used. Wait for the next one (they change every 30 seconds)." });
+    return loginSucceeded(c, next, true);
   }
-  return new Response(null, { status: 303, headers: { Location: next, "Set-Cookie": sessionCookie(await makeSession(c.env.ADMIN_KEY)), ...INBOX_HDRS } });
+  if (!adminAuthorized(c.env.ADMIN_KEY, undefined, formStr(f.key))) return fail("key", { next, error: "That key didn't match. Check it's the whole ADMIN_KEY (no space at either end) and try again." });
+  if (secret) {
+    if (!totpSecretOk(secret)) return loginHtml(c, { next, error: "ADMIN_TOTP_SECRET is set but isn't a valid base32 secret, so sign-in is refused. Run npm run admin:totp and set it again." }, 503);
+    return loginHtml(c, { next, step: "code", pending: await makePending(c.env.ADMIN_KEY) });
+  }
+  return loginSucceeded(c, next, false);
 });
+// Sign out (this browser), or everywhere=1: rotate the session version so every cookie ever issued stops working.
 app.post("/admin/logout", async (c) => {
   const s = await adminSession(c);
   if (!s.ok) return toLogin(c) ?? c.notFound();
-  if (!(await postOk(c, s, (await c.req.parseBody()).csrf))) return c.text("cross-site request refused", 403);
-  return new Response(null, { status: 303, headers: { Location: "/admin/login", "Set-Cookie": sessionCookie("", 0), ...INBOX_HDRS } });
+  const f = await c.req.parseBody();
+  if (!(await postOk(c, s, f.csrf))) return c.text("cross-site request refused", 403);
+  const all = formStr(f.everywhere) === "1";
+  if (all) { await rotateSessionVersion(c.env); await log(c.env, "admin_signout_all", null, { ip: clientIp(c) }); }
+  return new Response(null, { status: 303, headers: { Location: `/admin/login?bye=${all ? "all" : "out"}`, "Set-Cookie": sessionCookie("", 0), ...ADMIN_PAGE_HDRS } });
 });
 
 // Threads, newest activity first: Needs me (default), All, Closed.
 app.get("/admin/inbox", async (c) => {
-  const s = await adminSession(c);
-  if (!s.ok) return toLogin(c) ?? c.notFound();
+  const g = await adminPage_(c);
+  if ("res" in g) return g.res;
   const tab = tabOf(c.req.query("tab"));
   const r = await listThreads(c.env.DB, tab);
-  return c.html(threadsPage({ ...r, tab, auto: inboxAuto(c.env), key: s.key, csrf: await csrfToken(c.env.ADMIN_KEY!, s.sid), session: s.cookie, generatedAt: now() }), 200, INBOX_HDRS);
+  const nav = await adminNav(c.env, g.s, "inbox", r.missing006 ? null : r.counts.needs);
+  return c.html(threadsPage({ ...r, tab, auto: inboxAuto(c.env), csrf: nav.csrf, nav, generatedAt: now() }), 200, INBOX_HDRS);
 });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function renderThread(c: Context<{ Bindings: Env }, any>, k: string, s: { sid: string; key: string | null }, flash?: { ok?: string; error?: string }, text?: string, status: 200 | 400 = 200) {
+async function renderThread(c: Context<{ Bindings: Env }, any>, k: string, s: { sid: string }, flash?: { ok?: string; error?: string }, text?: string, status: 200 | 400 = 200) {
   const t = await loadThread(c.env, k);
   if (!t) return null;
-  return c.html(threadPage({ t, key: s.key, csrf: await csrfToken(c.env.ADMIN_KEY!, s.sid), nonce: newNonce(), auto: inboxAuto(c.env), flash, text }), status, INBOX_HDRS);
+  const nav = await adminNav(c.env, s, "inbox");
+  return c.html(threadPage({ t, nav, csrf: nav.csrf, nonce: newNonce(), auto: inboxAuto(c.env), flash, text }), status, INBOX_HDRS);
 }
 const FLASH: Record<string, { ok?: string; error?: string }> = {
   sent: { ok: "Sent. The thread is yours now; the assistant won't act on it." }, dup: { ok: "Already sent: that form was submitted before, so nothing was sent twice." },
@@ -1660,11 +1739,11 @@ const FLASH: Record<string, { ok?: string; error?: string }> = {
 };
 
 app.get("/admin/inbox/t/:id", async (c) => {
-  const s = await adminSession(c);
-  if (!s.ok) return toLogin(c) ?? c.notFound();
+  const g = await adminPage_(c);
+  if ("res" in g) return g.res;
   const k = threadKeyFromUrl(c.req.param("id"));
   if (!k) return c.notFound();
-  return (await renderThread(c, k, s, FLASH[c.req.query("f") ?? ""])) ?? c.notFound();
+  return (await renderThread(c, k, g.s, FLASH[c.req.query("f") ?? ""])) ?? c.notFound();
 });
 
 // Send Mick's reply (src/inbox-ui.ts sendReply). The form's nonce makes a resubmit a no-op; success redirects (POST/redirect/GET).
@@ -1682,8 +1761,8 @@ app.post("/admin/inbox/t/:id/reply", async (c) => {
     await log(c.env, "error", null, { where: "inbox-reply", e: String(e).slice(0, 300) });
     r = { ok: false as const, error: /no such table/i.test(String(e)) ? FLASH.migrate!.error! : "Something went wrong; nothing was sent. The error is on /admin." };
   }
-  if (r.ok) return back(path, s.key, "f=sent");
-  if (r.duplicate) return back(path, s.key, "f=dup");
+  if (r.ok) return back(path, "f=sent");
+  if (r.duplicate) return back(path, "f=dup");
   return (await renderThread(c, k, s, { error: r.error }, formStr(f.body), 400)) ?? c.notFound();
 });
 
@@ -1700,7 +1779,7 @@ app.post("/admin/inbox/t/:id/state", async (c) => {
   if (!(await c.env.DB.prepare("SELECT 1 FROM support_messages WHERE thread_key=? LIMIT 1").bind(k).first())) return c.notFound();
   const ok = await changeThread(c.env.DB, k, a);
   if (ok) await log(c.env, "support_thread", null, { thread: k.slice(0, 120), do: a });
-  return back(`/admin/inbox/t/${c.req.param("id")}`, s.key, `f=${ok ? a : "migrate"}`);
+  return back(`/admin/inbox/t/${c.req.param("id")}`, `f=${ok ? a : "migrate"}`);
 });
 
 // ---------- creator program (build 8: src/creators.ts, src/creator-ops.ts, src/views/creators.ts) ----------
@@ -1757,7 +1836,7 @@ app.get("/creators/d/:tok/connect", async (c) => {
 });
 
 // /admin/creators: applications, approve (makes the code), pause / resume / lift cap / reject, numbers and payouts.
-// Same auth as the inbox (ADMIN_KEY bearer or ?key=, or the /admin/login cookie; POSTs need the CSRF token).
+// Same auth as the inbox (the /admin/login session or the ADMIN_KEY bearer; POSTs need the CSRF token).
 const CREATOR_FLASH: Record<string, { ok?: string; error?: string }> = {
   approved: { ok: "Approved: code and free reading made, welcome email sent." }, pause: { ok: "Paused: their code no longer works and their link no longer counts. Earned commission stays." },
   resume: { ok: "Resumed: their code works again." }, uncap: { ok: "Cap lifted: their whole balance can be paid." }, reject: { ok: "Rejected." },
@@ -1765,7 +1844,7 @@ const CREATOR_FLASH: Record<string, { ok?: string; error?: string }> = {
   migrate: { error: "That needs migration 008: run npm run db:migrate:b8." },
 };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function renderCreators(c: Context<{ Bindings: Env }, any>, s: { sid: string; key: string | null }, flash?: { ok?: string; error?: string }, status: 200 | 400 = 200) {
+async function renderCreators(c: Context<{ Bindings: Env }, any>, s: { sid: string }, flash?: { ok?: string; error?: string }, status: 200 | 400 = 200) {
   const db = c.env.DB;
   let rows: Array<{ c: CreatorRow; n: Awaited<ReturnType<typeof creatorNumbers>> }> = [], payouts: Awaited<ReturnType<typeof recentPayouts>> = [], missing = false, connectProblem: string | null = null;
   try {
@@ -1775,21 +1854,22 @@ async function renderCreators(c: Context<{ Bindings: Env }, any>, s: { sid: stri
     const cu = await db.prepare("SELECT at, detail FROM events WHERE kind='creator_connect_unavailable' AND at > ? ORDER BY id DESC LIMIT 1").bind(new Date(Date.now() - 30 * 86400000).toISOString()).first<{ at: string; detail: string | null }>();
     if (cu) { let e = ""; try { e = JSON.parse(cu.detail ?? "{}").e ?? ""; } catch { /* keep empty */ } connectProblem = `Stripe said Connect isn't set up (${cu.at.slice(0, 16).replace("T", " ")} UTC${e ? `: ${e}` : ""}). No money has moved. Enable Connect (Express) in the Stripe dashboard.`; }
   } catch (e) { if (/no such table/i.test(String(e))) missing = true; else throw e; }
-  return c.html(adminCreatorsPage({ rows, payouts, mode: creatorsMode(c.env), ...creatorsCfg(c.env), capCents: unpaidCapCents(c.env), csrf: await csrfToken(c.env.ADMIN_KEY!, s.sid), key: s.key, flash, missing, nextPayout: nextPayoutDate(new Date()), connectProblem }), status, INBOX_HDRS);
+  const nav = await adminNav(c.env, s, "creators");
+  return c.html(adminCreatorsPage({ rows, payouts, mode: creatorsMode(c.env), ...creatorsCfg(c.env), capCents: unpaidCapCents(c.env), csrf: nav.csrf, nav, flash, missing, nextPayout: nextPayoutDate(new Date()), connectProblem }), status, INBOX_HDRS);
 }
-const creatorsLogin = (env: Env) => (env.ADMIN_KEY ? new Response(null, { status: 303, headers: { Location: `/admin/login?next=${encodeURIComponent("/admin/creators")}`, ...INBOX_HDRS } }) : null);
+const creatorsLogin = (env: Env) => (env.ADMIN_KEY ? loginRedirect("/admin/creators") : null);
 app.get("/admin/creators", async (c) => {
-  const s = await adminSession(c);
-  if (!s.ok) return creatorsLogin(c.env) ?? c.notFound();
-  return renderCreators(c, s, CREATOR_FLASH[c.req.query("f") ?? ""]);
+  const g = await adminPage_(c);
+  if ("res" in g) return g.res;
+  return renderCreators(c, g.s, CREATOR_FLASH[c.req.query("f") ?? ""]);
 });
 app.post("/admin/creators/payouts", async (c) => {
   const s = await adminSession(c);
   if (!s.ok) return creatorsLogin(c.env) ?? c.notFound();
   if (!(await postOk(c, s, (await c.req.parseBody()).csrf))) return c.text("cross-site request refused", 403);
-  if (creatorsMode(c.env) === "off") return back("/admin/creators", s.key, "f=off");
+  if (creatorsMode(c.env) === "off") return back("/admin/creators", "f=off");
   await runCreatorPayouts(c.env, new Date(), { force: true }, log);
-  return back("/admin/creators", s.key, "f=payouts");
+  return back("/admin/creators", "f=payouts");
 });
 app.post("/admin/creators/:id/:what{approve|state}", async (c) => {
   const s = await adminSession(c);
@@ -1801,8 +1881,8 @@ app.post("/admin/creators/:id/:what{approve|state}", async (c) => {
   if (what === "state" && !CREATOR_ACTIONS.includes(a)) return c.text("unknown action", 400);
   let r: { ok: boolean; error?: string };
   try { r = what === "approve" ? await approveCreator(c.env, id, formStr(f.code).trim() || null, log) : await changeCreator(c.env, id, a, log); }
-  catch (e) { if (/no such table/i.test(String(e))) return back("/admin/creators", s.key, "f=migrate"); throw e; }
-  if (r.ok) return back("/admin/creators", s.key, `f=${what === "approve" ? "approved" : a}`);
+  catch (e) { if (/no such table/i.test(String(e))) return back("/admin/creators", "f=migrate"); throw e; }
+  if (r.ok) return back("/admin/creators", `f=${what === "approve" ? "approved" : a}`);
   return renderCreators(c, s, { error: r.error }, 400);
 });
 
@@ -1813,19 +1893,29 @@ app.get("/admin/stats", async (c) => {
   const days = Math.min(90, Math.max(1, parseInt(c.req.query("days") ?? "30", 10)));
   return c.json(await adminStats(c.env.DB, days));
 });
-// HTML view of /admin/stats + recent errors, stories and email queues. Bearer header or ?key= (same secret); 404 otherwise.
+// The dashboard: /admin/stats as a page, plus recent errors, stories, email queues, and sign-in security (last 5 sign-ins,
+// "Sign out everywhere", a banner while two-factor is off). Signed in (cookie) or bearer; otherwise /admin/login.
 app.get("/admin", async (c) => {
-  if (!(await adminSession(c)).ok) return c.notFound(); // ADMIN_KEY only (bearer, ?key= or the /admin/login cookie)
-  const [stats, extras, money] = await Promise.all([adminStats(c.env.DB, adminDays(c.req.query("days"))), adminExtras(c.env.DB), adminMoney(c.env.DB)]);
-  return c.html(adminPage({ stats, extras, money, currency: c.env.CURRENCY, key: c.req.query("key"), generatedAt: now() }), 200,
-    { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
+  const g = await adminPage_(c);
+  if ("res" in g) return g.res;
+  const [stats, extras, money, logins, nav] = await Promise.all([adminStats(c.env.DB, adminDays(c.req.query("days"))), adminExtras(c.env.DB), adminMoney(c.env.DB), adminLogins(c.env.DB), adminNav(c.env, g.s, "dashboard")]);
+  return c.html(adminPage({ stats, extras, money, currency: c.env.CURRENCY, generatedAt: now(), nav, security: { totp: totpOn(c.env), ...logins } }), 200, ADMIN_PAGE_HDRS);
 });
 
-// Monday KPI email as text, any time (ADMIN_KEY only, like GET /admin), and a forced send (bearer, like the other POSTs).
-app.get("/admin/kpi", async (c) => {
-  if (!(await adminSession(c)).ok) return c.notFound();
+// The Monday KPI email any time: laid out at /admin/kpi, plain text at /admin/kpi.txt (or /admin/kpi?format=text) for
+// scripts (bearer) and the forced send (bearer, like the other POSTs).
+app.get("/admin/kpi.txt", async (c) => {
+  const g = await adminPage_(c);
+  if ("res" in g) return g.res;
   const r = await buildKpiReport(c.env.DB, new Date(), kpiOpts(c.env));
-  return c.text(r.text, 200, { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" });
+  return c.text(r.text, 200, ADMIN_TEXT_HDRS);
+});
+app.get("/admin/kpi", async (c) => {
+  const g = await adminPage_(c);
+  if ("res" in g) return g.res;
+  const r = await buildKpiReport(c.env.DB, new Date(), kpiOpts(c.env));
+  if (c.req.query("format") === "text") return c.text(r.text, 200, ADMIN_TEXT_HDRS);
+  return c.html(kpiPage({ text: r.text, nav: await adminNav(c.env, g.s, "kpi"), generatedAt: now() }), 200, ADMIN_PAGE_HDRS);
 });
 // Run the ads controller now (bearer), outside 06:00, still once per Brisbane day and still under ADS (off does nothing).
 app.post("/admin/ads/run", async (c) => {
@@ -1837,16 +1927,19 @@ app.post("/admin/kpi/send", async (c) => {
   return c.json(await runKpiEmail(c.env, new Date(), true));
 });
 
-// Voice audition (GET /admin/voice) and the TTS endpoint behind it, which is also the content engine's VO endpoint
-// (POST /admin/tts). ADMIN_KEY only (bearer or ?key=), plain 404 otherwise, like GET /admin. Same pipeline as the reading.
-const ADMIN_HDRS = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" };
-const adminKeyOk = (env: Env, auth: string | undefined, key: string | undefined) => !!env.ADMIN_KEY && adminAuthorized(env.ADMIN_KEY, auth, key);
-app.get("/admin/voice", (c) => {
-  if (!adminKeyOk(c.env, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
-  return c.html(voicePage({ key: c.req.query("key"), current: ttsConfig(c.env), ai: !!c.env.AI, models: availableModels(c.env) }), 200, ADMIN_HDRS);
+// Voice audition (GET /admin/voice, an admin page) and the TTS endpoint behind it, which is also the content engine's VO
+// endpoint (POST /admin/tts): ADMIN_KEY bearer, or the page's own session (cookie + its CSRF token in X-Rite-CSRF, same
+// origin). Plain 404 otherwise. Same pipeline as the reading.
+const ADMIN_HDRS = ADMIN_TEXT_HDRS;
+app.get("/admin/voice", async (c) => {
+  const g = await adminPage_(c);
+  if ("res" in g) return g.res;
+  const nav = await adminNav(c.env, g.s, "voice");
+  return c.html(voicePage({ csrf: nav.csrf, nav, current: ttsConfig(c.env), ai: !!c.env.AI, models: availableModels(c.env) }), 200, ADMIN_PAGE_HDRS);
 });
 app.post("/admin/tts", async (c) => {
-  if (!adminKeyOk(c.env, c.req.header("authorization"), c.req.query("key"))) return c.notFound();
+  const s = await adminSession(c);
+  if (!s.ok || (!s.bearer && !(await postOk(c, s, c.req.header("x-rite-csrf"))))) return c.notFound();
   const b = await c.req.json<{ text?: unknown; model?: unknown; voice?: unknown }>().catch(() => null);
   const text = typeof b?.text === "string" ? b.text.trim() : "";
   if (!text) return c.json({ error: "text is required" }, 400, ADMIN_HDRS);

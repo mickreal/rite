@@ -4,13 +4,24 @@ Saved replies for `hello@rite.report`, each with the admin step behind it. Polic
 
 **Replies are sent from `/admin/inbox`** (build 3b), not from your own mail app, so they come from `hello@`, thread under the customer's message, and are kept with the thread. When something needs you, a short note arrives at `ADMIN_EMAIL` (with the original forwarded beside it) linking to the thread: open it, the assistant's draft (one of the replies below) is already in the box; edit the `{…}` parts (it won't send with one left in) and press Send. Sending takes the thread over: the assistant won't act on that thread again, even with `INBOX_AUTO` on, and the customer's next message comes straight to you. "I've got this" takes it over without replying; "Hand back to assistant" undoes it; Close / Reopen file it. Do the admin step (the curl below) before you send a reply that says it's done.
 
-Sign in once per device at `/admin/login` with `ADMIN_KEY` (a signed, HttpOnly cookie for 30 days; `?key=` still works). **Optional extra layer, free:** Cloudflare Zero Trust → Access → Applications → Add → Self-hosted, domain `rite.report`, path `admin` (it covers `/admin` and everything under it), policy "Allow" with an Include rule "Emails: <your address>" (one-time PIN login). Access then asks for a code by email before any `/admin` page loads, in front of the key. Leave `/webhook/*` and `/internal/*` outside it. Curl calls to `/admin/*` would then need an Access service token, so add a second policy "Service Auth" with a service token if you keep using them.
+**Signing in.** Open `rite.report/admin` (or any admin page, or the link in an inbox note): without a session it sends you to `/admin/login`. Enter `ADMIN_KEY` (your password manager can save it under the username `rite-admin`), then, once two-factor is set up (`npm run admin:totp`, README "Admin"), the 6-digit code from your authenticator app. You come back to the page you asked for. The session lasts 14 days per device; the header on every admin page has Dashboard, Inbox (with the "Needs me" count), Creators, KPI, Voice and Sign out. Lost a phone or laptop? Dashboard → "Sign-in and security" → **Sign out everywhere** (every browser has to sign in again; the curl macros below aren't affected). Links with `?key=` no longer work on pages: they go to the sign-in page, so the key never sits in browser history.
 
-Admin calls use `ADMIN_KEY` (`.dev.vars`), never pasted into a reply:
+**The curl macros are unchanged.** They send `ADMIN_KEY` as a bearer header, which every admin API still takes (and never `?key=`):
 
 ```sh
 A="Authorization: Bearer $ADMIN_KEY"; H='content-type: application/json'; S=https://rite.report
+curl -sS $S/admin/kpi.txt -H "$A"                  # this week's KPI text (the page is /admin/kpi)
+curl -sS $S/admin/season/<tok>/notes -H "$A"       # every Season note built for a purchase
 ```
+
+**Cloudflare Access (optional, free, once `rite.report` is live).** A Cloudflare login in front of the admin pages, before the key and code. Zero Trust → Access → Applications → Add → Self-hosted, domain `rite.report`, path `admin` (it covers `/admin` and everything under it), policy **Allow** with Include "Emails: <your address>" (one-time PIN by email, or your Google login). Leave `/webhook/*`, `/internal/*` and the rest of the site outside it. The curl macros then need one of these, pick one:
+
+- **Service token (simplest; everything under `/admin` stays behind Access).** Zero Trust → Access → Service Auth → Create service token (`rite-curl`); add a second policy to the same application, action **Service Auth**, Include "Service Token: rite-curl". Keep its id and secret in `.dev.vars` (never in a reply) and add two headers to the macros: `C1="CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID"; C2="CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET"`, then `curl … -H "$A" -H "$C1" -H "$C2"`. The content engine's VO calls (`content/clips/vo.ts`, `POST /admin/tts`) would need the same two headers, so prefer the path exclusion below if you don't want to touch that.
+- **Path exclusion (the macros stay exactly as they are).** Add one more self-hosted application per API path on `rite.report`, each with a single policy, action **Bypass**, Include "Everyone": `admin/stats`, `admin/refund`, `admin/fulfil`, `admin/season`, `admin/kpi/send`, `admin/kpi.txt`, `admin/ads/run`, `admin/tts`. Access picks the most specific matching path, so these skip the Cloudflare login and fall back to the Worker's own check (bearer only on the APIs; sign-in or bearer on `/admin/season/<tok>/notes` and `/admin/kpi.txt`). The pages (`/admin`, `/admin/inbox`, `/admin/creators`, `/admin/kpi`, `/admin/voice`, `/admin/login`) stay behind Access.
+
+Either way, check afterwards: a private window on `rite.report/admin` shows the Cloudflare login first, and `curl -sS -o /dev/null -w '%{http_code}' $S/admin/stats -H "$A"` still prints 200.
+
+Admin calls use `ADMIN_KEY` (`.dev.vars`), never pasted into a reply.
 
 Answer within 2 hours on launch days, within one business day after that. Refunds the same day.
 

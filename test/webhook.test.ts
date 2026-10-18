@@ -390,10 +390,10 @@ describe("schema and migrations", () => {
     let before = schema;
     for (const col of ["plan TEXT", "price_arm TEXT", "tax_cents INTEGER"]) before = before.replace(new RegExp(`,([ \\t]*--[^\\n]*)?\\n\\s*${col}[^\\n]*\\n(\\s*--[^\\n]*\\n)*`, "g"), "$1\n");
     before = before.replace(/CREATE TABLE IF NOT EXISTS campaign_sends \([\s\S]*?\n\);\n/, "");
-    before = before.replace(/CREATE TABLE IF NOT EXISTS (support_messages|support_threads|support_replies|creators|creator_sales|creator_ledger|creator_payouts|season_invoices|year_aheads) \([\s\S]*?\n\);\n/g, "").replace(/CREATE (UNIQUE )?INDEX IF NOT EXISTS idx_(support|creator|season_invoices|year_aheads)_[^\n]*\n/g, "");
+    before = before.replace(/CREATE TABLE IF NOT EXISTS (support_messages|support_threads|support_replies|creators|creator_sales|creator_ledger|creator_payouts|season_invoices|year_aheads|admin_state) \([\s\S]*?\n\);\n/g, "").replace(/CREATE (UNIQUE )?INDEX IF NOT EXISTS idx_(support|creator|season_invoices|year_aheads)_[^\n]*\n/g, "");
     expect(before).not.toMatch(/\bplan TEXT|price_arm|tax_cents|campaign_sends \(|support_messages|support_threads|support_replies|TABLE IF NOT EXISTS creator|season_invoices|year_aheads/);
     old.db.exec(before);
     for (const f of migrationFiles()) old.db.exec(readFileSync(f, "utf8"));
-    for (const t of ["previews", "purchases", "subscriptions", "events", "gifts", "followups", "stories", "campaign_sends", "support_messages", "support_threads", "support_replies", "creators", "creator_sales", "creator_ledger", "creator_payouts", "season_invoices", "year_aheads"]) expect(cols(old, t)).toEqual(cols(fresh, t));
+    for (const t of ["previews", "purchases", "subscriptions", "events", "gifts", "followups", "stories", "campaign_sends", "support_messages", "support_threads", "support_replies", "creators", "creator_sales", "creator_ledger", "creator_payouts", "season_invoices", "year_aheads", "admin_state"]) expect(cols(old, t)).toEqual(cols(fresh, t));
   });
 });

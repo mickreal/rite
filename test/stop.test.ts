@@ -76,8 +76,9 @@ describe("Season notes are kept for /admin, delivered or not", () => {
     vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(nextNoteDate("Australia/Melbourne", new Date()));
     await hh.scheduled();
     expect(hh.db.row("SELECT last_sent_at FROM subscriptions")!.last_sent_at).toBeNull();
-    expect((await hh.request(`/admin/season/${TOK}/notes`)).status).toBe(404); // ADMIN_KEY only
-    const r = await hh.request(`/admin/season/${TOK}/notes?key=admin_key_for_tests_123`);
+    expect((await hh.request(`/admin/season/${TOK}/notes`)).status).toBe(303); // to /admin/login: ADMIN_KEY only
+    expect((await hh.request(`/admin/season/${TOK}/notes?key=admin_key_for_tests_123`)).status).toBe(303); // ?key= never honoured
+    const r = await hh.request(`/admin/season/${TOK}/notes`, { headers: { authorization: "Bearer admin_key_for_tests_123" } });
     const t = await r.text();
     expect(t).toContain("NOT delivered");
     expect(t).toMatch(/Subject: Saturn Season starts: /);

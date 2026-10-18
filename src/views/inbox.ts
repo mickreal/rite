@@ -1,8 +1,8 @@
 // The support inbox (build 3b): GET /admin/inbox (threads), GET /admin/inbox/t/:id (one thread, with the reply box) and
-// GET /admin/login. Plain server-rendered HTML in the /admin style, built for a phone first. Everything from the
-// database or an email goes through hono/html interpolation (escaped); raw() is only used by shell() for CSS.
+// Plain server-rendered HTML in the admin shell (views/admin-shell.ts), built for a phone first. Everything from the
+// database or an email goes through hono/html interpolation (escaped); raw() is only used by the shell for CSS.
 import { html } from "hono/html";
-import { shell } from "./theme";
+import { adminShell, type AdminNav } from "./admin-shell";
 import type { ThreadSummary, ThreadView, Tab, TimelineItem } from "../inbox-ui";
 import { STATUS_LABEL } from "../inbox-ui";
 
@@ -48,26 +48,22 @@ const CSS = `
 .ib .reply{display:flex;flex-direction:column;gap:10px}
 .ib .reply .cta{align-self:flex-start}
 .ib .note{padding:12px 14px;border-radius:14px;background:#1B1F26;font-size:15px}
-.ib .login{max-width:420px;display:flex;flex-direction:column;gap:12px}
 @media (max-width:520px){.ib .reply .cta{align-self:stretch}.ib .cta{width:100%}}
 `;
 
 const when = (iso: string | null | undefined) => (iso ?? "").replace("T", " ").slice(0, 16);
-const nav = html`<nav class="main"><a href="/">Site</a></nav>`;
-const page = (title: string, body: unknown) => shell({ title, description: "Admin", body, extraCss: CSS, noFooter: true, nav });
-/** ?key=… (or &key=…) when the page was opened with the key; empty with a cookie session. */
-const withKey = (path: string, key?: string | null) => (key ? `${path}${path.includes("?") ? "&" : "?"}key=${encodeURIComponent(key)}` : path);
+const page = (title: string, body: unknown, nav: AdminNav) => adminShell({ title, body, extraCss: CSS, nav });
 
-export function threadsPage(d: { threads: ThreadSummary[]; counts: Record<Tab, number>; tab: Tab; auto: boolean; missing006?: boolean; missing007?: boolean; key?: string | null; csrf: string; session: boolean; generatedAt?: string }) {
-  const tab = (t: Tab, label: string) => html`<a href="${withKey(`/admin/inbox${t === "needs" ? "" : `?tab=${t}`}`, d.key)}" class="${d.tab === t ? "on" : ""}" ${d.tab === t ? html`aria-current="page"` : ""}>${label} (${d.counts[t]})</a>`;
+export function threadsPage(d: { threads: ThreadSummary[]; counts: Record<Tab, number>; tab: Tab; auto: boolean; missing006?: boolean; missing007?: boolean; csrf: string; nav?: AdminNav; generatedAt?: string }) {
+  const tab = (t: Tab, label: string) => html`<a href="${`/admin/inbox${t === "needs" ? "" : `?tab=${t}`}`}" class="${d.tab === t ? "on" : ""}" ${d.tab === t ? html`aria-current="page"` : ""}>${label} (${d.counts[t]})</a>`;
   const body = html`<main class="ib">
-<div class="top"><h1>Inbox</h1>${d.session ? html`<form method="post" action="/admin/logout"><input type="hidden" name="csrf" value="${d.csrf}"><button class="ghost" type="submit">Sign out</button></form>` : ""}</div>
-<p class="muted">Every email to hello@, by thread, newest activity first${d.generatedAt ? html` · ${when(d.generatedAt)} UTC` : ""}. INBOX_AUTO is <b class="${d.auto ? "ok" : "warn"}">${d.auto ? "on" : "off"}</b>${d.auto ? "" : ": the assistant only drafts; every message comes to you"}. <a href="${withKey("/admin", d.key)}">Admin</a></p>
+<div class="top"><h1>Inbox</h1></div>
+<p class="muted">Every email to hello@, by thread, newest activity first${d.generatedAt ? html` · ${when(d.generatedAt)} UTC` : ""}. INBOX_AUTO is <b class="${d.auto ? "ok" : "warn"}">${d.auto ? "on" : "off"}</b>${d.auto ? "" : ": the assistant only drafts; every message comes to you"}.</p>
 ${d.missing006 ? html`<p class="warn">The support_messages table doesn't exist yet: run <code>npm run db:migrate:b3</code>.</p>` : ""}
 ${d.missing007 && !d.missing006 ? html`<p class="warn">Read-only until migration 007 is applied (statuses are worked out, replies can't be stored or sent): run <code>npm run db:migrate:b3b</code>.</p>` : ""}
 <nav class="tabs" aria-label="Filter">${tab("needs", "Needs me")}${tab("all", "All")}${tab("closed", "Closed")}</nav>
 <div class="list">
-${d.threads.length ? d.threads.map((t) => html`<a class="th" href="${withKey(`/admin/inbox/t/${t.urlKey}`, d.key)}">
+${d.threads.length ? d.threads.map((t) => html`<a class="th" href="${`/admin/inbox/t/${t.urlKey}`}">
 <div class="r1"><span class="who">${t.from}</span><span class="when">${when(t.lastAt)}</span></div>
 <div class="subj">${t.subject}</div>
 <div class="snip">${t.snippet || "(empty)"}</div>
@@ -75,7 +71,7 @@ ${d.threads.length ? d.threads.map((t) => html`<a class="th" href="${withKey(`/a
 </a>`) : html`<p class="empty">${d.tab === "needs" ? "Nothing needs you." : "Nothing here."}</p>`}
 </div>
 </main>`;
-  return page("Rite inbox", body);
+  return page("Rite admin · Inbox", body, d.nav ?? { section: "inbox", csrf: d.csrf, needs: d.counts.needs });
 }
 
 function item(it: TimelineItem) {
@@ -96,12 +92,12 @@ ${it.authDetail && !it.authPass ? html`<details><summary>Auth results</summary><
 </article>`;
 }
 
-export function threadPage(d: { t: ThreadView; key?: string | null; csrf: string; nonce: string; auto: boolean; flash?: { ok?: string; error?: string }; text?: string }) {
+export function threadPage(d: { t: ThreadView; nav?: AdminNav; csrf: string; nonce: string; auto: boolean; flash?: { ok?: string; error?: string }; text?: string }) {
   const t = d.t;
-  const act = (a: string, label: string) => html`<form method="post" action="${withKey(`/admin/inbox/t/${t.urlKey}/state`, d.key)}"><input type="hidden" name="csrf" value="${d.csrf}"><input type="hidden" name="do" value="${a}"><button class="ghost" type="submit">${label}</button></form>`;
+  const act = (a: string, label: string) => html`<form method="post" action="${`/admin/inbox/t/${t.urlKey}/state`}"><input type="hidden" name="csrf" value="${d.csrf}"><input type="hidden" name="do" value="${a}"><button class="ghost" type="submit">${label}</button></form>`;
   const text = d.text ?? t.draft ?? "";
   const body = html`<main class="ib">
-<p><a href="${withKey("/admin/inbox", d.key)}">← Inbox</a></p>
+<p><a href="/admin/inbox">← Inbox</a></p>
 <h1>${t.subject}</h1>
 <div class="badges"><span class="st ${t.status}">${STATUS_LABEL[t.status]}</span>${t.owner === "mick" ? html`<span class="st mine">Yours: the assistant won't act</span>` : html`<span class="st">Assistant can act${d.auto ? "" : " (INBOX_AUTO off)"}</span>`}<span class="meta">${t.from}</span></div>
 ${d.flash?.ok ? html`<p class="note ok" role="status">${d.flash.ok}</p>` : ""}
@@ -116,7 +112,7 @@ ${t.replyTo ? html`<section class="msg reply" aria-labelledby="h-reply">
 <h2 id="h-reply">Reply</h2>
 <p class="meta"><span>To ${t.replyTo}</span><span>from hello@ as "Rite", threaded</span></p>
 ${t.draft && d.text === undefined ? html`<p class="meta">Prefilled with the assistant's draft. Edit the {…} parts; it won't send with one left in.</p>` : ""}
-<form method="post" action="${withKey(`/admin/inbox/t/${t.urlKey}/reply`, d.key)}" class="reply">
+<form method="post" action="${`/admin/inbox/t/${t.urlKey}/reply`}" class="reply">
 <input type="hidden" name="csrf" value="${d.csrf}"><input type="hidden" name="nonce" value="${d.nonce}">
 <label for="body" class="meta">Message</label>
 <textarea id="body" name="body" required>${text}</textarea>
@@ -126,20 +122,5 @@ ${t.draft && d.text === undefined ? html`<p class="meta">Prefilled with the assi
 </section>` : html`<p class="empty">No customer address left to reply to.</p>`}
 <section class="msg" aria-labelledby="h-cust"><h2 id="h-cust">Customer</h2>${t.history ? html`<p class="mono">${t.history}</p>` : html`<p class="empty">No history (address deleted or unknown).</p>`}</section>
 </main>`;
-  return page("Rite inbox · thread", body);
-}
-
-export function loginPage(d: { next: string; error?: string }) {
-  const body = html`<main class="ib">
-<h1>Admin</h1>
-<form method="post" action="/admin/login" class="login">
-<input type="hidden" name="next" value="${d.next}">
-<label for="key" class="meta">Admin key</label>
-<input id="key" name="key" type="password" autocomplete="current-password" required autofocus>
-${d.error ? html`<p class="warn" role="alert">${d.error}</p>` : ""}
-<button class="cta" type="submit">Sign in</button>
-<p class="meta">Keeps you signed in on this device for 30 days.</p>
-</form>
-</main>`;
-  return page("Rite admin", body);
+  return page("Rite admin · Inbox thread", body, d.nav ?? { section: "inbox", csrf: d.csrf });
 }

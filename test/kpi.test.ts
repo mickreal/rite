@@ -203,17 +203,35 @@ describe("the cron and the admin routes", () => {
     expect((await h.request("/admin/kpi/send", { method: "POST" })).status).toBe(401);
   });
 
-  it("GET /admin/kpi returns the same text with ADMIN_KEY, 404 otherwise", async () => {
+  it("GET /admin/kpi.txt (and ?format=text) returns the same text with ADMIN_KEY; /admin/kpi lays it out; login otherwise", async () => {
     seedWeek();
     at("2026-11-15T21:30:00Z");
-    expect((await h.request("/admin/kpi")).status).toBe(404);
-    expect((await h.request("/admin/kpi?key=wrong_key_wrong_key")).status).toBe(404);
-    const res = await h.request(`/admin/kpi?key=${KEY}`);
-    expect(res.status).toBe(200);
-    expect(res.headers.get("cache-control")).toBe("no-store");
-    const text = await res.text();
-    expect(text).toBe((await buildKpiReport(db(), new Date(), { siteUrl: h.env.SITE_URL })).text);
-    expect(text).not.toContain(KEY);
+    const auth = { headers: { authorization: `Bearer ${KEY}` } };
+    for (const p of ["/admin/kpi", "/admin/kpi.txt"]) {
+      const r = await h.request(p);
+      expect(r.status).toBe(303);
+      expect(r.headers.get("location")).toBe(`/admin/login?next=${encodeURIComponent(p)}`);
+    }
+    expect((await h.request(`/admin/kpi?key=${KEY}`)).headers.get("location")).toBe("/admin/login?next=%2Fadmin%2Fkpi&why=key");
+    const want = (await buildKpiReport(db(), new Date(), { siteUrl: h.env.SITE_URL })).text;
+    for (const p of ["/admin/kpi.txt", "/admin/kpi?format=text"]) {
+      const res = await h.request(p, auth);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("cache-control")).toBe("no-store");
+      expect(res.headers.get("content-type")).toContain("text/plain");
+      const text = await res.text();
+      expect(text).toBe(want);
+      expect(text).not.toContain(KEY);
+    }
+    const page = await h.request("/admin/kpi", auth);
+    expect(page.headers.get("content-type")).toContain("text/html");
+    const html = await page.text();
+    expect(html).toContain("<h1>KPI</h1>");
+    expect(html).toContain('<h2>FUNNEL</h2>');
+    expect(html).toContain('<h2>MONEY</h2>');
+    expect(html).toContain("<dt>Previews</dt>");
+    expect(html).toContain('href="/admin/kpi.txt"');
+    expect(html).toContain('class="on" aria-current="page">KPI');
   });
 });
 

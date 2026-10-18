@@ -199,7 +199,7 @@ describe("applying and approval", () => {
   it("admin pages need the admin key; pause switches the Stripe code off", async () => {
     expect((await h.request("/admin/creators")).status).toBe(303); // to /admin/login
     seedCreator();
-    const page = await (await h.request(`/admin/creators?key=${ADMIN}`)).text();
+    const page = await (await h.request("/admin/creators", { headers: { authorization: `Bearer ${ADMIN}` } })).text();
     expect(page).toContain("@ellduclos");
     expect(page).toContain("RITE-ELLDUCLOS");
     const made = stub();
@@ -511,7 +511,7 @@ describe("Stripe Connect", () => {
     const m = h.emails().find((e) => e.subject.startsWith("Rite creator payouts 2026-12"))!;
     expect(m.subject).toContain("STRIPE CONNECT NOT AVAILABLE");
     expect(m.text).toContain("no money moved");
-    const admin = await (await h.request(`/admin/creators?key=${ADMIN}`)).text();
+    const admin = await (await h.request("/admin/creators", { headers: { authorization: `Bearer ${ADMIN}` } })).text();
     expect(admin).toContain("Stripe said Connect isn"); // the apostrophe is HTML-escaped
   });
 });

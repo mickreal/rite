@@ -1,7 +1,8 @@
 // GET /admin/voice: audition voices and cadence markup. Play POSTs the textarea to /admin/tts (same pipeline as the
-// reading narration) and plays the MP3 it returns. The admin key travels as a bearer header from the page's own ?key=.
+// reading narration) and plays the MP3 it returns. The page's signed-in session authorises it (cookie + CSRF header);
+// scripts call /admin/tts with the bearer key instead.
 import { html } from "hono/html";
-import { shell } from "./theme";
+import { adminShell, type AdminNav } from "./admin-shell";
 import { TTS_MODELS, PARAGRAPH_MS, DEFAULT_PAUSE_MS, MAX_PAUSE_MS, MAX_ADMIN_CHARS, type TtsConfig } from "../tts";
 
 /** A real chapter excerpt (chapter three for a 14 Aug 1997 Melbourne chart), as narrationText writes it, markup included. */
@@ -20,8 +21,8 @@ The month after — keep the promise, even when it's dull. [pause 1200]
 That's the pass. Next, the turn.`;
 
 const CSS = `
-.vox{max-width:880px;margin:0 auto;padding:8px clamp(16px,4vw,48px) 120px;display:flex;flex-direction:column;gap:22px}
-.vox h1{margin:0;font-family:'Bricolage Grotesque',serif;font-size:44px;letter-spacing:-.03em;font-weight:800;line-height:1}
+.vox{max-width:880px;margin:0 auto;padding:0 clamp(16px,4vw,48px) 120px;display:flex;flex-direction:column;gap:22px}
+.vox h1{margin:0;font-family:'Bricolage Grotesque',serif;font-size:clamp(32px,7vw,44px);letter-spacing:-.03em;font-weight:800;line-height:1}
 .vox h2{margin:0 0 10px;font-family:'Bricolage Grotesque',serif;font-size:22px;letter-spacing:-.02em;font-weight:600}
 .vox label{display:flex;flex-direction:column;gap:6px;font-size:14px;color:#A7A196;min-width:0}
 .vox textarea,.vox select{font:400 16px/1.55 'Hanken Grotesk',sans-serif;color:#EDE6D6;background:#0E1014;border:1px solid rgba(237,230,214,.22);border-radius:14px;padding:12px 14px;width:100%;box-sizing:border-box}
@@ -36,11 +37,10 @@ const CSS = `
 .vox .ghostbtn{min-height:48px;border-radius:999px;border:1px solid rgba(237,230,214,.22);background:transparent;color:#EDE6D6;padding:0 18px;font:500 15px 'Hanken Grotesk',sans-serif;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
 `;
 
-export function voicePage(d: { key?: string | null; current: TtsConfig; ai: boolean; models?: typeof TTS_MODELS }) {
+export function voicePage(d: { csrf: string; nav?: AdminNav; current: TtsConfig; ai: boolean; models?: typeof TTS_MODELS }) {
   const MODELS = d.models ?? TTS_MODELS;
-  const back = `/admin${d.key ? `?key=${encodeURIComponent(d.key)}` : ""}`;
   const body = html`<main class="vox">
-<div class="bar" style="justify-content:space-between"><h1>Voice</h1><a class="ghostbtn" href="${back}">Back to admin</a></div>
+<div class="bar"><h1>Voice</h1></div>
 <p class="muted" style="margin:-8px 0 0">Live narration uses <code>${d.current.model}</code> · <code>${d.current.voice}</code> (ElevenLabs v3 + Anna whenever <code>ELEVENLABS_API_KEY</code> is set; <code>TTS_MODEL</code> / <code>TTS_VOICE</code> override it).${d.ai || d.current.model.startsWith("elevenlabs/") ? "" : html` <b style="color:#E08A7A">No AI binding on this deployment, so Play will fail.</b>`}</p>
 <section class="card">
 <form id="vf" style="display:flex;flex-direction:column;gap:14px">
@@ -63,16 +63,16 @@ export function voicePage(d: { key?: string | null; current: TtsConfig; ai: bool
 </ul></section>
 </main>`;
   const models = JSON.stringify(MODELS.map((m) => ({ id: m.id, voices: m.voices, def: m.defaultVoice }))).replace(/</g, "\\u003c");
-  const script = `(function(){var M=${models},CUR=${JSON.stringify(d.current).replace(/</g, "\\u003c")},KEY=new URLSearchParams(location.search).get('key')||'';
+  const script = `(function(){var M=${models},CUR=${JSON.stringify(d.current).replace(/</g, "\\u003c")},CSRF=${JSON.stringify(d.csrf).replace(/</g, "\\u003c")};
 var $=function(i){return document.getElementById(i)},vm=$('vm'),vv=$('vv'),vs=$('vs'),va=$('va'),vd=$('vd'),vp=$('vp'),url=null;
 function fill(){var m=M.find(function(x){return x.id===vm.value})||M[0];vv.innerHTML='';m.voices.forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v+(v===m.def?' (default)':'');if(v===(vm.value===CUR.model?CUR.voice:m.def))o.selected=true;vv.appendChild(o)})}
 vm.addEventListener('change',fill);fill();
 $('vf').addEventListener('submit',function(e){e.preventDefault();var t=$('vt').value.trim();if(!t)return;vp.disabled=true;vs.textContent='Synthesising\\u2026';var t0=Date.now();
- fetch('/admin/tts',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+KEY},body:JSON.stringify({text:t,model:vm.value,voice:vv.value})}).then(function(r){
+ fetch('/admin/tts',{method:'POST',headers:{'content-type':'application/json','x-rite-csrf':CSRF},credentials:'same-origin',body:JSON.stringify({text:t,model:vm.value,voice:vv.value})}).then(function(r){
   if(!r.ok)return r.text().then(function(x){var m=x;try{m=JSON.parse(x).error||x}catch(_){}throw new Error(r.status+' '+m)});
   var h=r.headers;return r.blob().then(function(b){if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(b);va.src=url;vd.href=url;vd.style.display='';va.play().catch(function(){});
    vs.textContent=h.get('x-tts-voice')+' \\u00b7 '+h.get('x-tts-chunks')+' chunks'+(h.get('x-tts-spliced')==='true'?', pauses spliced':', pauses NOT spliced (unrecognised MP3)')+' \\u00b7 '+(Number(h.get('x-tts-duration-ms'))/1000).toFixed(1)+' s audio \\u00b7 '+((Date.now()-t0)/1000).toFixed(1)+' s to make'})
  }).catch(function(err){vs.textContent='Failed: '+err.message}).finally(function(){vp.disabled=false})});
 })();`;
-  return shell({ title: "Rite voice", description: "Admin", body, extraCss: CSS, script, noFooter: true, nav: html`<nav class="main"><a href="/">Site</a></nav>` });
+  return adminShell({ title: "Rite admin · Voice", body, extraCss: CSS, script, nav: d.nav ?? { section: "voice", csrf: d.csrf } });
 }

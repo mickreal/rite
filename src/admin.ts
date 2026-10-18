@@ -12,7 +12,7 @@ export function safeEqual(a: string, b: string): boolean {
   return d === 0;
 }
 
-/** The admin secret is the Stripe webhook secret (README). Accepts `Authorization: Bearer <secret>` or, for the browser, `?key=<secret>`. */
+/** ADMIN_KEY check: `Authorization: Bearer <secret>` (scripts), or `key` = the secret as typed into /admin/login's form. Never read from a URL. */
 export function adminAuthorized(secret: string | undefined, auth?: string | null, key?: string | null): boolean {
   if (!secret || secret.length <= 10) return false;
   const viaHeader = auth != null && safeEqual(auth, `Bearer ${secret}`);
@@ -86,29 +86,58 @@ export async function adminMoney(db: D1Database, nowMs = Date.now()): Promise<Ad
   return { tax_30d: (tp?.cents ?? 0) + (tg?.cents ?? 0), bumps_30d: { n: bumps?.n ?? 0, cents: bumps?.cents ?? 0 }, arms: arms.results ?? [], price_test_done: done ?? null };
 }
 
-// ---------- admin session (build 3b): a signed cookie so the key isn't in every URL ----------
-// Cookie value: v1.<expiry, unix seconds>.<HMAC-SHA256(ADMIN_KEY, "rite-admin-session.v1.<expiry>"), base64url>. Changing
-// ADMIN_KEY signs every session out. The CSRF token for the admin forms is an HMAC of the session (or "key" when the
-// page was opened with ?key=), so it's per-session and needs no storage.
+
+// ---------- admin session (build 3b, hardened in b12-admin): a signed cookie so the key is never in a URL ----------
+// Cookie value: v2.<expiry, unix s>.<session version>.<mfa 0|1>.<random id>.<HMAC-SHA256(ADMIN_KEY, "rite-admin-session.v2.…")>.
+// Valid while unexpired, correctly signed, carrying the current session version (admin_state "session_version"; "Sign out
+// everywhere" rotates it) and, when ADMIN_TOTP_SECRET is set, mfa=1. Changing ADMIN_KEY also signs every session out. The
+// CSRF token for the admin forms is an HMAC of the cookie value, so it's per-session and needs no storage.
 export const SESSION_COOKIE = "rite_admin";
-export const SESSION_DAYS = 30;
+export const SESSION_DAYS = 14;
+/** How long the step between a correct key and the authenticator code may take. */
+export const PENDING_MINUTES = 5;
 
 const b64u = (b: ArrayBuffer | Uint8Array) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 async function hmac(secret: string, msg: string): Promise<string> {
   const k = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return b64u(await crypto.subtle.sign("HMAC", k, enc.encode(msg)));
 }
+const rand = (n = 12) => { const b = new Uint8Array(n); crypto.getRandomValues(b); return b64u(b); };
 
-export async function makeSession(secret: string, nowMs = Date.now()): Promise<string> {
+export interface SessionOpts { version?: string; mfa?: boolean }
+export interface SessionCheck { version?: string; mfaRequired?: boolean }
+
+export async function makeSession(secret: string, nowMs = Date.now(), o: SessionOpts = {}): Promise<string> {
   const exp = Math.floor(nowMs / 1000) + SESSION_DAYS * 86400;
-  return `v1.${exp}.${await hmac(secret, `rite-admin-session.v1.${exp}`)}`;
+  const body = `v2.${exp}.${o.version ?? "0"}.${o.mfa ? 1 : 0}.${rand()}`;
+  return `${body}.${await hmac(secret, `rite-admin-session.${body}`)}`;
 }
 
-export async function sessionValid(secret: string | undefined, value: string | null | undefined, nowMs = Date.now()): Promise<boolean> {
-  if (!secret || secret.length <= 10 || !value) return false;
-  const m = /^v1\.(\d{1,12})\.([A-Za-z0-9_-]{20,})$/.exec(value);
-  if (!m || Number(m[1]) * 1000 <= nowMs) return false;
-  return safeEqual(m[2]!, await hmac(secret, `rite-admin-session.v1.${m[1]}`));
+/** The parsed session when the cookie is valid now, else null. */
+export async function readSession(secret: string | undefined, value: string | null | undefined, nowMs = Date.now(), o: SessionCheck = {}): Promise<{ exp: number; mfa: boolean } | null> {
+  if (!secret || secret.length <= 10 || !value) return null;
+  const m = /^(v2\.(\d{1,12})\.([A-Za-z0-9_-]{1,40})\.([01])\.[A-Za-z0-9_-]{8,40})\.([A-Za-z0-9_-]{20,})$/.exec(value);
+  if (!m) return null;
+  const sigOk = safeEqual(m[5]!, await hmac(secret, `rite-admin-session.${m[1]}`));
+  const fresh = Number(m[2]) * 1000 > nowMs;
+  const verOk = safeEqual(m[3]!, o.version ?? "0");
+  const mfaOk = !o.mfaRequired || m[4] === "1";
+  return sigOk && fresh && verOk && mfaOk ? { exp: Number(m[2]), mfa: m[4] === "1" } : null;
+}
+export async function sessionValid(secret: string | undefined, value: string | null | undefined, nowMs = Date.now(), o: SessionCheck = {}): Promise<boolean> {
+  return (await readSession(secret, value, nowMs, o)) !== null;
+}
+
+/** The short-lived proof that the key step passed, carried by the authenticator-code form (hidden field). */
+export async function makePending(secret: string, nowMs = Date.now()): Promise<string> {
+  const body = `p1.${Math.floor(nowMs / 1000) + PENDING_MINUTES * 60}.${rand()}`;
+  return `${body}.${await hmac(secret, `rite-admin-pending.${body}`)}`;
+}
+export async function pendingValid(secret: string, value: string | null | undefined, nowMs = Date.now()): Promise<boolean> {
+  const m = /^(p1\.(\d{1,12})\.[A-Za-z0-9_-]{8,40})\.([A-Za-z0-9_-]{20,})$/.exec(value ?? "");
+  if (!m) return false;
+  const sigOk = safeEqual(m[3]!, await hmac(secret, `rite-admin-pending.${m[1]}`));
+  return sigOk && Number(m[2]) * 1000 > nowMs;
 }
 
 export function cookieValue(header: string | null | undefined, name: string): string | null {
@@ -139,9 +168,95 @@ export function sameOrigin(req: Request): boolean {
   return origin !== "null";
 }
 
-/** Where /admin/login may send you afterwards: an /admin path on this site, nothing else. */
+/**
+ * Where /admin/login may send you afterwards: a path under /admin on this site (normalised, so /admin/../x or an encoded
+ * //host can't leave it), never /admin/login or /admin/logout, and never with ?key=. Anything else is /admin.
+ */
 export function safeNext(next: string | null | undefined): string {
   const n = (next ?? "").trim();
-  if (!/^\/admin(\/|\?|$)/.test(n) || /[\\\s]/.test(n) || n.startsWith("//") || n.startsWith("/admin/login")) return "/admin/inbox";
-  return n;
+  if (!n.startsWith("/") || n.startsWith("//") || /[\\\s\x00-\x1f]/.test(n) || /%(2f|5c|2e)/i.test(n.split("?")[0]!)) return "/admin";
+  let u: URL;
+  try { u = new URL(n, "https://rite.invalid"); } catch { return "/admin"; }
+  if (u.origin !== "https://rite.invalid" || !/^\/admin(\/|$)/.test(u.pathname) || /^\/admin\/(login|logout)(\/|$)/.test(u.pathname)) return "/admin";
+  u.searchParams.delete("key");
+  return u.pathname + u.search;
+}
+
+// ---------- admin state: session version and TOTP replay guard ----------
+// D1 table admin_state (migration 011, strongly consistent, atomic claim). Until it's applied, KV (CACHE) stands in.
+export interface AdminStateEnv { DB: D1Database; CACHE?: KVNamespace }
+const missingTable = (e: unknown) => /no such table/i.test(String(e));
+
+export async function stateGet(env: AdminStateEnv, k: string): Promise<string | null> {
+  try { return (await env.DB.prepare("SELECT v FROM admin_state WHERE k=?").bind(k).first<{ v: string }>())?.v ?? null; }
+  catch (e) { if (!missingTable(e)) throw e; return (await env.CACHE?.get(`admin_state:${k}`)) ?? null; }
+}
+export async function stateSet(env: AdminStateEnv, k: string, v: string): Promise<void> {
+  try { await env.DB.prepare("INSERT INTO admin_state (k, v, updated_at) VALUES (?,?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v, updated_at=excluded.updated_at").bind(k, v, new Date().toISOString()).run(); }
+  catch (e) { if (!missingTable(e)) throw e; await env.CACHE?.put(`admin_state:${k}`, v); }
+}
+/** The current session version ("0" until the first "Sign out everywhere"). */
+export const sessionVersion = async (env: AdminStateEnv) => (await stateGet(env, "session_version")) ?? "0";
+/** Sign out everywhere: a new random version, so every cookie made before it fails. Returns the new version. */
+export async function rotateSessionVersion(env: AdminStateEnv): Promise<string> {
+  const v = rand(9);
+  await stateSet(env, "session_version", v);
+  return v;
+}
+/**
+ * Use up a TOTP step: true only if it's later than the last step used, so a code works once and an older code never works
+ * after a newer one. In D1 it's one conditional upsert (atomic: two simultaneous logins with one code can't both win).
+ */
+export async function claimTotpStep(env: AdminStateEnv, step: number): Promise<boolean> {
+  try {
+    const r = await env.DB.prepare(`INSERT INTO admin_state (k, v, updated_at) VALUES ('totp_last_step', ?, ?)
+      ON CONFLICT(k) DO UPDATE SET v=excluded.v, updated_at=excluded.updated_at WHERE CAST(admin_state.v AS INTEGER) < CAST(excluded.v AS INTEGER)`).bind(String(step), new Date().toISOString()).run();
+    return (r.meta?.changes ?? 0) > 0;
+  } catch (e) {
+    if (!missingTable(e) || !env.CACHE) throw e;
+    const last = parseInt((await env.CACHE.get("admin_state:totp_last_step")) ?? "0", 10) || 0;
+    if (step <= last) return false;
+    await env.CACHE.put("admin_state:totp_last_step", String(step));
+    return true;
+  }
+}
+
+// ---------- sign-in rate limit: wrong keys and wrong codes, per IP and for the whole admin ----------
+export const LOGIN_FAILS_PER_IP = 10;
+export const LOGIN_FAILS_GLOBAL = 50;
+export const LOGIN_WINDOW_S = 3600;
+type Bucket = { n: number; reset: number };
+const bucketKeys = (ip: string) => ({ ip: `adminlogin:ip:${ip}`, global: "adminlogin:global" });
+async function readBucket(kv: KVNamespace, k: string, nowS: number): Promise<Bucket> {
+  try { const b = JSON.parse((await kv.get(k)) ?? "null") as Bucket | null; if (b && b.reset > nowS) return b; } catch { /* unreadable: start again */ }
+  return { n: 0, reset: nowS + LOGIN_WINDOW_S };
+}
+/** Blocked when this IP has 10 failures in its hour, or the admin as a whole has 50; retryAt is when it opens (unix s). */
+export async function loginBlocked(kv: KVNamespace | undefined, ip: string, nowMs = Date.now()): Promise<{ scope: "ip" | "global"; retryAt: number } | null> {
+  if (!kv) return null;
+  const nowS = Math.floor(nowMs / 1000), k = bucketKeys(ip);
+  const [a, g] = await Promise.all([readBucket(kv, k.ip, nowS), readBucket(kv, k.global, nowS)]);
+  if (a.n >= LOGIN_FAILS_PER_IP) return { scope: "ip", retryAt: a.reset };
+  if (g.n >= LOGIN_FAILS_GLOBAL) return { scope: "global", retryAt: g.reset };
+  return null;
+}
+export async function loginFailed(kv: KVNamespace | undefined, ip: string, nowMs = Date.now()): Promise<void> {
+  if (!kv) return;
+  const nowS = Math.floor(nowMs / 1000), k = bucketKeys(ip);
+  for (const key of [k.ip, k.global]) {
+    const b = await readBucket(kv, key, nowS);
+    await kv.put(key, JSON.stringify({ n: b.n + 1, reset: b.reset }), { expirationTtl: Math.max(60, b.reset - nowS) });
+  }
+}
+
+export interface AdminLogin { at: string; detail: string | null }
+/** The last 5 sign-ins and the failed attempts in the last 24 h, for the dashboard. */
+export async function adminLogins(db: D1Database, nowMs = Date.now()): Promise<{ recent: AdminLogin[]; failed24h: number }> {
+  try {
+    const [r, f] = await Promise.all([
+      db.prepare("SELECT at, detail FROM events WHERE kind='admin_login' ORDER BY id DESC LIMIT 5").all<AdminLogin>(),
+      db.prepare("SELECT COUNT(*) n FROM events WHERE kind='admin_login_failed' AND at > ?").bind(new Date(nowMs - 86400000).toISOString()).first<{ n: number }>(),
+    ]);
+    return { recent: r.results ?? [], failed24h: f?.n ?? 0 };
+  } catch { return { recent: [], failed24h: 0 }; }
 }

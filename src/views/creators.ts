@@ -3,6 +3,7 @@
 // interpolation (escaped); raw() is only used by shell() for CSS.
 import { html } from "hono/html";
 import { shell } from "./theme";
+import { adminShell, type AdminNav } from "./admin-shell";
 import type { CreatorRow, CreatorNumbers, PayoutRow } from "../creator-ops";
 import { COUNTRIES, PLATFORMS } from "../creator-ops";
 import type { CreatorsMode } from "../creators";
@@ -121,14 +122,14 @@ export function dashboardPage(d: DashboardData) {
 
 // ---------- /admin/creators ----------
 export interface AdminCreatorRow { c: CreatorRow; n: CreatorNumbers }
-export interface AdminCreatorsData { rows: AdminCreatorRow[]; payouts: PayoutRow[]; mode: CreatorsMode; pct: number; off: number; minCents: number; capCents: number; csrf: string; key?: string | null; flash?: { ok?: string; error?: string }; missing?: boolean; nextPayout: string; connectProblem?: string | null }
+export interface AdminCreatorsData { rows: AdminCreatorRow[]; payouts: PayoutRow[]; mode: CreatorsMode; pct: number; off: number; minCents: number; capCents: number; csrf: string; nav?: AdminNav; flash?: { ok?: string; error?: string }; missing?: boolean; nextPayout: string; connectProblem?: string | null }
 export function adminCreatorsPage(d: AdminCreatorsData) {
-  const withKey = (p: string) => (d.key ? `${p}${p.includes("?") ? "&" : "?"}key=${encodeURIComponent(d.key)}` : p);
+  const withKey = (p: string) => p;
   const act = (c: CreatorRow, a: string, label: string, ghost = true) => html`<form method="post" action="${withKey(`/admin/creators/${c.id}/${a === "approve" ? "approve" : "state"}`)}" style="display:inline"><input type="hidden" name="csrf" value="${d.csrf}">${a !== "approve" ? html`<input type="hidden" name="do" value="${a}">` : ""}<button class="${ghost ? "ghost" : "solid"}" type="submit">${label}</button></form>`;
   const pending = d.rows.filter((r) => r.c.status === "pending"), others = d.rows.filter((r) => r.c.status !== "pending");
   const modeNote = d.mode === "on" ? html`<b class="ok">on</b>: payouts move money on the 1st` : d.mode === "dry" ? html`<b class="warn">dry</b>: payouts are worked out and emailed to you, nothing is sent` : html`<b class="warn">off</b>: no payouts run (sales and commission are still recorded)`;
   const body = html`<main class="wrap cr" style="gap:24px;padding-top:8px">
-<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><h1 class="disp" style="font-size:44px">Creators</h1><a href="${withKey("/admin")}">Admin</a></div>
+<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><h1 class="disp" style="font-size:clamp(32px,7vw,44px);margin:0">Creators</h1></div>
 <p class="muted" style="margin:0">CREATORS is ${modeNote}. Codes take ${d.off}% off; commission ${d.pct}% of net of tax; minimum payout ${money(d.minCents)}; unpaid cap ${money(d.capCents)} until you lift it. Next run ${day(d.nextPayout)}, 09:00 Brisbane.</p>
 ${d.missing ? html`<p class="warn">The creator tables don't exist yet: run <code>npm run db:migrate:b8</code>.</p>` : ""}
 ${d.connectProblem ? html`<p class="warn" role="alert">Stripe Connect: ${d.connectProblem}</p>` : ""}
@@ -160,5 +161,5 @@ ${others.length ? others.map(({ c, n }) => html`<tr>
 ${d.payouts.length ? d.payouts.map((p) => html`<tr><td>${p.period}</td><td>@${p.handle ?? p.creator_id}</td><td class="n">${money(p.amount_cents, p.currency)}</td><td>${p.status}${p.error ? html`<br><span class="err" style="font-size:13px">${p.error}</span>` : ""}</td><td class="copy" style="font-size:13px">${p.transfer_id ?? ""}</td></tr>`) : html`<tr><td colspan="5" class="muted">None yet.</td></tr>`}
 </tbody></table></div></section>
 </main>`;
-  return shell({ title: "Rite creators", description: "Admin", body, extraCss: CSS, noFooter: true, nav: html`<nav class="main"><a href="/">Site</a></nav>` });
+  return adminShell({ title: "Rite admin · Creators", body, extraCss: CSS, nav: d.nav ?? { section: "creators", csrf: d.csrf } });
 }

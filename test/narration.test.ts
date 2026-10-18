@@ -201,41 +201,47 @@ describe("/admin/voice and /admin/tts", () => {
   const call = (path: string, init: RequestInit = {}, e = env()) => worker.fetch(new Request(`https://rite.test${path}`, init), e as never, { waitUntil() {} } as unknown as ExecutionContext);
   const post = (path: string, body: unknown, headers: Record<string, string> = {}, e = env()) => call(path, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) }, e);
 
-  it("404 without ADMIN_KEY set, without a key, with a wrong key, and with the webhook secret", async () => {
+  it("the page sends you to /admin/login without a session; /admin/tts 404s without the bearer (or ?key=, never honoured)", async () => {
     const noKey = env({ ADMIN_KEY: undefined });
+    for (const r of [await call("/admin/voice"), await call("/admin/voice?key=wrong"), await call(`/admin/voice?key=${KEY}`), await call("/admin/voice", { headers: { authorization: "Bearer whsec_not_the_admin_key_000" } })]) {
+      expect(r.status).toBe(303);
+      expect(r.headers.get("location")).toMatch(/^\/admin\/login\?next=%2Fadmin%2Fvoice/);
+    }
     for (const r of [
-      await call("/admin/voice"), await call("/admin/voice?key=wrong"), await call(`/admin/voice?key=${KEY}`, {}, noKey),
-      await call("/admin/voice", { headers: { authorization: "Bearer whsec_not_the_admin_key_000" } }),
-      await post("/admin/tts", { text: "Hi." }), await post("/admin/tts?key=wrong", { text: "Hi." }),
+      await call(`/admin/voice?key=${KEY}`, {}, noKey),
+      await post("/admin/tts", { text: "Hi." }), await post("/admin/tts?key=wrong", { text: "Hi." }), await post(`/admin/tts?key=${KEY}`, { text: "Hi." }),
       await post("/admin/tts", { text: "Hi." }, { authorization: `Bearer ${KEY}` }, noKey),
       await post("/admin/tts", { text: "Hi." }, { authorization: "Bearer whsec_not_the_admin_key_000" }, noKey),
     ]) expect(r.status).toBe(404);
     expect(ai.calls).toBe(0);
   });
-  it("GET /admin/voice: the audition page, no-store / noindex / no-referrer, no PostHog", async () => {
-    const r = await call(`/admin/voice?key=${KEY}`);
+  it("GET /admin/voice: the audition page, no-store / noindex / same-origin referrers, no PostHog", async () => {
+    const r = await call("/admin/voice", { headers: { authorization: `Bearer ${KEY}` } });
     expect(r.status).toBe(200);
     expect(r.headers.get("cache-control")).toBe("no-store");
     expect(r.headers.get("x-robots-tag")).toContain("noindex");
-    expect(r.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(r.headers.get("referrer-policy")).toBe("same-origin");
     const h = await r.text();
     expect(h).toContain("<textarea");
     expect(h).toContain("[pause 1000]");
     for (const m of TTS_MODELS) if (m.id.startsWith("elevenlabs/")) expect(h).not.toContain(m.id); else expect(h).toContain(m.id); // no ELEVENLABS_API_KEY here
     expect(h).toContain('"thalia"');
     expect(h).not.toContain("posthog");
+    expect(h).toContain("'x-rite-csrf':CSRF"); // Play authenticates with the session, not a key from the URL
+    expect(h).not.toContain("location.search");
   });
-  it("POST /admin/tts returns spliced audio/mpeg (bearer or ?key=) and validates input", async () => {
+  it("POST /admin/tts returns spliced audio/mpeg (bearer) and validates input", async () => {
     const r = await post("/admin/tts", { text: "One. [pause 600] Two.", model: "@cf/deepgram/aura-2-en", voice: "orion" }, { authorization: `Bearer ${KEY}` });
     expect(r.status).toBe(200);
     expect(r.headers.get("content-type")).toBe("audio/mpeg");
     expect(r.headers.get("cache-control")).toBe("no-store");
     expect([r.headers.get("x-tts-model"), r.headers.get("x-tts-voice"), r.headers.get("x-tts-chunks"), r.headers.get("x-tts-spliced")]).toEqual(["@cf/deepgram/aura-2-en", "orion", "2", "true"]);
     expect(scanMp3(new Uint8Array(await r.arrayBuffer())).frames.length).toBeGreaterThan(2 * scanMp3(A).frames.length);
-    expect((await post(`/admin/tts?key=${KEY}`, { text: "Hi." })).status).toBe(200);
-    expect((await post(`/admin/tts?key=${KEY}`, { text: " " })).status).toBe(400);
-    expect((await post(`/admin/tts?key=${KEY}`, { text: "x".repeat(9000) })).status).toBe(413);
-    expect((await post(`/admin/tts?key=${KEY}`, { text: "Hi." }, {}, env({ AI: undefined }))).status).toBe(503);
+    const b = { authorization: `Bearer ${KEY}` };
+    expect((await post("/admin/tts", { text: "Hi." }, b)).status).toBe(200);
+    expect((await post("/admin/tts", { text: " " }, b)).status).toBe(400);
+    expect((await post("/admin/tts", { text: "x".repeat(9000) }, b)).status).toBe(413);
+    expect((await post("/admin/tts", { text: "Hi." }, b, env({ AI: undefined }))).status).toBe(503);
   });
 
   it("with ELEVENLABS_API_KEY: ElevenLabs v3 + Anna is the default, and /admin/tts calls ElevenLabs", async () => {
@@ -254,7 +260,7 @@ describe("/admin/voice and /admin/tts", () => {
       expect(seen[0].url).toContain("api.elevenlabs.io/v1/text-to-speech/raT7q57pHznZDO2jDPDe");
       expect(seen[0].headers.get("xi-api-key")).toBe("xi_test");
       expect(((await seen[0].json()) as { model_id: string }).model_id).toBe("eleven_v3");
-      const page = await (await call(`/admin/voice?key=${KEY}`, {}, e)).text();
+      const page = await (await call("/admin/voice", { headers: { authorization: `Bearer ${KEY}` } }, e)).text();
       expect(page).toContain("elevenlabs/eleven_v3");
     } finally { vi.unstubAllGlobals(); }
   });

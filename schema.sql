@@ -304,3 +304,10 @@ CREATE TABLE IF NOT EXISTS year_aheads (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_year_aheads_live ON year_aheads(purchase_id, year) WHERE status != 'refunded';
 CREATE INDEX IF NOT EXISTS idx_year_aheads_pi ON year_aheads(stripe_payment_intent);
 CREATE INDEX IF NOT EXISTS idx_year_aheads_created ON year_aheads(created_at);
+
+-- Admin sign-in state (migration 011): session_version ("Sign out everywhere") and totp_last_step (each code works once).
+CREATE TABLE IF NOT EXISTS admin_state (
+  k TEXT PRIMARY KEY,
+  v TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);

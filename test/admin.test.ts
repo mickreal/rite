@@ -37,36 +37,50 @@ describe("admin auth", () => {
 });
 
 describe("GET /admin", () => {
-  it("404s without the key, with a wrong key, and with a wrong bearer", async () => {
-    for (const r of [await get("/admin"), await get("/admin?key=wrong"), await get("/admin", { authorization: "Bearer wrong" })]) {
-      expect(r.status).toBe(404);
-      expect(await r.text()).not.toContain("Admin");
+  it("sends you to /admin/login without a session or with a wrong bearer (no more 404 once ADMIN_KEY is set)", async () => {
+    for (const r of [await get("/admin"), await get("/admin", { authorization: "Bearer wrong" })]) {
+      expect(r.status).toBe(303);
+      expect(r.headers.get("location")).toBe("/admin/login?next=%2Fadmin");
+      expect(r.headers.get("x-robots-tag")).toContain("noindex");
+    }
+    const d = await get("/admin?days=7");
+    expect(d.headers.get("location")).toBe(`/admin/login?next=${encodeURIComponent("/admin?days=7")}`);
+  });
+  it("never honours ?key=, right or wrong: it redirects to the login page with the reason, and drops the key", async () => {
+    for (const k of ["wrong", SECRET]) {
+      const r = await get(`/admin?key=${k}&days=7`);
+      expect(r.status).toBe(303);
+      expect(r.headers.get("location")).toBe(`/admin/login?next=${encodeURIComponent("/admin?days=7")}&why=key`);
+      expect(r.headers.get("location")).not.toContain(SECRET);
+      expect(await r.text()).not.toContain("Funnel");
     }
   });
-  it("200s with ?key= or the bearer header, with no-store / noindex / no-referrer", async () => {
+  it("200s with the bearer header, with no-store / noindex / same-origin referrers / no framing", async () => {
     const seen: string[] = [];
-    const r = await get(`/admin?key=${SECRET}&days=7`, {}, stubDb(seen));
+    const r = await get(`/admin?days=7`, { authorization: `Bearer ${SECRET}` }, stubDb(seen));
     expect(r.status).toBe(200);
     expect(r.headers.get("cache-control")).toBe("no-store");
     expect(r.headers.get("x-robots-tag")).toContain("noindex");
-    expect(r.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(r.headers.get("referrer-policy")).toBe("same-origin");
+    expect(r.headers.get("x-frame-options")).toBe("DENY");
+    expect(r.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     const h = await r.text();
-    expect(h).toContain("<h1>Admin</h1>");
-    expect(h).toContain(`href="/admin?days=30&amp;key=${SECRET}"`);
-    expect(h).toContain(`href="/admin/voice?key=${SECRET}"`);
+    expect(h).toContain("<h1>Dashboard</h1>");
+    expect(h).toContain(`href="/admin?days=30"`);
+    expect(h).not.toContain("key=");
     expect(h).toMatch(/class="on"[^>]*>7 days/);
     expect(seen.some((s) => s.includes("FROM stories"))).toBe(true);
     expect((await get("/admin", { authorization: `Bearer ${SECRET}` })).status).toBe(200);
   });
   it("is never tagged with the PostHog snippet", async () => {
     // withAnalytics would reach HTMLRewriter (absent under node) if /admin weren't excluded
-    const r = await worker.fetch(new Request(`https://rite.test/admin?key=${SECRET}`), { ...env(), POSTHOG_KEY: "phc_test" } as never, {} as ExecutionContext);
+    const r = await worker.fetch(new Request(`https://rite.test/admin`, { headers: { authorization: `Bearer ${SECRET}` } }), { ...env(), POSTHOG_KEY: "phc_test" } as never, {} as ExecutionContext);
     expect(r.status).toBe(200);
     expect(await r.text()).not.toContain("posthog");
   });
   it("/admin/stats is unchanged: 401 without bearer, JSON shape with it", async () => {
     expect((await get("/admin/stats")).status).toBe(401);
-    expect((await get(`/admin/stats?key=${SECRET}`)).status).toBe(401); // ?key= is for the HTML page only
+    expect((await get(`/admin/stats?key=${SECRET}`)).status).toBe(401); // ?key= never works anywhere
     const j = await (await get("/admin/stats?days=7", { authorization: `Bearer ${SECRET}` })).json() as Record<string, unknown>;
     expect(Object.keys(j)).toEqual(["days", "funnel", "revenue", "gifts", "subscriptions", "by_ref", "by_sign", "daily", "events"]);
     expect(j.days).toBe(7);
@@ -121,9 +135,10 @@ describe("ADMIN_KEY separation", () => {
   const run = (path: string, e: Record<string, unknown>, headers: Record<string, string> = {}) =>
     worker.fetch(new Request(`https://rite.test${path}`, { headers }), { ...env(), ...e } as never, {} as ExecutionContext);
   it("GET /admin never accepts the webhook secret", async () => {
-    expect((await run(`/admin?key=${WH}`, {})).status).toBe(404);
-    expect((await run("/admin", {}, { authorization: `Bearer ${WH}` })).status).toBe(404);
+    expect((await run(`/admin?key=${WH}`, {})).status).toBe(303); // to /admin/login, never honoured
+    expect((await run("/admin", {}, { authorization: `Bearer ${WH}` })).status).toBe(303);
     expect((await run(`/admin?key=${WH}`, { ADMIN_KEY: undefined })).status).toBe(404); // no ADMIN_KEY set: page is off
+    expect((await run("/admin", { ADMIN_KEY: undefined }, { authorization: `Bearer ${WH}` })).status).toBe(404);
   });
   it("/admin/stats uses ADMIN_KEY when set, and falls back to the webhook secret only when it isn't", async () => {
     expect((await run("/admin/stats", {}, { authorization: `Bearer ${WH}` })).status).toBe(401);

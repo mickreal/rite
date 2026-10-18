@@ -308,7 +308,7 @@ describe("notes to Mick", () => {
 });
 
 describe("auth", () => {
-  it("no cookie goes to the login page; the login sets a signed HttpOnly Secure SameSite=Strict cookie that works for 30 days", async () => {
+  it("no cookie goes to the login page; the login sets a signed HttpOnly Secure SameSite=Strict cookie that works for 14 days", async () => {
     await deliver(eml());
     const key = String(h.db.row("SELECT thread_key FROM support_messages")!.thread_key);
     for (const p of ["/admin/inbox", tpath(key)]) {
@@ -325,12 +325,16 @@ describe("auth", () => {
     expect(r.status).toBe(303);
     expect(r.headers.get("location")).toBe(tpath(key));
     const sc = r.headers.get("set-cookie")!;
-    expect(sc).toMatch(/^rite_admin=v1\.\d+\.[A-Za-z0-9_-]+; Path=\/admin; Max-Age=2592000; HttpOnly; Secure; SameSite=Strict$/);
+    expect(sc).toMatch(/^rite_admin=v2\.\d+\.0\.0\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+; Path=\/admin; Max-Age=1209600; HttpOnly; Secure; SameSite=Strict$/);
     const cookie = sc.split(";")[0]!;
     expect((await page(tpath(key), cookie)).status).toBe(200);
     expect((await page("/admin", cookie)).status).toBe(200);
-    // the key in the URL still works; a tampered cookie doesn't; nor does one signed with another key
-    expect((await h.request(`/admin/inbox?key=${KEY}`)).status).toBe(200);
+    // the key in the URL never works (to the login page with the reason); the bearer header does; a tampered cookie
+    // doesn't; nor does one signed with another key
+    const viaUrl = await h.request(`/admin/inbox?key=${KEY}`);
+    expect(viaUrl.status).toBe(303);
+    expect(viaUrl.headers.get("location")).toBe("/admin/login?next=%2Fadmin%2Finbox&why=key");
+    expect((await h.request("/admin/inbox", { headers: { authorization: `Bearer ${KEY}` } })).status).toBe(200);
     expect((await page("/admin/inbox", cookie.slice(0, -2) + "xx")).status).toBe(303);
     expect((await page("/admin/inbox", `rite_admin=${await makeSession("some_other_key_entirely")}`)).status).toBe(303);
     // expiry
@@ -368,7 +372,10 @@ describe("auth", () => {
   it("login only redirects inside /admin, and thread ids round-trip", () => {
     expect(safeNext("/admin/inbox/t/abc")).toBe("/admin/inbox/t/abc");
     expect(safeNext("/admin")).toBe("/admin");
-    for (const bad of ["https://evil.test", "//evil.test", "/admin\\@evil", "/adminx", "/admin/login", "", "/elsewhere"]) expect(safeNext(bad)).toBe("/admin/inbox");
+    expect(safeNext("/admin/inbox?tab=all")).toBe("/admin/inbox?tab=all");
+    expect(safeNext("/admin?days=7&key=secret")).toBe("/admin?days=7"); // a key never survives into next
+    for (const bad of ["https://evil.test", "//evil.test", "/admin\\@evil", "/adminx", "/admin/login", "/admin/logout", "", "/elsewhere",
+      "/admin/../elsewhere", "/admin/%2e%2e/x", "/admin/%2F%2Fevil.test", "/\\evil.test", "javascript:alert(1)", "/admin\tx", " //evil.test", "https://rite.test/admin"]) expect(safeNext(bad)).toBe("/admin");
     for (const k of ["<a/b+c@x.y>", "sm_abc", "<ünï@x>"]) expect(threadKeyFromUrl(threadUrlKey(k))).toBe(k);
     expect(threadKeyFromUrl("not base64!")).toBeNull();
   });
@@ -384,12 +391,12 @@ describe("before migration 007", () => {
     h.env.INBOX_AUTO = "off";
     await deliver(eml({ subject: "Another" }));
     expect(toMick()).toHaveLength(1);
-    const list = await h.request(`/admin/inbox?key=${KEY}&tab=all`);
+    const list = await h.request("/admin/inbox?tab=all", { headers: { authorization: `Bearer ${KEY}` } });
     const text = await list.text();
     expect(text).toContain("npm run db:migrate:b3b");
     expect(text).toContain("Handled by assistant");
     const k = /href="(\/admin\/inbox\/t\/[^"?]+)/.exec(text)![1]!;
-    const t = await h.request(`${k}?key=${KEY}`);
+    const t = await h.request(k, { headers: { authorization: `Bearer ${KEY}` } });
     expect(t.status).toBe(200);
     expect(await t.text()).toContain("Read-only");
   });
