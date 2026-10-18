@@ -214,10 +214,12 @@ R2_ACCOUNT_ID=… R2_ACCESS_KEY_ID=… R2_SECRET_ACCESS_KEY=… R2_PUBLIC_BASE=�
 ```
 weeks/latest.json                                   { week_start, manifest, manifest_url, updated_at } of the newest week
 weeks/<monday>/manifest.json                        the week
-weeks/<monday>/<16-char random id>/<date>_<asset>.mp4, <date>_<asset>_vo.mp4, <date>_<carousel>-NN.png
+weeks/<monday>/<16-char random id>/<date>_<asset>-<sha12>.mp4, <date>_<asset>_vo-<sha12>.mp4, <date>_<carousel>-NN-<sha12>.png
 ```
 
-Media sit in a random folder per upload, so their URLs can't be guessed from the date. The manifest's path is predictable and, on a public bucket, readable by anyone who guesses it (which shows next week's media a few days early). If that matters, block `weeks/*/manifest.json` and `weeks/latest.json` on the custom domain with a WAF rule and have build 5 read them through the Worker's R2 binding. Uploading a week again makes a new random folder and replaces its manifest; `latest.json` only moves forward.
+**Content-hashed media (required by the engine).** Every media object's name carries `-<sha12>`, the first 12 hex of the file's SHA-256, before the extension (`scripts/media-key.ts`; the same `<stem>-<sha12><ext>` as og-content-system's `r2.content_addressed_key` / `upload_verified_media.py`), and each media entry in the manifest has its full `sha256`. The engine on the Pi refuses (409) to schedule any `*.r2.dev` (or its configured bucket host) media unless the item's `media_sha256` matches, the URL's file name contains `-<sha12>`, and a fresh download of the URL hashes the same, so a changed render is always a new URL and Postiz can never be handed a stale CDN copy. Media are uploaded with `Cache-Control: public, max-age=31536000, immutable`; `manifest.json` and `latest.json` are rewritten in place and sent with `no-cache, max-age=0, must-revalidate`. Don't overwrite a media object in place: upload the week again (new folder, new names).
+
+Media sit in a random folder per upload, so their URLs can't be guessed from the date. The manifest's path is predictable and, on a public bucket, readable by anyone who guesses it (which shows next week's media a few days early). Build 5 (og-content-system's `import_rite.py` on Mick's Pi) reads them by that public URL, so don't block them with a WAF rule unless the importer is given another way in. Uploading a week again makes a new random folder and replaces its manifest; `latest.json` only moves forward.
 
 `manifest.json`, version 1:
 
@@ -240,14 +242,18 @@ Media sit in a random folder per upload, so their URLs can't be guessed from the
       "platforms": ["tiktok", "reels"],      // tiktok | reels | shorts | instagram | x | threads | reddit | email | other | …
       "auto": true,                          // build 5 may post it unattended (below)
       "missing": false,                      // true: the asset wasn't rendered (a presenter reel)
+      "title": "Born in 1996? Your exact pass already happened. The window hasn't closed.",  // headline for YouTube / TikTok titles: the clip's cohort hook, the carousel's title, else the caption's first sentence (scripts/post-meta.ts)
+      "presenter": false,                    // true: an Anna (AI presenter) reel, from remotion/presenter.json; build 5 labels it made with AI
       "caption": "Born in 1996? … Free preview at rite.report",
       "alt": ["Screen recording of the Rite site: …"],   // one per image; one for a video; [] when none
       "media": {                             // null for a text post or a missing asset
         "type": "video",
-        "vo":     { "url": "https://…/2026-12-15_aries-early-1996_vo.mp4", "key": "weeks/…", "name": "2026-12-15_aries-early-1996_vo.mp4", "type": "video/mp4", "bytes": 9123456 },
-        "silent": { "url": "https://…/2026-12-15_aries-early-1996.mp4", "key": "weeks/…", "name": "2026-12-15_aries-early-1996.mp4", "type": "video/mp4", "bytes": 8912345 }
+        "vo":     { "url": "https://…/2026-12-15_aries-early-1996_vo-3f1c9a0b7d22.mp4", "key": "weeks/…/2026-12-15_aries-early-1996_vo-3f1c9a0b7d22.mp4", "name": "2026-12-15_aries-early-1996_vo.mp4", "type": "video/mp4", "bytes": 9123456, "sha256": "3f1c9a0b7d22…(64 hex)" },
+        "silent": { "url": "https://…/2026-12-15_aries-early-1996-a90e44c1b3f7.mp4", "key": "weeks/…", "name": "2026-12-15_aries-early-1996.mp4", "type": "video/mp4", "bytes": 8912345, "sha256": "a90e44c1b3f7…" }
       }
-      // images: "media": { "type": "image", "files": [ { url, key, name, type, bytes }, … ] }   (carousel slides in order)
+      // images: "media": { "type": "image", "files": [ { url, key, name, type, bytes, sha256 }, … ] }   (carousel slides in order)
+      // name: the logical file name (no hash; unchanged from earlier manifests); url / key: the content-hashed object.
+      // sha256: added later in version 1; manifests uploaded before it lack it (the importer then checks the files itself)
     }
   ]
 }
@@ -256,3 +262,4 @@ Media sit in a random folder per upload, so their URLs can't be guessed from the
 - `media.vo` is null when the video has no voice. Post `vo` when there is one, else `silent` (build 5's retry also uses `silent`). Both are captioned; music is added in the app.
 - `auto` is true when every platform is one Postiz posts to (tiktok, reels, shorts, instagram, x, threads), there's a caption, and there's media (or it's a text post for X / Threads only). Reddit, email, creator reposts, unrendered talking heads, backdrops and cut-in cards are in the manifest with `auto: false`, for Mick.
 - A post's file is the same for every platform it lists (the export folder's per-platform copies are uploaded once).
+- Build 5 posts only `auto: true` posts and maps platforms tiktok→TikTok, reels and instagram→Instagram, shorts→YouTube Shorts, x→X, threads→Threads. A video goes to YouTube only if its plan lists `shorts`.

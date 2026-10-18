@@ -11,15 +11,22 @@
 // plan `time` ("HH:MM" in POST_TZ) or POST_TIME on its date, stored in UTC.
 //
 // Layout in the bucket:
-//   weeks/<week>/<16-char random id>/<date>_<asset>[_vo].mp4 | <date>_<carousel>-NN.png   media, one copy per post (the
-//                                                    per-platform copies in the export folder are the same file)
+//   weeks/<week>/<16-char random id>/<date>_<asset>[_vo]-<sha12>.mp4 | <date>_<carousel>-NN-<sha12>.png
+//                                                    media, one copy per post (the per-platform copies in the export
+//                                                    folder are the same file); <sha12> = first 12 hex of the file's
+//                                                    sha256 (media-key.ts), cached immutable for a year
 //   weeks/<week>/manifest.json                       the week (format in content/README.md, "Scheduled render")
 //   weeks/latest.json                                { week_start, manifest, manifest_url, updated_at } of the newest week
 // The random folder keeps media URLs unguessable; a re-upload of the same week gets a new folder and a new manifest.
+// Each media entry in the manifest has its full `sha256`: og-content-system's engine re-downloads the file before
+// scheduling and refuses it unless the bytes, the hash and the `-<sha12>` in the file name all agree.
 // A local copy of the manifest goes to out/weeks/<week>/manifest.json (rolling-plan.ts reads it when R2 isn't set).
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { postMeta, type MetaData } from "./post-meta";
+import { contentHashedName, IMMUTABLE_CACHE, MANIFEST_CACHE } from "./media-key";
 import { publicUrl, r2FromEnv, r2GetText, r2Put } from "./r2";
 
 const CONTENT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -60,18 +67,28 @@ const TYPE: Record<string, string> = { ".mp4": "video/mp4", ".png": "image/png",
 const ALPHA = "abcdefghijklmnopqrstuvwxyz0123456789";
 const rid = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => ALPHA[b % ALPHA.length]).join("");
 const prefix = `weeks/${W}/${rid}/`;
-type File = { url: string; key: string; name: string; type: string; bytes: number };
+// name: the logical object name (as before, e.g. `<date>_<asset>_vo.mp4`); key/url: the content-hashed object.
+type File = { url: string; key: string; name: string; type: string; bytes: number; sha256: string };
 const uploads = new Map<string, { src: string; file: File }>(); // object name → upload
 function fileFor(post: ExportPost, platform: string, name: string): File {
   const object = name.startsWith(`${post.date}_${platform}_`) ? `${post.date}_${name.slice(post.date.length + platform.length + 2)}` : name;
   const have = uploads.get(object); if (have) return have.file;
   const src = join(dir, name);
   if (!existsSync(src)) throw new Error(`${name} is in manifest.json but not in ${dir}`);
-  const key = prefix + object;
-  const file: File = { url: publicUrl(r2, key), key, name: object, type: TYPE[extname(name).toLowerCase()] ?? "application/octet-stream", bytes: statSync(src).size };
+  const sha256 = createHash("sha256").update(readFileSync(src)).digest("hex");
+  const key = prefix + contentHashedName(object, sha256);
+  const file: File = { url: publicUrl(r2, key), key, name: object, type: TYPE[extname(name).toLowerCase()] ?? "application/octet-stream", bytes: statSync(src).size, sha256 };
   uploads.set(object, { src, file });
   return file;
 }
+
+// title + presenter per post (post-meta.ts): read by auto-posting for YouTube/TikTok titles and the AI flags.
+const readJson = (rel: string) => JSON.parse(readFileSync(join(CONTENT, rel), "utf8"));
+const metaData: MetaData = {
+  cohorts: readJson("clips/cohorts.json").cohorts,
+  carousels: readJson("remotion/carousels.json").carousels,
+  presenter: readJson("remotion/presenter.json").reels,
+};
 
 const posts = exp.posts.map((p, i) => {
   const first = Object.entries(p.files).find(([, names]) => names.length);
@@ -94,6 +111,7 @@ const posts = exp.posts.map((p, i) => {
     id: `${p.date}-${String(i + 1).padStart(2, "0")}`,
     date: p.date, at: slotUtc(p.date, p.time ?? DEFAULT_TIME), day: p.day, slot: p.slot, kit: p.kit, note: p.note,
     asset: p.asset, ref: p.ref, platforms: p.platforms, auto, missing: p.missing,
+    ...postMeta(p.asset, p.caption, metaData),
     caption: p.caption, alt: p.alt, media,
   };
 });
@@ -114,20 +132,22 @@ const total = [...uploads.values()].reduce((n, u) => n + u.file.bytes, 0);
 
 if (dryRun) {
   console.log(`DRY RUN: nothing uploaded. Bucket ${r2?.bucket ?? process.env.R2_BUCKET ?? "rite-content"}, ${uploads.size} file(s), ${(total / 1048576).toFixed(1)} MB:`);
-  for (const u of uploads.values()) console.log(`  PUT ${u.file.key}  (${(u.file.bytes / 1048576).toFixed(2)} MB, ${u.file.type})`);
+  for (const u of uploads.values()) console.log(`  PUT ${u.file.key}  (${(u.file.bytes / 1048576).toFixed(2)} MB, ${u.file.type}, sha256 ${u.file.sha256})`);
   console.log(`  PUT ${manifestKey}\n  PUT weeks/latest.json (if ${W} is the newest week)\n\n${body}`);
   process.exit(0);
 }
 
 let n = 0;
 for (const u of uploads.values()) {
-  await r2Put(r2!, u.file.key, new Uint8Array(readFileSync(u.src)), u.file.type);
+  const data = new Uint8Array(readFileSync(u.src));
+  if (createHash("sha256").update(data).digest("hex") !== u.file.sha256) throw new Error(`${u.src} changed during the upload; run it again`);
+  await r2Put(r2!, u.file.key, data, u.file.type, IMMUTABLE_CACHE);
   console.log(`  ↑ ${u.file.key} (${(u.file.bytes / 1048576).toFixed(1)} MB) ${++n}/${uploads.size}`);
 }
-await r2Put(r2!, manifestKey, body, "application/json", "no-cache");
+await r2Put(r2!, manifestKey, body, "application/json", MANIFEST_CACHE);
 const prev = await r2GetText(r2!, "weeks/latest.json").then((t) => (t ? JSON.parse(t) as { week_start?: string } : null)).catch(() => null);
 if (!prev?.week_start || prev.week_start <= W) {
-  await r2Put(r2!, "weeks/latest.json", JSON.stringify({ week_start: W, manifest: manifestKey, manifest_url: publicUrl(r2, manifestKey), updated_at: manifest.generated_at }, null, 2) + "\n", "application/json", "no-cache");
+  await r2Put(r2!, "weeks/latest.json", JSON.stringify({ week_start: W, manifest: manifestKey, manifest_url: publicUrl(r2, manifestKey), updated_at: manifest.generated_at }, null, 2) + "\n", "application/json", MANIFEST_CACHE);
   console.log(`  ↑ weeks/latest.json → ${manifestKey}`);
 } else console.log(`  weeks/latest.json left on ${prev.week_start} (newer than ${W})`);
 const local = join(CONTENT, "out", "weeks", W);

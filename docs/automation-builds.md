@@ -17,7 +17,7 @@ Written 17 Oct 2026. Companion to the "Rite: path to $1M" doc and `growth-plan.m
 | 2 | Order bump + gift season | Before launch (gifts peak Nov–Dec) | 1.5 days | Approve copy | — |
 | 3 | Inbox assistant (support + refunds) | Launch day (needs the domain) | 2.5 days | Domain + Email Routing on | ~$5 in model calls |
 | 4 | Scheduled render | Launch week | 1.5 days | GitHub repo secrets | GitHub Actions minutes (likely free tier) |
-| 5 | Auto-posting (Postiz) | Launch week | 1 day + platform approvals | Postiz API key; the five accounts connected in Postiz; TikTok public posting confirmed | Existing Postiz plan |
+| 5 | Auto-posting (Postiz) | Launch week | 1 day + platform approvals | The five accounts connected in Mick's Postiz (content system on the Pi); TikTok app audit | Existing Postiz plan |
 | 6 | Monday KPI email | Launch week | 0.5 day | — | — |
 | 7 | Birth-month search pages | November | 2 days | Search Console verified (checklist B9) | — |
 | 8 | Creator and affiliate program | November | 3.5 days | Stripe Connect enabled | 30% of attributed sales |
@@ -105,17 +105,21 @@ About 16 agent days in all. Builds 1–6 (about 7.5 days) fit before and around 
 
 **Why.** Posting by hand is daily work.
 
-**Design.**
-- **Postiz**, which Mick already uses for content. Its public API uploads media (`POST /public/v1/upload`) and creates or schedules posts (`POST /public/v1/posts`, `type: "schedule"` with a date, several posts per request), with a rate limit of about 100 post requests an hour on cloud, 90 self-hosted ([Postiz API](https://docs.postiz.com/public-api/introduction)). One request per day's posts stays far inside that.
-- A Worker cron (daily) reads the week's manifest from R2, uploads each file to Postiz and schedules it at its slot with the caption and the platform settings; records the Postiz post ids in a `posts` table and logs `posted` events.
-- **TikTok caveat:** a self-hosted Postiz posts through your own TikTok developer app, and until TikTok audits that app every post is forced to private (`SELF_ONLY`) and at most 5 accounts can post a day ([Postiz TikTok docs](https://docs.postiz.com/providers/tiktok.md)). If Mick's Postiz is self-hosted, the TikTok app audit has to be applied for now, or TikTok posts go through a hosted service until it passes. Postiz cloud: confirm one public test post before relying on it.
+**Design (changed 18 Oct: through Mick's content system, not a Worker cron).**
+- **Postiz**, which Mick already runs on his Pi as part of his content system (`mickreal/og-content-system`, self-hosted). Rite is onboarded there as a brand (`rite` in its `brands.yaml`, `content-store/brands/rite/`), like Message From Yourself, Pathway Discovery and Offgrid Digital, so its posts show in the same dashboard and use the same delivery path. The Worker doesn't post anything.
+- **Bridge:** a daily job on the Pi (`og-content-system` `content-engine/scripts/import_rite.py`, systemd timer 07:10 Brisbane) reads this week's and the newest week's manifest from R2 (public URL, no credentials: `weeks/<monday>/manifest.json`, "Scheduled render" in `content/README.md`), writes one content item per post with `auto: true`, and schedules each new one through the content engine (`type: schedule`, the post's slot, the caption, the VO file when there is one). Platforms map tiktok→TikTok, reels and instagram→Instagram, shorts→YouTube, x→X, threads→Threads. Idempotent: a post already scheduled or published is never touched again; a re-uploaded week refreshes posts that aren't scheduled yet.
+- **Per-platform settings** come from the content engine (`postizSettings` in `brands.yaml`): TikTok direct post, comments on, duet and stitch off, no auto music, "promotes my own business" on, **"made with AI" on for Anna reels** (`presenter: true` in the manifest); YouTube public, not made for kids, title from the post's `title`; X replies from everyone, "made with AI" for Anna reels.
+- **YouTube AI disclosure:** Postiz can't tick YouTube's "altered or synthetic content" box. An Anna reel that goes to YouTube shows as **needs-posting** in the content dashboard with the step, and a calendar reminder fires 30 minutes after its slot: YouTube Studio → the video → Details → Altered content: Yes. The other platforms post regardless.
+- **TikTok caveat:** a self-hosted Postiz posts through Mick's own TikTok developer app, and until TikTok audits that app every post is forced to private (`SELF_ONLY`) and at most 5 posts a day go out ([Postiz TikTok docs](https://docs.postiz.com/providers/tiktok.md)). Rite's TikTok `privacy_level` stays `SELF_ONLY` until the audit passes, then one line in `brands.yaml` changes to `PUBLIC_TO_EVERYONE`. One TikTok a day is inside the cap.
 - Bio links stay `rite.report/?r=<platform>`; captions carry the same link where a platform allows it.
-- Failure handling: a rejected post is retried once with the silent version, then reported in the KPI email and the error digest.
-- Kill switch: `POSTING=off`.
+- Not carried over from the first design: the Worker `posts` table and `posted` events, and the retry with the silent version (a rejection at publish time shows in Postiz). Post counts for the KPI email come from Postiz or the content system's tracker instead.
+- Kill switch: `RITE_POSTING=off` in the Pi's `secrets/rite-posting.env` (read on every run), or disable the timer.
 
-**Mick provides.** The Postiz API key (in `.dev.vars`), the five accounts connected in Postiz, and whether it's cloud or self-hosted (and the base URL if self-hosted).
+**Mick provides.** The five accounts (TikTok, Instagram, YouTube, X, Threads) connected in his Postiz and their integration ids; the IG business account id; the TikTok app audit; the R2 public URL on the Pi.
 
-**Done when.** A test week posts to private test accounts; the `posts` table matches the manifest.
+**Done when.** A dry run on the Pi lists the week's posts; a test week posts to private test accounts; the content dashboard shows the week as scheduled, then published, with Anna reels waiting on the YouTube step.
+
+**Status (18 Oct, branch `b5-posting` here, and in `og-content-system` branches `feat/onboard-rite` and `feat/postiz-platform-settings`).** Built and tested, not deployed: the manifest now carries `title` and `presenter` per post (`content/scripts/post-meta.ts`, `test/post-meta.test.ts`); in og-content-system the Rite brand, the importer (with `--dry-run`, tests on a real manifest from `upload-week.ts --dry-run`), the per-platform settings in the content engine, text posts for X/Threads, and the YouTube manual step. Deploying the engine part needs the Pi baseline captured first (Linear OG-588). YouTube gets posts only from plans that list `shorts`; today's plans send videos to TikTok and Reels. Mick's steps: `docs/launch-checklist.md` D10.
 
 ## 6. Monday KPI email
 
