@@ -83,10 +83,11 @@ const n0 = (v: unknown) => Number(v ?? 0) || 0;
 const SEASON_LIVE = "amount_cents > 0 AND refunded_cents < amount_cents";
 const SEASON_NET = "COALESCE(SUM(ROUND((amount_cents - tax_cents) * 1.0 * (amount_cents - refunded_cents) / amount_cents)),0)";
 
+// Revenue is net of tax throughout (readings, gifts and Season): the tax Stripe collects is owed to tax offices, not Rite's.
 async function revenueBetween(db: D1Database, from: string, to: string) {
   const [r, g, s] = await Promise.all([
-    db.prepare(`SELECT COALESCE(SUM(amount_cents),0) c, COUNT(*) n FROM purchases WHERE status IN ${LIVE} AND amount_cents > 0 AND created_at >= ? AND created_at < ?`).bind(from, to).first<{ c: number; n: number }>(),
-    db.prepare("SELECT COALESCE(SUM(amount_cents),0) c FROM gifts WHERE COALESCE(redeemed_at,'') != 'refunded' AND created_at >= ? AND created_at < ?").bind(from, to).first<{ c: number }>(),
+    db.prepare(`SELECT COALESCE(SUM(amount_cents - COALESCE(tax_cents,0)),0) c, COUNT(*) n FROM purchases WHERE status IN ${LIVE} AND amount_cents > 0 AND created_at >= ? AND created_at < ?`).bind(from, to).first<{ c: number; n: number }>(),
+    db.prepare("SELECT COALESCE(SUM(amount_cents - COALESCE(tax_cents,0)),0) c FROM gifts WHERE COALESCE(redeemed_at,'') != 'refunded' AND created_at >= ? AND created_at < ?").bind(from, to).first<{ c: number }>(),
     db.prepare(`SELECT ${SEASON_NET} c, COUNT(*) n, COALESCE(SUM(CASE WHEN billing_reason = 'subscription_cycle' THEN 1 ELSE 0 END),0) rn FROM season_invoices WHERE ${SEASON_LIVE} AND paid_at >= ? AND paid_at < ?`).bind(from, to).first<{ c: number; n: number; rn: number }>(),
   ]);
   return { readingCents: n0(r?.c), paid: n0(r?.n), giftCents: n0(g?.c), seasonCents: n0(s?.c), seasonPayments: n0(s?.n), seasonRenewals: n0(s?.rn), cents: n0(r?.c) + n0(g?.c) + n0(s?.c) };

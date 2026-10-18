@@ -48,6 +48,16 @@ function seedWeek() {
   h.seedSubscription({ id: "s3", purchaseId: "p6", status: "past_due" }); h.seedSubscription({ id: "s4", purchaseId: "p6", status: "canceled" });
 }
 
+describe("buildKpiReport: revenue is net of tax", () => {
+  it("subtracts tax_cents on readings and gifts", async () => {
+    pv("tx1", CUR, "tiktok"); pu("ptx", "tx1", CUR, 2900); gift("GTX", CUR, 1500);
+    h.db.prepare("UPDATE purchases SET tax_cents=? WHERE id=?").bind(483, "ptx").runSync();
+    h.db.prepare("UPDATE gifts SET tax_cents=? WHERE code=?").bind(250, "GTX").runSync();
+    const t = (await buildKpiReport(db(), MON, { siteUrl: "https://rite.test" })).text;
+    expect(t).toContain("readings $24, gifts $13"); // $29 − $4.83 and $15 − $2.50, rounded
+  });
+});
+
 describe("buildKpiReport: a fixture week", () => {
   it("counts every line from D1", async () => {
     seedWeek();

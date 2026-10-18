@@ -127,7 +127,7 @@ About 16 agent days in all. Builds 1–6 (about 7.5 days) fit before and around 
 
 **Done when.** A test send with seeded data; numbers match `/admin` for the same window.
 
-**Season revenue (18 Oct, branch `b10-ads`).** Each paid Season invoice (`invoice.paid` / `invoice.payment_succeeded`, first payment and renewals) is stored once in `season_invoices` (migration 009) with its tax and any refund from `charge.refunded`. The email adds Season, net of tax and refunds, to weekly revenue, month to date and the best month, and the Season line shows payments and renewals. Readings and gifts are still counted tax-included, as before.
+**Season revenue (18 Oct, branch `b10-ads`).** Each paid Season invoice (`invoice.paid` / `invoice.payment_succeeded`, first payment and renewals) is stored once in `season_invoices` (migration 009) with its tax and any refund from `charge.refunded`. The email adds Season, net of tax and refunds, to weekly revenue, month to date and the best month, and the Season line shows payments and renewals. Readings and gifts are now counted net of tax too (integration, 18 Oct).
 
 ## 7. Birth-month search pages
 
