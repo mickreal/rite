@@ -15,7 +15,9 @@
     "vo-lines": "bun scripts/vo-lines.ts",
     "fonts": "python3 fonts/make-static.py",
     "launch": "bun scripts/launch-plan.ts --render",
-    "presenter": "bash remotion/render-presenter.sh"
+    "presenter": "bash remotion/render-presenter.sh",
+    "test": "vitest run",
+    "music:library": "bun scripts/add-music.ts --library"
   },
   "dependencies": {
     "aws4fetch": "1.0.20"

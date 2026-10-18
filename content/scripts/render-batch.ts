@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 // One command for a whole batch: check every date → render the plan's dial clips (silent + _vo when a TTS provider is
-// available) and cards → export the scheduler folder → zip it.
+// available) and cards → export the scheduler folder (every video gets the brand soundtrack there, scripts/add-music.ts;
+// MUSIC=off to skip) → zip it.
 //
 //   TODAY=2026-10-19 bun scripts/render-batch.ts --plan scripts/plan-2026-10-weeks-1-2.json --dest 2026-10-weeks-1-2-v2
 //   RITE_ADMIN_KEY=… TODAY=… bun scripts/render-batch.ts --plan … --dest …     with voiceover

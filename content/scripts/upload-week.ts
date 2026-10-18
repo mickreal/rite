@@ -43,7 +43,7 @@ const r2 = r2FromEnv();
 if (!dryRun && !r2) { console.error("R2 credentials are not set (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY); use --dry-run to preview"); process.exit(1); }
 if (!dryRun && !r2!.publicBase) { console.error("R2_PUBLIC_BASE is not set (the bucket's public URL, e.g. https://pub-….r2.dev); the manifest needs it for file URLs"); process.exit(1); }
 
-type ExportPost = { date: string; day: string | null; slot: string | null; time: string | null; ref: string | null; asset: string | null; kit: string | null; note: string | null; platforms: string[]; caption: string; alt: string[]; missing: boolean; files: Record<string, string[]> };
+type ExportPost = { date: string; day: string | null; slot: string | null; time: string | null; ref: string | null; asset: string | null; kit: string | null; note: string | null; platforms: string[]; caption: string; alt: string[]; missing: boolean; files: Record<string, string[]>; music?: unknown };
 const exp = JSON.parse(readFileSync(exportManifest, "utf8")) as { title: string | null; from: string | null; to: string | null; posts: ExportPost[] };
 
 // ---------- slot time in UTC ----------
@@ -113,6 +113,9 @@ const posts = exp.posts.map((p, i) => {
     asset: p.asset, ref: p.ref, platforms: p.platforms, auto, missing: p.missing,
     ...postMeta(p.asset, p.caption, metaData),
     caption: p.caption, alt: p.alt, media,
+    // soundtrack the media carry (export-batch / add-music.ts): { track, direction, use, offset, file, source,
+    // versions } or { off }; null for stills and text posts, and in exports made before music
+    music: p.music ?? null,
   };
 });
 

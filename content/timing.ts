@@ -6,7 +6,7 @@
 //   - every move eases in and out; nothing that moves takes less than ~0.45 s
 //   - screens crossfade (no hard cuts); captions fade and rise in, never pop
 //   - each on-screen date stays readable for at least 1.5 s after it has settled
-//   - no music, ever (it's added in the app's reel editor)
+//   - no music in the renders themselves (the brand soundtrack is mixed in at export: scripts/add-music.ts)
 
 export const FPS = 30;
 

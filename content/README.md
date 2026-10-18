@@ -97,7 +97,7 @@ Signs come straight from `src/content/sign-periods.json` and `src/content/signs.
 
 ## Voiceover
 
-No music, ever: it's added in the app's reel editor. A clip gets a voiceover when its cohort has a `vo` script (from the kit's scripts (c) 1–5; in `clips/cohorts.json`) and a TTS provider is available. Then `render-clip.ts` renders **two files from the same frames**: `<id>_vo.mp4` (VO) and `<id>.mp4` (silent), both captioned.
+Renders are made without music; the brand soundtrack is mixed in at export (see Music). A clip gets a voiceover when its cohort has a `vo` script (from the kit's scripts (c) 1–5; in `clips/cohorts.json`) and a TTS provider is available. Then `render-clip.ts` renders **two files from the same frames**: `<id>_vo.mp4` (VO) and `<id>.mp4` (silent), both captioned.
 
 ```sh
 ELEVENLABS_API_KEY=… bun clips/render-clip.ts --only aries-three-pass-1997    # one clip, silent + _vo
@@ -143,6 +143,23 @@ LAUNCH=2026-11-16 ELEVENLABS_API_KEY=… npm run launch     # = scripts/launch-p
 ```
 
 `scripts/launch-plan.ts` joins both plans, moves every post by the same number of days into `scripts/plan-launch.json`, then runs `render-batch.ts` with `TODAY=L` into `out/launch/` (+ zip). The date check fails on any clip whose "Today" degree is stale on its new day. Before rendering it prints every post whose wording is tied to the calendar ("right now", "this year", "four weeks") or names a date that was still ahead on its original day and has passed by its new one. Reread or rewrite those first. The week-4 posts are pegged to Saturn's station on 11 Dec 2026, so the later L is, the more of week 4 needs rewriting. Presenter reels are exported from `out/presenter/` like any other asset (render them first with `npm run presenter -- <id>`).
+
+## Music (brand soundtrack)
+
+Nine tracks in `music/` (`rite-theme-<id>-<direction>.mp3`, 192 kbps), listed in `music/library.json` (id, direction, file, duration, loudness, use, and usable start `offsets`: every 8 s from 4 s, none in the last 20 s; rebuild with `npm run music:library` after adding a track).
+
+| Direction | Tracks | Use | Gets it |
+|---|---|---|---|
+| felt-piano (calm, warm) | A1–A3 | voice | dial clips (cohort ids) and Anna presenter reels, alternating with orbit |
+| orbit (cello/celesta) | C1–C2 | voice | the same, every other voice-led post |
+| pulse (downtempo) | B1–B4 | cards | cohort/quote card verticals, sign verticals, any other video |
+
+`export-batch.ts` (so `render-batch.ts`, `launch-plan.ts --render` and the Thursday GitHub render too) mixes every exported mp4 with `scripts/add-music.ts`, from the clean render into `out/music/<date>_<file>.mp4` (cached; a post's silent and `_vo` versions get the same track and offset). Choices are in `scripts/music.ts`: the n-th voice-led / card video of a plan by date takes the next track in its pool (voice: A1, C1, A2, C2, A3, C1, …; cards: B1–B4), and each track's k-th use starts 4 offsets (32 s) further on, so consecutive posts on a track continue through it. Counting is over the whole plan before `--from`/`--to`, and starts from the plan's first date (days since 19 Oct 2026), so a weekly render picks what the full render picks and rolling weeks don't all open on A1.
+
+- **Mix:** bed fades in 0.3 s and out 1.5 s; its gain is set from the loudness of the stretch used. Under a voice (an `_vo` render or a presenter reel: input louder than −45 LUFS) it sits at −29 LUFS and a sidechain compressor keyed on the voice pulls it down ~8 dB while Anna speaks (≈ 20 LU under the voice), coming back up in pauses; without a voice it's the music alone. Then two-pass `loudnorm` to −16 LUFS integrated, −2 dBTP (≤ −1.5 after AAC), video copied, AAC 192k. Outputs are tagged `comment=rite-music:<track>@<offset>`; a tagged input is refused, so music is never stacked.
+- **Off / override:** `MUSIC=off` exports the clean renders. A post's `music` field: `"off"`, a track id (`"B3"`), or `"C2@40"` (track and start in seconds).
+- **Recorded:** `manifest.json` (and the uploaded week manifest) has `music: { track, direction, use, offset, file, source, versions: { vo, silent: { voice, lufs, tp } } }` per video post (`{ off }` when off, null for stills/text); `manifest.csv` has a `music` column, `manifest.md` a Music line.
+- One video by hand: `bun scripts/add-music.ts in.mp4 out.mp4 --track A1 --offset 36` (`--stems <dir>` also writes the voice and ducked-music stems for measuring). Tests: `npm test` in `content/`.
 
 ## Batch export for a scheduler
 
@@ -259,7 +276,7 @@ Media sit in a random folder per upload, so their URLs can't be guessed from the
 }
 ```
 
-- `media.vo` is null when the video has no voice. Post `vo` when there is one, else `silent` (build 5's retry also uses `silent`). Both are captioned; music is added in the app.
+- `media.vo` is null when the video has no voice. Post `vo` when there is one, else `silent` (build 5's retry also uses `silent`). Both are captioned and carry the brand soundtrack (the post's `music` says which track and offset; `silent` is music only).
 - `auto` is true when every platform is one Postiz posts to (tiktok, reels, shorts, instagram, x, threads), there's a caption, and there's media (or it's a text post for X / Threads only). Reddit, email, creator reposts, unrendered talking heads, backdrops and cut-in cards are in the manifest with `auto: false`, for Mick.
 - A post's file is the same for every platform it lists (the export folder's per-platform copies are uploaded once).
 - Build 5 posts only `auto: true` posts and maps platforms tiktok→TikTok, reels and instagram→Instagram, shorts→YouTube Shorts, x→X, threads→Threads. A video goes to YouTube only if its plan lists `shorts`.

@@ -17,10 +17,16 @@
 // Besides manifest.csv / manifest.md it writes manifest.json (one entry per post, files per platform), which
 // scripts/upload-week.ts turns into the uploaded week manifest.
 //
+// Music: every exported mp4 gets the brand soundtrack (scripts/add-music.ts, track and offset from scripts/music.ts),
+// mixed from the clean render into out/music/ and recorded per post as `music` in manifest.json / .csv / .md.
+// MUSIC=off exports the clean renders; a post's `music` ("off", "<track id>", "<track id>@<seconds>") overrides.
+//
 // Default order alternates a dial clip with a card, so the first week is the soft-launch mix in gtm-plan.md §2.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
+import { planMusic, resolveOffset, type Choice } from "./music";
+import { loadLibrary, mixCached, seconds } from "./add-music";
 
 const CONTENT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(CONTENT, "out");
@@ -51,7 +57,7 @@ const defaultCaption = (asset?: string) => {
 };
 
 const VIDEO = ["tiktok", "reels", "shorts"], STILL = ["instagram", "x", "threads"];
-type Post = { date: string; asset?: string; platforms?: string[]; caption?: string; alt?: string | string[]; day?: string; slot?: string; kit?: string; note?: string; time?: string; ref?: string };
+type Post = { date: string; asset?: string; platforms?: string[]; caption?: string; alt?: string | string[]; day?: string; slot?: string; kit?: string; note?: string; time?: string; ref?: string; music?: string };
 type Plan = { title?: string; notes?: string[]; posts: Post[] };
 let plan: Plan;
 const planPath = arg("plan");
@@ -63,6 +69,23 @@ else {
   const order: string[] = []; for (let i = 0; i < Math.max(clips.length, cards.length); i++) { if (clips[i]) order.push(clips[i]); if (cards[i]) order.push(cards[i]); }
   plan = { posts: order.map((asset, i) => ({ date: new Date(Date.parse(start) + i * 86400000).toISOString().slice(0, 10), asset })) };
 }
+// music choices over the whole plan (before --from/--to), so one week of a plan gets what a full export gets
+const presenterAll = new Set<string>(existsSync(join(CONTENT, "remotion", "presenter.json"))
+  ? ((JSON.parse(readFileSync(join(CONTENT, "remotion", "presenter.json"), "utf8")).reels ?? []) as Array<{ id: string }>).map((r) => r.id) : []);
+const musicOff = /^(off|0|false|no)$/i.test(process.env.MUSIC ?? "");
+const library = musicOff ? null : loadLibrary();
+const choices = new Map<Post, Choice | null>();
+if (library) planMusic(plan.posts, library, {
+  isVideo: (a) => files.get(a)?.[0]?.endsWith(".mp4") ?? false,
+  ids: { cohorts: new Set(cohorts.map((c) => c.id)), presenter: presenterAll },
+  env: process.env,
+}).forEach((c, i) => choices.set(plan.posts[i], c));
+type MusicInfo = { track: string; direction: string; use: string; offset: number; file: string; source: string; versions: Record<string, { voice: boolean; lufs: number; tp: number }> } | { off: string };
+const musicOf = new Map<Post, MusicInfo>();
+const MUSIC_OUT = join(OUT, "music");
+// CSV column: "<track>@<offset>s" (or "off") for videos, empty for stills and text posts
+const musicCol = (p: Post) => { const m = musicOf.get(p); return !m ? "" : "off" in m ? "off" : `${m.track}@${m.offset}s`; };
+
 const from = arg("from"), to = arg("to");
 for (const [n, v] of [["from", from], ["to", to]]) if (v !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(v)) { console.error(`--${n} must be YYYY-MM-DD`); process.exit(1); }
 if (from || to) {
@@ -75,7 +98,7 @@ const presenterIds = new Set<string>(argv.includes("--allow-missing-presenter") 
 const destArg = arg("dest") ?? (arg("name") ? join("export", arg("name")!) : undefined);
 const dest = destArg ? (isAbsolute(destArg) ? destArg : join(OUT, destArg)) : join(OUT, "export", `batch-${plan.posts[0]?.date ?? "empty"}`);
 mkdirSync(dest, { recursive: true });
-const rows = [["date", "platform", "file", "caption", "alt", "other_version"]];
+const rows = [["date", "platform", "file", "caption", "alt", "other_version", "music"]];
 type Row = { post: Post; platform: string; names: string[]; caption: string; alt: string[] };
 const out: Row[] = [];
 let copied = 0, missing = 0;
@@ -84,7 +107,7 @@ for (const p of plan.posts) {
   const caption = p.caption ?? defaultCaption(p.asset);
   const alts = p.alt === undefined ? [] : Array.isArray(p.alt) ? p.alt : [p.alt];
   if (!p.asset) {
-    for (const platform of p.platforms ?? ["x", "threads"]) { rows.push([p.date, platform, "", caption, "", ""]); out.push({ post: p, platform, names: [], caption, alt: [] }); }
+    for (const platform of p.platforms ?? ["x", "threads"]) { rows.push([p.date, platform, "", caption, "", "", ""]); out.push({ post: p, platform, names: [], caption, alt: [] }); }
     continue;
   }
   const src = files.get(p.asset);
@@ -95,18 +118,39 @@ for (const p of plan.posts) {
   }
   const ext = extname(src[0]);
   // a dial clip rendered with a voiceover has a twin <asset>_vo.mp4: export both; the CSV's `file` is the VO version
-  // and `other_version` the silent one (both are captioned; music is added in the app)
+  // and `other_version` the silent one (both are captioned, both get the same music track and offset)
   const vo = ext === ".mp4" ? files.get(`${p.asset}_vo`)?.[0] : undefined;
+  // what gets copied: the clean render, or its music mix in out/music/ (names in the export stay the clean ones)
+  let media = src, voMedia = vo;
+  if (ext === ".mp4") {
+    const c = choices.get(p);
+    if (!c) musicOf.set(p, { off: musicOff ? "MUSIC=off" : /^off$/i.test(p.music ?? "") ? "plan: off" : "none" });
+    else {
+      const track = library!.tracks.find((t) => t.id === c.track)!;
+      const offset = resolveOffset(track, c, seconds(src[0]));
+      const versions: Record<string, { voice: boolean; lufs: number; tp: number }> = {};
+      const mixed = (f: string) => {
+        const o = join(MUSIC_OUT, `${p.date}_${basename(f)}`);
+        const r = mixCached(f, o, track, offset);
+        versions[basename(f, ".mp4").endsWith("_vo") ? "vo" : "silent"] = { voice: r.voice, lufs: Math.round(r.lufs * 10) / 10, tp: Math.round(r.tp * 10) / 10 };
+        console.log(`  ♪ ${p.date} ${basename(f)}: ${track.id}@${offset}s${r.voice ? ", ducked under the voice" : ", music only"} (${r.lufs.toFixed(1)} LUFS, ${r.tp.toFixed(1)} dBTP${r.cached ? ", cached" : ""})`);
+        return o;
+      };
+      media = src.map(mixed);
+      if (vo) voMedia = mixed(vo);
+      musicOf.set(p, { track: track.id, direction: track.direction, use: c.use, offset, file: `music/${track.file}`, source: c.source, versions });
+    }
+  }
   for (const platform of p.platforms ?? (ext === ".mp4" ? VIDEO : STILL)) {
     const names = src.map((s) => `${p.date}_${platform}_${basename(s, ext)}${ext}`);
-    src.forEach((s, i) => { copyFileSync(s, join(dest, names[i])); copied++; });
-    if (vo) {
-      const vn = `${p.date}_${platform}_${basename(vo, ext)}${ext}`; copyFileSync(vo, join(dest, vn)); copied++;
-      rows.push([p.date, platform, vn, caption, alts[0] ?? "", names[0]]);
+    media.forEach((s, i) => { copyFileSync(s, join(dest, names[i])); copied++; });
+    if (vo && voMedia) {
+      const vn = `${p.date}_${platform}_${basename(vo, ext)}${ext}`; copyFileSync(voMedia, join(dest, vn)); copied++;
+      rows.push([p.date, platform, vn, caption, alts[0] ?? "", names[0], musicCol(p)]);
       out.push({ post: p, platform, names: [vn, ...names], caption, alt: alts });
       continue;
     }
-    names.forEach((n, i) => rows.push([p.date, platform, n, caption, alts[i] ?? alts[0] ?? "", ""]));
+    names.forEach((n, i) => rows.push([p.date, platform, n, caption, alts[i] ?? alts[0] ?? "", "", musicCol(p)]));
     out.push({ post: p, platform, names, caption, alt: alts });
   }
 }
@@ -137,6 +181,8 @@ for (const [date, rs] of byDate) {
     md.push("- **Caption to post:**", "", prs[0].caption.split("\n").map((l) => `  > ${l}`).join("\n"), "");
     if (prs[0].alt.length === 1) md.push(`- **Alt text:** ${prs[0].alt[0]}`);
     else if (prs[0].alt.length) { md.push("- **Alt text (per slide):**"); prs[0].alt.forEach((a, i) => md.push(`  ${i + 1}. ${a}`)); }
+    const mu = musicOf.get(p);
+    if (mu) md.push(`- **Music:** ${"off" in mu ? `none (${mu.off})` : `${mu.track} (${mu.direction}) from ${mu.offset} s${mu.source === "override" ? ", set in the plan" : ""}`}`);
     if (p.note) md.push(`- **Note:** ${p.note}`);
     md.push("");
   }
@@ -155,6 +201,9 @@ const json = {
       kit: p.kit ?? null, note: p.note ?? null, platforms: p.platforms ?? (rs.length ? rs.map((r) => r.platform) : []),
       caption: p.caption ?? defaultCaption(p.asset), alt: alts,
       missing: p.asset ? missingAssets.has(p.asset) : false,
+      // the soundtrack this post's video(s) carry: { track, direction, use, offset (s), file, source, versions }, or
+      // { off: why }; null for stills, text posts and missing assets
+      music: musicOf.get(p) ?? null,
       files: Object.fromEntries(rs.map((r) => [r.platform, r.names])),
     };
   }),
