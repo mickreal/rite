@@ -24,7 +24,7 @@ export type Gate = (typeof GATES)[number];
 export interface VisitCounts { visitors: number; pageviews: number }
 /** Visits between two UTC instants (ISO), or a throw when the source fails. */
 export type VisitsFn = (fromIso: string, toIso: string) => Promise<VisitCounts>;
-export interface KpiOpts { visits?: VisitsFn | null; siteUrl?: string }
+export interface KpiOpts { visits?: VisitsFn | null; siteUrl?: string; creatorsMode?: string }
 export interface KpiReport { subject: string; headline: string; text: string }
 
 // ---------- dates ----------
@@ -111,6 +111,37 @@ async function week(db: D1Database, from: string, to: string): Promise<Week> {
     stops: n0(k.stopped?.n), errors: n0(k.error?.n), narrated: n0(narr?.n), narrationFallbacks: n0(narr?.f),
     support: n0(sup?.n), supportAuto: n0(sup?.n) - n0(sup?.f) - n0(sup?.i), supportToMick: n0(sup?.f),
   };
+}
+
+// ---------- creators (build 8) ----------
+interface CreatorWeek { sales: number; netCents: number; commission: number; reversed: number; payouts: number; paidCents: number; failed: number; connectDown: number }
+/** Creator sales and commission in a window; null before migration 008 (no tables). */
+async function creatorWeek(db: D1Database, from: string, to: string): Promise<CreatorWeek | null> {
+  try {
+    const [s, l, p, e] = await Promise.all([
+      db.prepare("SELECT COUNT(*) n, COALESCE(SUM(amount_cents - tax_cents),0) c FROM creator_sales WHERE created_at >= ? AND created_at < ?").bind(from, to).first<{ n: number; c: number }>(),
+      db.prepare("SELECT COALESCE(SUM(CASE WHEN kind='commission' THEN amount_cents END),0) a, COALESCE(SUM(CASE WHEN kind='reversal' THEN amount_cents END),0) r FROM creator_ledger WHERE created_at >= ? AND created_at < ?").bind(from, to).first<{ a: number; r: number }>(),
+      db.prepare("SELECT COALESCE(SUM(status='paid'),0) n, COALESCE(SUM(CASE WHEN status='paid' THEN amount_cents END),0) c, COALESCE(SUM(status='failed'),0) f FROM creator_payouts WHERE created_at >= ? AND created_at < ?").bind(from, to).first<{ n: number; c: number; f: number }>(),
+      db.prepare("SELECT COUNT(*) n FROM events WHERE kind='creator_connect_unavailable' AND at >= ? AND at < ?").bind(from, to).first<{ n: number }>(),
+    ]);
+    return { sales: n0(s?.n), netCents: n0(s?.c), commission: n0(l?.a), reversed: -n0(l?.r), payouts: n0(p?.n), paidCents: n0(p?.c), failed: n0(p?.f), connectDown: n0(e?.n) };
+  } catch { return null; }
+}
+async function creatorLines(db: D1Database, curFrom: string, curTo: string, prevFrom: string, mode: string | undefined): Promise<string[]> {
+  const [cur, prev] = await Promise.all([creatorWeek(db, curFrom, curTo), creatorWeek(db, prevFrom, curFrom)]);
+  if (!cur || !prev) return [];
+  const st = await db.prepare("SELECT status, COUNT(*) n FROM creators GROUP BY status").all<{ status: string; n: number }>();
+  const by = Object.fromEntries((st.results ?? []).map((r) => [r.status, n0(r.n)]));
+  const owed = await db.prepare("SELECT COALESCE(SUM(amount_cents),0) c FROM creator_ledger WHERE payout_id IS NULL").first<{ c: number }>();
+  if (!Object.keys(by).length && !cur.sales && !prev.sales) return [];
+  const m = (mode ?? "off").trim().toLowerCase();
+  const L = ["", "CREATORS"];
+  L.push(`  Creators: ${n0(by.active)} active, ${n0(by.pending)} application${n0(by.pending) === 1 ? "" : "s"} waiting${by.paused ? `, ${by.paused} paused` : ""} · payouts ${m === "on" ? "on" : m === "dry" || m === "dry-run" ? "dry run" : "off"} (CREATORS)`);
+  L.push(`  Creator sales: ${cur.sales} (${usd(cur.netCents)} net of tax, before refunds) vs ${prev.sales} (${usd(prev.netCents)})${change(cur.sales, prev.sales)}`);
+  L.push(`  Commission: ${usd(cur.commission)} earned, ${usd(cur.reversed)} reversed by refunds (prev ${usd(prev.commission)}, ${usd(prev.reversed)}) · ${usd(n0(owed?.c))} owed in all, unpaid`);
+  if (cur.payouts || cur.failed) L.push(`  Payouts: ${cur.payouts} paid (${usd(cur.paidCents)})${cur.failed ? ` · ${cur.failed} FAILED, see /admin/creators` : ""}`);
+  if (cur.connectDown) L.push(`  Stripe Connect: NOT available on the account (${cur.connectDown} refusal${cur.connectDown === 1 ? "" : "s"} this week). No money moved; enable Connect (Express) in Stripe.`);
+  return L;
 }
 
 // ---------- the report ----------
@@ -233,6 +264,7 @@ export async function buildKpiReport(db: D1Database, now: Date, opts: KpiOpts = 
   if (cur.support || prev.support) L.push(`  Support inbox: ${cur.support} emails (${(cur.support / 7).toFixed(1)} a day), ${cur.supportAuto} handled automatically, ${cur.supportToMick} to you (prev week ${prev.support}, ${prev.supportAuto}, ${prev.supportToMick})`);
   const errs = await db.prepare("SELECT COALESCE(CASE WHEN json_valid(detail) THEN json_extract(detail,'$.where') END,'(no where)') w, COUNT(*) n FROM events WHERE kind='error' AND at >= ? AND at < ? GROUP BY 1 ORDER BY n DESC, w LIMIT 5").bind(curFrom, curTo).all<{ w: string; n: number }>();
   L.push(`  Errors: ${cur.errors} vs ${prev.errors}${errs.results.length ? ` · ${errs.results.map((r) => `${r.w} ${r.n}`).join(", ")}` : ""}`);
+  L.push(...await creatorLines(db, curFrom, curTo, prevFrom, opts.creatorsMode));
   L.push("", "BY SOURCE (ref, last 7 days)");
   L.push(`  Previews: ${refPv.results.length ? refPv.results.map((r) => `${r.ref} ${int(r.n)}`).join(", ") : "none"}`);
   L.push(`  Paid: ${refPaid.results.length ? refPaid.results.map((r) => `${r.ref} ${int(r.n)} (${usd(n0(r.c))})`).join(", ") : "none"}`);

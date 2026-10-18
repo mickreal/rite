@@ -61,7 +61,7 @@ export function adminPage(d: AdminPageData) {
   const queue = (label: string, q: { pending: number; due: number }) => html`<tr><td>${label}</td><td class="n">${q.pending}</td><td class="n">${q.due}</td></tr>`;
 
   const body = html`<main class="adm">
-<div class="bar"><h1>Admin</h1><nav class="days" aria-label="Period">${[7, 30, 90].map((n) => html`<a href="${href(n)}" class="${n === s.days ? "on" : ""}" ${n === s.days ? html`aria-current="page"` : ""}>${n} days</a>`)}</nav></div>
+<div class="bar"><h1>Admin</h1><nav class="days" aria-label="Admin pages"><a href="/admin/inbox${d.key ? `?key=${encodeURIComponent(d.key)}` : ""}">Inbox</a><a href="/admin/creators${d.key ? `?key=${encodeURIComponent(d.key)}` : ""}">Creators</a></nav><nav class="days" aria-label="Period">${[7, 30, 90].map((n) => html`<a href="${href(n)}" class="${n === s.days ? "on" : ""}" ${n === s.days ? html`aria-current="page"` : ""}>${n} days</a>`)}</nav></div>
 <p class="muted" style="margin:-16px 0 0">Last ${s.days} days${d.generatedAt ? html` · as of ${when(d.generatedAt)} UTC` : ""}. Same numbers as <code>/admin/stats?days=${s.days}</code>. <a href="${`/admin/voice${d.key ? `?key=${encodeURIComponent(d.key)}` : ""}`}" style="color:#F2B544">Voice audition</a></p>
 
 <section aria-labelledby="h-funnel"><h2 id="h-funnel">Funnel</h2><div class="tiles">

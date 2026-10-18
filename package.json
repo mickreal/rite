@@ -18,7 +18,9 @@
     "db:migrate:b3": "wrangler d1 execute rite --remote --file=migrations/006-support-messages.sql",
     "db:migrate:b3:local": "wrangler d1 execute rite --local --file=migrations/006-support-messages.sql",
     "db:migrate:b3b": "wrangler d1 execute rite --remote --file=migrations/007-support-threads.sql",
-    "db:migrate:b3b:local": "wrangler d1 execute rite --local --file=migrations/007-support-threads.sql"
+    "db:migrate:b3b:local": "wrangler d1 execute rite --local --file=migrations/007-support-threads.sql",
+    "db:migrate:b8": "wrangler d1 execute rite --remote --file=migrations/008-creators.sql",
+    "db:migrate:b8:local": "wrangler d1 execute rite --local --file=migrations/008-creators.sql"
   },
   "keywords": [],
   "author": "",
