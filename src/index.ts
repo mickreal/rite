@@ -1696,7 +1696,7 @@ app.post("/admin/login", async (c) => {
     if (!(await claimTotpStep(c.env, step))) return fail("code_replay", { next, step: "code", pending: formStr(f.pending), error: "That code has already been used. Wait for the next one (they change every 30 seconds)." });
     return loginSucceeded(c, next, true);
   }
-  if (!adminAuthorized(c.env.ADMIN_KEY, undefined, formStr(f.key))) return fail("key", { next, error: "That key didn't match. Check it's the whole ADMIN_KEY (no space at either end) and try again." });
+  if (!adminAuthorized(c.env.ADMIN_KEY, undefined, formStr(f.key).trim())) return fail("key", { next, error: "That key didn't match. Check it's the whole ADMIN_KEY (no space at either end) and try again." });
   if (secret) {
     if (!totpSecretOk(secret)) return loginHtml(c, { next, error: "ADMIN_TOTP_SECRET is set but isn't a valid base32 secret, so sign-in is refused. Run npm run admin:totp and set it again." }, 503);
     return loginHtml(c, { next, step: "code", pending: await makePending(c.env.ADMIN_KEY) });

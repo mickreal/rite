@@ -37,6 +37,13 @@ async function signInWithCode(next = "/admin", ip?: string) {
   return r;
 }
 
+describe("login key", () => {
+  it("ignores spaces and line breaks around a pasted key, but not inside it", async () => {
+    expect((await loginPost({ key: `  ${KEY}\n`, next: "/admin" })).status).toBe(303);
+    expect((await loginPost({ key: `${KEY.slice(0, 5)} ${KEY.slice(5)}`, next: "/admin" })).status).toBe(401);
+  });
+});
+
 describe("TOTP (RFC 6238, SHA-1, 30 s)", () => {
   it("matches the RFC's test vectors", async () => {
     const key = base32Decode(RFC)!;
