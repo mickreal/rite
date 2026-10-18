@@ -10,6 +10,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { planPosts } from "./plan-posts";
 
 const CONTENT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const argv = process.argv.slice(2);
@@ -22,7 +23,7 @@ if (argv.includes("--signs")) {
 } else {
   const i = argv.indexOf("--plan"); if (i < 0) { console.error("usage: bun scripts/vo-lines.ts --plan <plan.json> | --signs"); process.exit(1); }
   const plan = JSON.parse(readFileSync(resolve(argv[i + 1]), "utf8"));
-  const assets = [...new Set(((Array.isArray(plan) ? plan : plan.posts) as Array<{ asset?: string }>).map((p) => p.asset).filter(Boolean) as string[])];
+  const assets = [...new Set(planPosts(plan).map((p) => p.asset).filter(Boolean) as string[])]; // + fallback posts
   const missing: string[] = [];
   for (const a of assets) {
     const c = cohorts.find((x) => x.id === a);

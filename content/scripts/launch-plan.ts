@@ -50,7 +50,9 @@ const RELATIVE = /\b(today|tonight|right now|this (week|month|year)|next (week|m
 const flags: string[] = [];
 posts.forEach((p, i) => {
   const was = original[i].date;
-  const text = [p.caption ?? "", ...(Array.isArray(p.alt) ? p.alt : [p.alt ?? ""]), p.note ?? "", voOf(p.asset)].join(" ");
+  const fb = p.fallback as { asset?: string; caption?: string; alt?: string | string[] } | undefined; // its fallback posts the same day
+  const text = [p.caption ?? "", ...(Array.isArray(p.alt) ? p.alt : [p.alt ?? ""]), p.note ?? "", voOf(p.asset),
+    fb?.caption ?? "", ...(Array.isArray(fb?.alt) ? fb!.alt : [fb?.alt ?? ""]), voOf(fb?.asset)].join(" ");
   const why: string[] = [];
   if (RELATIVE.test(text)) why.push(`relative time ("${text.match(RELATIVE)![0]}")`);
   // A date that was still ahead on the original posting day and has passed by the new one: written as upcoming, now stale.
@@ -69,6 +71,8 @@ const plan = {
     `Built by \`LAUNCH=${L} bun scripts/launch-plan.ts\` from plan-2026-10-weeks-1-2.json and plan-2026-11-weeks-3-4.json, every post moved ${shift} days (day 1 = ${L}).`,
     `Render: \`TODAY=${L} bun scripts/render-batch.ts --plan scripts/plan-launch.json --dest launch\` (or this script with --render).`,
     ...(flags.length ? ["", `Reread before scheduling (${flags.length} posts): see the list this script printed.`] : []),
+    // how fallbacks (posts that depend on other people) and interim presenter reels are chosen: from the source plans
+    ...[...w12.notes, ...w34.notes].filter((n) => n.startsWith("**Fallbacks and interim reels.**")).slice(0, 1).flatMap((n) => ["", n]),
   ],
   posts,
 };

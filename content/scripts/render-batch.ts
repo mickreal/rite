@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 // One command for a whole batch: check every date → render the plan's dial clips (silent + _vo when a TTS provider is
-// available) and cards → export the scheduler folder → zip it.
+// available) and cards → export the scheduler folder (every video gets the brand soundtrack there, scripts/add-music.ts;
+// MUSIC=off to skip) → zip it.
 //
 //   TODAY=2026-10-19 bun scripts/render-batch.ts --plan scripts/plan-2026-10-weeks-1-2.json --dest 2026-10-weeks-1-2-v2
 //   RITE_ADMIN_KEY=… TODAY=… bun scripts/render-batch.ts --plan … --dest …     with voiceover
@@ -17,6 +18,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { assetsOf, expandPosts, type PlanPost } from "./plan-posts";
 
 const CONTENT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const argv = process.argv.slice(2);
@@ -27,8 +29,9 @@ if (!process.env.TODAY) console.warn("TODAY is not set: card data and the date c
 const plan = JSON.parse(readFileSync(resolve(planPath), "utf8"));
 const from = arg("from"), to = arg("to");
 for (const [n, v] of [["from", from], ["to", to]]) if (v !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(v)) { console.error(`--${n} must be YYYY-MM-DD`); process.exit(1); }
-const allPosts = (Array.isArray(plan) ? plan : plan.posts) as Array<{ date: string; asset?: string }>;
-const posts = allPosts.filter((p) => (!from || p.date >= from) && (!to || p.date <= to));
+const allPosts = (Array.isArray(plan) ? plan : plan.posts) as PlanPost[];
+const rawPosts = allPosts.filter((p) => (!from || p.date >= from) && (!to || p.date <= to));
+const posts = expandPosts(rawPosts); // + fallback posts (plan-posts.ts)
 if (from || to) {
   console.log(`${posts.length} of ${allPosts.length} post(s) dated ${from ?? "…"} – ${to ?? "…"}`);
   if (!posts.length) { console.error("✗ no posts in that range"); process.exit(1); }
@@ -38,10 +41,10 @@ let checkPlan = resolve(planPath);
 if (from || to) {
   mkdirSync(join(CONTENT, "out", "plans"), { recursive: true });
   checkPlan = join(CONTENT, "out", "plans", `${dest.replace(/[^\w.-]+/g, "_")}.check.json`);
-  writeFileSync(checkPlan, JSON.stringify({ ...(Array.isArray(plan) ? {} : plan), posts }, null, 2));
+  writeFileSync(checkPlan, JSON.stringify({ ...(Array.isArray(plan) ? {} : plan), posts: rawPosts }, null, 2));
 }
 const range = [...(from ? ["--from", from] : []), ...(to ? ["--to", to] : [])];
-const assets = [...new Set(posts.map((p) => p.asset).filter(Boolean) as string[])];
+const assets = assetsOf(posts); // assets, interim versions and fallbacks
 const cohortIds = new Set((JSON.parse(readFileSync(join(CONTENT, "clips", "cohorts.json"), "utf8")).cohorts as Array<{ id: string }>).map((c) => c.id));
 
 const run = (label: string, cmd: string, args: string[], env: Record<string, string> = {}) => {
@@ -72,6 +75,12 @@ const groups = [
   verticals.length && "verticals",
 ].filter(Boolean) as string[];
 if (groups.length && !argv.includes("--skip-cards")) run(`Cards: ${groups.join(", ")}`, "bash", ["remotion/render-all.sh"], { ONLY: groups.join(","), VERTICALS: verticals.join(" "), ...(signVideos.length ? { VIDEOS: signVideos.join(" ") } : {}) });
+
+// presenter reels that need no paid media (no Anna clip, no VO: the interim versions in remotion/presenter.json) render
+// here like a card; the others are made by hand (scripts/presenter-prep.ts) and only exported
+const reels = existsSync(join(CONTENT, "remotion", "presenter.json")) ? (JSON.parse(readFileSync(join(CONTENT, "remotion", "presenter.json"), "utf8")).reels as Array<{ id: string; interimOf?: string; audio?: string }>) : [];
+const selfContained = assets.filter((a) => reels.some((r) => r.id === a && r.interimOf));
+if (selfContained.length && !argv.includes("--skip-cards")) for (const id of selfContained) run(`Presenter reel (no Anna, no VO): ${id}`, "bash", ["remotion/render-presenter.sh", id]);
 
 const out = join(CONTENT, "out", dest);
 rmSync(out, { recursive: true, force: true }); // no stale files from an earlier export

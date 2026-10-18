@@ -9,7 +9,7 @@
 export type MetaData = {
   cohorts: { id: string; hook?: string }[];
   carousels: { id: string; title?: string }[];
-  presenter: { id: string }[];
+  presenter: { id: string; interimOf?: string }[];
 };
 
 /** The caption's first sentence (or line), without URLs; "" for an empty caption. */
@@ -20,7 +20,8 @@ export function firstSentence(caption: string): string {
 }
 
 export function postMeta(asset: string | null, caption: string, data: MetaData): { title: string; presenter: boolean } {
-  const presenter = !!asset && data.presenter.some((r) => r.id === asset);
+  // an interim reel (`interimOf`) is the same cut with Anna taken out: no AI presenter in it
+  const presenter = !!asset && data.presenter.some((r) => r.id === asset && !r.interimOf);
   const hook = asset ? data.cohorts.find((c) => c.id === asset)?.hook : undefined;
   const carousel = asset ? data.carousels.find((c) => c.id === asset)?.title : undefined;
   const title = (hook || carousel || firstSentence(caption)).trim();

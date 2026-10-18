@@ -43,7 +43,7 @@ const r2 = r2FromEnv();
 if (!dryRun && !r2) { console.error("R2 credentials are not set (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY); use --dry-run to preview"); process.exit(1); }
 if (!dryRun && !r2!.publicBase) { console.error("R2_PUBLIC_BASE is not set (the bucket's public URL, e.g. https://pub-….r2.dev); the manifest needs it for file URLs"); process.exit(1); }
 
-type ExportPost = { date: string; day: string | null; slot: string | null; time: string | null; ref: string | null; asset: string | null; kit: string | null; note: string | null; platforms: string[]; caption: string; alt: string[]; missing: boolean; files: Record<string, string[]> };
+type ExportPost = { date: string; day: string | null; slot: string | null; time: string | null; ref: string | null; asset: string | null; interim?: boolean; final_asset?: string | null; fallback_for?: string; kit: string | null; note: string | null; platforms: string[]; caption: string; alt: string[]; missing: boolean; files: Record<string, string[]>; music?: unknown };
 const exp = JSON.parse(readFileSync(exportManifest, "utf8")) as { title: string | null; from: string | null; to: string | null; posts: ExportPost[] };
 
 // ---------- slot time in UTC ----------
@@ -111,8 +111,15 @@ const posts = exp.posts.map((p, i) => {
     id: `${p.date}-${String(i + 1).padStart(2, "0")}`,
     date: p.date, at: slotUtc(p.date, p.time ?? DEFAULT_TIME), day: p.day, slot: p.slot, kit: p.kit, note: p.note,
     asset: p.asset, ref: p.ref, platforms: p.platforms, auto, missing: p.missing,
+    // interim: an Anna reel's no-presenter, no-voice version went out because the finished reel (final_asset) isn't
+    // rendered yet. fallback_for: this post stands in for that slot's hand-made original (scripts/plan-posts.ts).
+    ...(p.interim !== undefined ? { interim: p.interim, final_asset: p.final_asset ?? null } : {}),
+    ...(p.fallback_for ? { fallback_for: p.fallback_for } : {}),
     ...postMeta(p.asset, p.caption, metaData),
     caption: p.caption, alt: p.alt, media,
+    // soundtrack the media carry (export-batch / add-music.ts): { track, direction, use, offset, file, source,
+    // versions } or { off }; null for stills and text posts, and in exports made before music
+    music: p.music ?? null,
   };
 });
 

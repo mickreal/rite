@@ -27,6 +27,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { stale } from "./stale";
+import { expandPosts } from "./plan-posts";
 import { r2FromEnv, r2GetText } from "./r2";
 
 const CONTENT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -43,7 +44,7 @@ if (new Date(ms(W)).getUTCDay() !== 1) console.warn(`! ${W} is not a Monday: the
 const days = [...Array(7)].map((_, i) => addDays(W, i));
 const outPath = resolve(arg("out") ?? join(CONTENT, "out", "plans", `week-${W}.json`));
 
-type Post = { date: string; day?: string; slot?: string; time?: string; asset?: string; ref?: string; platforms?: string[]; caption?: string; alt?: string | string[]; kit?: string; note?: string };
+type Post = { date: string; day?: string; slot?: string; time?: string; asset?: string; interim?: string; ref?: string; platforms?: string[]; caption?: string; alt?: string | string[]; kit?: string; note?: string };
 type Plan = { title?: string; notes?: string[]; posts: Post[] };
 const readJson = <T>(f: string): T => JSON.parse(readFileSync(f, "utf8")) as T;
 
@@ -60,7 +61,7 @@ const keyOf = (p: { asset?: string | null; ref?: string | null; kit?: string | n
   p.ref ?? (p.asset ? p.asset.replace(/_vo$/, "") : (/\(d\) post (\d+)\b/.exec(p.kit ?? "")?.[1] ? `kit-post-${/\(d\) post (\d+)\b/.exec(p.kit!)![1]}` : null));
 const used = new Map<string, string[]>(); // key → dates
 const remember = (key: string | null, date: string) => { if (key) used.set(key, [...(used.get(key) ?? []), date]); };
-for (const p of launch?.posts ?? []) remember(keyOf(p), p.date);
+for (const p of expandPosts(launch?.posts ?? [])) { remember(keyOf(p), p.date); if (p.interim) remember(p.interim, p.date); } // fallbacks and interim reels count as used
 const seen = new Set<string>();
 const history = (posts: Array<{ date: string; asset?: string | null; ref?: string | null; kit?: string | null }>, from: string) => {
   let n = 0;

@@ -26,8 +26,10 @@ const text = TEXTS[id];
 
 /** The take for this card, or null (silent). Never throws for "no VO available". */
 async function take(): Promise<string | null> {
-  if (!text) return null;
   const p = provider();
+  // a pre-recorded take (VO_PROVIDER=files) is used even when card-vo.json has no text for the card (takes made
+  // before its text was moved there); its words then aren't date-checked by check-cohorts.ts
+  if (!text && p.name !== "files") return null;
   if (p.name === "files") {
     const base = join(process.env.VO_DIR ?? join(CONTENT, "clips", "vo"), key);
     for (const e of ["wav", "mp3", "m4a"]) if (existsSync(`${base}.${e}`)) return `${base}.${e}`;

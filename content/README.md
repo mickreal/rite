@@ -13,7 +13,7 @@ the root `tsconfig.json` and `vitest.config.ts` only see `src/` and `test/`, and
 | 2/6 | Cohort or quote card on a 1080×1920 frame, eased push-in, as long as its voiceover + 1.6 s (TikTok / Reels slot) | `remotion/src/VerticalCard.tsx` + `clips/card-vo.json` | `out/cohorts/cohort-<id>-vertical.mp4`, `out/quotes/quote-<id>-vertical.mp4` (+ `_vo`) |
 | — | Instagram carousel slides (kit (e)), 1080×1350, cream | `remotion/src/CarouselSlide.tsx` + `remotion/carousels.json` | `out/carousels/<carousel id>-NN.png` |
 | 5 | Caption-free result screen, 1080×1920 (green-screen backdrop) | `clips/render-clip.ts --stills` | `out/stills/<cohort>-summary.png` |
-| 3 | Presenter reel: short to-camera parts by Anna (AI presenter, labelled) cut with animated cards, on one VO take | `remotion/src/PresenterReel.tsx` + `remotion/presenter.json` | `out/presenter/<id>.mp4` |
+| 3 | Presenter reel: short to-camera parts by Anna (AI presenter, labelled) cut with animated cards, on one VO take; or its interim version (Anna taken out, no voice) | `remotion/src/PresenterReel.tsx` + `remotion/presenter.json` (resolved by `remotion/src/reels.ts`) | `out/presenter/<id>.mp4` |
 
 `out/` is git-ignored. `samples/` has four stills and one clip so you can see the look on GitHub.
 
@@ -97,7 +97,7 @@ Signs come straight from `src/content/sign-periods.json` and `src/content/signs.
 
 ## Voiceover
 
-No music, ever: it's added in the app's reel editor. A clip gets a voiceover when its cohort has a `vo` script (from the kit's scripts (c) 1–5; in `clips/cohorts.json`) and a TTS provider is available. Then `render-clip.ts` renders **two files from the same frames**: `<id>_vo.mp4` (VO) and `<id>.mp4` (silent), both captioned.
+Renders are made without music; the brand soundtrack is mixed in at export (see Music). A clip gets a voiceover when its cohort has a `vo` script (from the kit's scripts (c) 1–5; in `clips/cohorts.json`) and a TTS provider is available. Then `render-clip.ts` renders **two files from the same frames**: `<id>_vo.mp4` (VO) and `<id>.mp4` (silent), both captioned.
 
 ```sh
 ELEVENLABS_API_KEY=… bun clips/render-clip.ts --only aries-three-pass-1997    # one clip, silent + _vo
@@ -112,6 +112,7 @@ ELEVENLABS_API_KEY=… npm run batch                                        # th
 - **Timing to the VO:** every line is synthesised first and measured with ffprobe; each beat lasts `voLead + line + voTail` (at least `minBeat`), the caption for a line fades in `voLead` before it's spoken, and the intro is held longer if the hook needs it. So captions are synced to the spoken words at beat level, and the silent version has the same timing.
 - **Mix:** segments are placed at their beat times on a silent bed, then two-pass `loudnorm` to −16 LUFS integrated, true peak −2 dBTP (≤ −1.5 after AAC), 48 kHz stereo, with the clip's fade-out. The render log prints the measured loudness and peak of each `_vo` file.
 - `check-cohorts.ts` checks the spoken dates and degrees too ("10 degrees Aries today" against Saturn on the posting day with `--plan`).
+- **Re-take one clip's VO** (e.g. Script 2, `aries-approach-1997`, whose line is now "Saturn is at nine degrees Aries today. Yours is at twenty." for posting 27 Oct – 2 Nov 2026, when the site shows 9°): `ELEVENLABS_API_KEY=… bun clips/render-clip.ts --only aries-approach-1997` (re-synthesises only lines not in `clips/vo/cache/`; ≈90 credits for that line, ≈470 for all five), then re-export the post: `TODAY=2026-10-26 bun scripts/render-batch.ts --plan scripts/plan-launch.json --dest launch-2026-10-26 --skip-clips --skip-cards --no-zip` (or the week's render), and drop "silent" from its plan note.
 
 ### Card and sign verticals
 
@@ -134,6 +135,36 @@ To make one:
 3. Add the reel to `remotion/presenter.json`: segments (`presenter`, `window`, `phases`, `line`, `cta`) with their `from`/`to` and the word-timed cues. Put the take (`vo.mp3`) and the presenter clips in `out/presenter/<id>/`.
 4. `bash remotion/render-presenter.sh <id>` → `out/presenter/<id>.mp4` (CRF 17, 30 fps, −16 LUFS). Segments crossfade over 0.45 s, ending on their cue; the presenter part gets a slow 3 % push-in and burned-in captions.
 
+Segment kinds: `presenter` (an Anna clip; `srcFrom` = where in the clip the part starts), `window`, `phases`, `line` (word-timed statements, optional `kicker`), `dates` (kicker, headline, dated rows; `cream` for the light card), `cta` (`tail` optional). `layout: "captions"` makes a reel captions-forward: Anna's captions large and lit word by word, `line` text larger.
+
+### Anna-light reels (script first, one command when there are credits)
+
+For the talking-head slots Anna gets only the hook or one human line (≤ 10 s, the test checks it); everything with a date is a card. Such a reel is written as a `script` in `presenter.json` (`say`: the spoken words, spelled out; `show`: caption text; `anna: true` on her lines) and its segments refer to the script: `"from": "@s4"` is when line s4 starts, `"@s7+1.9"` a moment into it. `timing` (each line's start) is estimated from the text until the take exists, then measured from it, so the cut follows the voice without hand-timing. `postBetween` is the posting range the words are true in (checked with `--plan`).
+
+```sh
+bun scripts/presenter-prep.ts --estimate <id>      # timing from the text (2.6 words a second), no network: renders before any take
+bun scripts/presenter-prep.ts --cost <id>          # what the paid steps cost
+ELEVENLABS_API_KEY=… npm run presenter:prep -- <id>   # VO take (eleven_v3, Anna) → Scribe word timings → timing written into
+                                                      # presenter.json → anna.mp3 cut at the pause after her last line →
+                                                      # [lip-sync] → render. Re-runnable: each step with an output is skipped.
+```
+
+The lip-sync (Creatify Aurora 720p on the approved still, one generation) runs in the ElevenLabs flow "Anna presenter", which has no public API: the command stops there (exit 3) and prints what to do (upload `out/presenter/<id>/anna.mp3`, run the Aurora node, save the MP4 as `out/presenter/<id>/anna.mp4`; Claude can do it with the ElevenLabs connector), and running it again renders. Listen to `vo.mp3` before the lip-sync: a bad read costs ≈600 credits to redo there, ≈5–8k after.
+
+| Reel | Slot | Anna | VO | Credits (≈) | $ (≈) |
+|---|---|---|---|---|---|
+| `script-7` | 2 Nov, Script 7 (the retrograde pass) | 9.2 s | 591 chars | 8.4k | 1.70 |
+| `closest-turn-talk` | 6 Nov, what the closest turn is | 7.3 s | 478 chars | 6.7k | 1.35 |
+| `integration-1996` | 19 Nov, born 1996, separating | 5.8 s | 583 chars | 5.5k | 1.10 |
+
+(Aurora ≈ 850 credits a second of Anna, as measured on script 6; eleven_v3 ≈ 1 credit a character; Scribe is negligible. Estimates from the text: the take can run a second either way.)
+
+**Interim versions.** `{ "id": "<id>-interim", "interimOf": "<id>" }` is the same cut with each presenter segment replaced by a `line` card of its captions, and no voice: it needs no media and costs nothing, so `render-batch.ts` renders it like a card, and the export adds the soundtrack (music only). A plan post with `"asset": "<id>", "interim": "<id>-interim"` exports the finished reel once `out/presenter/<id>.mp4` exists, else the interim (`interim: true` in the manifests, and no "made with AI" flag since there's no presenter in it).
+
+**Re-cuts from an existing take.** `script-6-recut` is script 6's own take and Anna clip cut at pauses and re-joined in a new order (challenge, Anna's hook, one pass or three, CTA; 25 s, captions-forward): `npm run presenter:recut` (= `bash scripts/presenter-recut.sh` then the render). No credits.
+
+**Date check.** `check-cohorts.ts` sweeps every reel: each full date shown or spoken must be a verified fact, each "N° Sign" / "N degrees Sign" a verified degree, spoken lines spelled out; with `--plan`, each scheduled reel (or its interim) must post inside its `postBetween`, and nothing in it may name a date that was ahead when written and has passed by its posting day (the caption rule, `scripts/stale.ts`).
+
 ## Launch calendar on the real launch day
 
 The 28-day calendar (weeks 1–2 and 3–4) is written for day 1 = 19 Oct 2026. On domain day, move it onto launch day L (a Monday) and render it in one go:
@@ -142,7 +173,26 @@ The 28-day calendar (weeks 1–2 and 3–4) is written for day 1 = 19 Oct 2026. 
 LAUNCH=2026-11-16 ELEVENLABS_API_KEY=… npm run launch     # = scripts/launch-plan.ts --render
 ```
 
+**Fallbacks and interim reels** (`scripts/plan-posts.ts`, read by every script that reads a plan). A post that depends on someone else (a reader's quote with permission, a creator's repost) keeps its intent in its note and stays manual (`auto: false`); its `fallback: { asset, caption, alt, note, music }` is a ready video in Rite's own voice that becomes a post of its own on the same day (slot "Fallback: …", `fallback_for` in `manifest.json` and the week manifest). Being a video with a caption, it is `auto: true`, so auto-posting puts it out and the slot is never empty. If the original is in hand before that week's Thursday render, set `"use": "original"` on the post: the fallback is then not rendered, exported or uploaded, and the original is posted by hand. If it arrives after the week is uploaded, post it by hand and cancel that day's fallback in the queue. `"use": "both"` keeps both. Talking-head slots carry `asset` (the Anna reel) and `interim` (above).
+
 `scripts/launch-plan.ts` joins both plans, moves every post by the same number of days into `scripts/plan-launch.json`, then runs `render-batch.ts` with `TODAY=L` into `out/launch/` (+ zip). The date check fails on any clip whose "Today" degree is stale on its new day. Before rendering it prints every post whose wording is tied to the calendar ("right now", "this year", "four weeks") or names a date that was still ahead on its original day and has passed by its new one. Reread or rewrite those first. The week-4 posts are pegged to Saturn's station on 11 Dec 2026, so the later L is, the more of week 4 needs rewriting. Presenter reels are exported from `out/presenter/` like any other asset (render them first with `npm run presenter -- <id>`).
+
+## Music (brand soundtrack)
+
+Nine tracks in `music/` (`rite-theme-<id>-<direction>.mp3`, 192 kbps), listed in `music/library.json` (id, direction, file, duration, loudness, use, and usable start `offsets`: every 8 s from 4 s, none in the last 20 s; rebuild with `npm run music:library` after adding a track).
+
+| Direction | Tracks | Use | Gets it |
+|---|---|---|---|
+| felt-piano (calm, warm) | A1–A3 | voice | dial clips (cohort ids) and Anna presenter reels, alternating with orbit |
+| orbit (cello/celesta) | C1–C2 | voice | the same, every other voice-led post |
+| pulse (downtempo) | B1–B4 | cards | cohort/quote card verticals, sign verticals, any other video |
+
+`export-batch.ts` (so `render-batch.ts`, `launch-plan.ts --render` and the Thursday GitHub render too) mixes every exported mp4 with `scripts/add-music.ts`, from the clean render into `out/music/<date>_<file>.mp4` (cached; a post's silent and `_vo` versions get the same track and offset). Choices are in `scripts/music.ts`: the n-th voice-led / card video of a plan by date takes the next track in its pool (voice: A1, C1, A2, C2, A3, C1, …; cards: B1–B4), and each track's k-th use starts 4 offsets (32 s) further on, so consecutive posts on a track continue through it. Counting is over the whole plan before `--from`/`--to`, and starts from the plan's first date (days since 19 Oct 2026), so a weekly render picks what the full render picks and rolling weeks don't all open on A1.
+
+- **Mix:** bed fades in 0.3 s and out 1.5 s; its gain is set from the loudness of the stretch used. Under a voice (an `_vo` render or a presenter reel: input louder than −45 LUFS) it sits at −29 LUFS and a sidechain compressor keyed on the voice pulls it down ~8 dB while Anna speaks (≈ 20 LU under the voice), coming back up in pauses; without a voice it's the music alone. Then two passes: measure (EBU R128) and apply the gain to −16 LUFS integrated through a 4×-oversampled limiter at −2.5 dBFS; if the AAC encode still peaks over −1.5 dBTP (dense, quiet-then-peaky music-only stretches), the limiter is lowered and the encode redone, so such a file can land up to ~1.5 LU under −16. Video copied, AAC 192k. Outputs are tagged `comment=rite-music:<track>@<offset>`; a tagged input is refused, so music is never stacked.
+- **Off / override:** `MUSIC=off` exports the clean renders. A post's `music` field: `"off"`, a track id (`"B3"`), or `"C2@40"` (track and start in seconds).
+- **Recorded:** `manifest.json` (and the uploaded week manifest) has `music: { track, direction, use, offset, file, source, versions: { vo, silent: { voice, lufs, tp } } }` per video post (`{ off }` when off, null for stills/text); `manifest.csv` has a `music` column, `manifest.md` a Music line.
+- One video by hand: `bun scripts/add-music.ts in.mp4 out.mp4 --track A1 --offset 36` (`--stems <dir>` also writes the voice and ducked-music stems for measuring). Tests: `npm test` in `content/`.
 
 ## Batch export for a scheduler
 
@@ -259,7 +309,8 @@ Media sit in a random folder per upload, so their URLs can't be guessed from the
 }
 ```
 
-- `media.vo` is null when the video has no voice. Post `vo` when there is one, else `silent` (build 5's retry also uses `silent`). Both are captioned; music is added in the app.
+- `interim` / `final_asset` (posts with an interim presenter reel): `interim: true` when the no-Anna, no-voice version is the one uploaded because `final_asset` isn't rendered yet. `fallback_for` (fallback posts): the slot of the hand-made post it stands in for (`scripts/plan-posts.ts`; the original is in the manifest too, `auto: false`).
+- `media.vo` is null when the video has no voice. Post `vo` when there is one, else `silent` (build 5's retry also uses `silent`). Both are captioned and carry the brand soundtrack (the post's `music` says which track and offset; `silent` is music only).
 - `auto` is true when every platform is one Postiz posts to (tiktok, reels, shorts, instagram, x, threads), there's a caption, and there's media (or it's a text post for X / Threads only). Reddit, email, creator reposts, unrendered talking heads, backdrops and cut-in cards are in the manifest with `auto: false`, for Mick.
 - A post's file is the same for every platform it lists (the export folder's per-platform copies are uploaded once).
 - Build 5 posts only `auto: true` posts and maps platforms tiktok→TikTok, reels and instagram→Instagram, shorts→YouTube Shorts, x→X, threads→Threads. A video goes to YouTube only if its plan lists `shorts`.
