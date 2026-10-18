@@ -37,6 +37,10 @@ import { buildKpiReport, kpiSendHour, posthogVisits } from "./kpi";
 import { handleSupportEmail, type InboxDeps } from "./inbox";
 import { threadsPage, threadPage, loginPage } from "./views/inbox";
 import { listThreads, loadThread, sendReply, changeThread, threadKeyFromUrl, tabOf, newNonce, THREAD_ACTIONS, type ThreadAction } from "./inbox-ui";
+import { creatorsMode, commissionPct, discountPct, holdDays, minPayoutCents, unpaidCapCents, nextPayoutDate, refCookie, REF_COOKIE } from "./creators";
+import { applyCreator, approveCreator, changeCreator, attributeSale, reverseCommission, connectLink, refreshConnect, runCreatorPayouts, creatorNumbers, payoutsOf, recentPayouts,
+  activeCreatorByHandle, creatorByToken, CREATOR_ACTIONS, type CreatorRow, type CreatorAction } from "./creator-ops";
+import { creatorsPage, dashboardPage, adminCreatorsPage } from "./views/creators";
 import { taxOn, sessionTax, localPrices, currencyOptions, priceKeySuffix, bumpCents, armFor, armCents, priceTestStop, priceTestWinner, perPreview, giftSeasonOn, giftEmailDates, TAX_CODE, GIFT_EMAIL_HOUR, dollars, type PriceProduct, type PriceTestState, type ArmStats } from "./commerce";
 
 export interface Env {
@@ -57,10 +61,23 @@ export interface Env {
   // build 3, the support inbox (src/inbox.ts): master switch ("on" acts, anything else only drafts for Mick), daily refund caps,
   // and an optional R2 bucket for the D1 export taken before an automated data deletion (without it, deletions go to Mick)
   INBOX_AUTO?: string; INBOX_REFUNDS_PER_DAY?: string; INBOX_REFUND_CENTS_PER_DAY?: string; SUPPORT_EXPORTS?: R2Bucket;
+  // build 8, the creator program (src/creators.ts, src/creator-ops.ts): CREATORS off | dry | on (payouts), and its numbers
+  CREATORS?: string; CREATOR_COMMISSION_PCT?: string; CREATOR_DISCOUNT_PCT?: string; CREATOR_HOLD_DAYS?: string; CREATOR_MIN_PAYOUT_CENTS?: string; CREATOR_UNPAID_CAP_CENTS?: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
 app.use("*", async (c, next) => { await next(); if (c.res && c.req.method === "GET") c.res = withAnalytics(c.env, c.res, new URL(c.req.url).pathname); });
+// Creator links (build 8): any page opened with ?c=<handle> of an active creator sets the 30-day first-party cookie that
+// checkout reads (it pre-applies their code), and counts a click for their dashboard.
+app.use("*", async (c, next) => {
+  await next();
+  const h = c.req.method === "GET" ? c.req.query("c") : undefined;
+  if (!h || !c.res || !(c.res.headers.get("content-type") || "").includes("text/html") || c.req.path.startsWith("/admin")) return;
+  const cr = await activeCreatorByHandle(c.env.DB, h);
+  if (!cr) return;
+  c.res.headers.append("Set-Cookie", refCookie(cr.handle));
+  c.executionCtx.waitUntil(log(c.env, "creator_click", cr.id, { path: c.req.path }));
+});
 
 // ---------- helpers ----------
 const id = (n = 12) => { const b = new Uint8Array(n); crypto.getRandomValues(b); return [...b].map((x) => x.toString(36).padStart(2, "0")).join("").slice(0, n); };
@@ -91,7 +108,7 @@ function withAnalytics(env: Env, res: Response, path: string): Response {
   if (path === "/admin" || path.startsWith("/admin/")) return res; // admin pages carry the secret in the URL
   if (path.startsWith("/stop/")) return res; // an unsubscribe page is no place for tracking
   // never tag the private pages with their tokens
-  const page = path.startsWith("/r/") ? "/r/:tok" : path.startsWith("/p/") ? "/p/:id" : path.startsWith("/gift/") ? "/gift/:code" : path;
+  const page = path.startsWith("/creators/d/") ? "/creators/d/:tok" : path.startsWith("/r/") ? "/r/:tok" : path.startsWith("/p/") ? "/p/:id" : path.startsWith("/gift/") ? "/gift/:code" : path;
   const snippet = `<script>!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload identify alias people.set people.set_once set_config startSessionRecording stopSessionRecording get_distinct_id".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
 posthog.init(${JSON.stringify(env.POSTHOG_KEY)},{api_host:${JSON.stringify(env.POSTHOG_HOST || "https://us.i.posthog.com")},autocapture:false,capture_pageview:false,disable_session_recording:true,persistence:"localStorage+cookie"});
 posthog.capture("$pageview",{page:${JSON.stringify(page)}});
@@ -128,7 +145,7 @@ async function getPurchase(env: Env, tok: string) {
 // ---------- pages ----------
 app.get("/", async (c) => {
   await log(c.env, "visit", c.req.query("r") ?? null);
-  return c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? c.req.query("ref") ?? undefined, season: seasonTeaser(c.env), prices: readingPrices(c.env, null), banner: giftSeasonOn(c.env) }));
+  return c.html(landingPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? c.req.query("ref") ?? creatorRef(c.req.query("c")), season: seasonTeaser(c.env), prices: readingPrices(c.env, null), banner: giftSeasonOn(c.env) }));
 });
 
 /** The reading prices (cents) a preview's arm sees; null (no preview yet, e.g. the landing) is arm A, the configured price. */
@@ -141,7 +158,9 @@ function seasonTeaser(env: Env) {
 }
 
 /** Live numbers for the landing widget: date (+ optional time), no place → noon UTC, sign-level only. */
-app.get("/start", (c) => c.html(flowPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? undefined, form: { date: c.req.query("d") ?? undefined } })));
+/** ?c=<handle> becomes the preview's ref (c-<handle>) when there's no ?r=, so /admin and the KPI email show it by source. */
+const creatorRef = (h: string | undefined) => (h && /^@?[A-Za-z0-9._]{2,30}$/.test(h) ? `c-${h.replace(/^@/, "").toLowerCase()}` : undefined);
+app.get("/start", (c) => c.html(flowPage({ siteUrl: c.env.SITE_URL, ref: c.req.query("r") ?? c.req.query("utm_source") ?? creatorRef(c.req.query("c")), form: { date: c.req.query("d") ?? undefined } })));
 app.get("/api/calc", async (c) => {
   const date = c.req.query("date") ?? "", time = c.req.query("time") || null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return c.json({ error: "date" }, 400);
@@ -243,10 +262,10 @@ app.get("/season", (c) => {
   }), 200, { "cache-control": "public, max-age=3600" });
 });
 app.get("/sitemap.xml", (c) => {
-  const urls = ["/", "/second", "/season", "/gift", "/privacy", "/terms", "/refunds", "/saturn-return/when", "/saturn-return/first-vs-second", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
+  const urls = ["/", "/second", "/season", "/gift", "/creators", "/privacy", "/terms", "/refunds", "/saturn-return/when", "/saturn-return/first-vs-second", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`)];
   return c.body(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join("")}</urlset>`, 200, { "content-type": "application/xml" });
 });
-app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\nDisallow: /p/\nDisallow: /r/\nDisallow: /admin/\nSitemap: ${c.env.SITE_URL}/sitemap.xml\n`));
+app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\nDisallow: /p/\nDisallow: /r/\nDisallow: /admin/\nDisallow: /creators/d/\nSitemap: ${c.env.SITE_URL}/sitemap.xml\n`));
 
 app.get("/favicon.svg", (c) => c.body(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" fill="none"><rect width="44" height="44" fill="#111418"/><g stroke="#d4b66a" stroke-width="2" fill="none"><circle cx="22" cy="22" r="7.5" fill="#d4b66a"/><ellipse cx="22" cy="22" rx="19" ry="7.8" transform="rotate(-28 22 22)"/></g></svg>`, 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=604800" }));
 
@@ -410,7 +429,8 @@ app.get("/card/r/:tok{[^/]+\\.svg}", async (c) => {
 // ---------- checkout ----------
 app.post("/checkout", async (c) => {
   const form = await c.req.parseBody();
-  if (String(form.gift ?? "") === "1") return giftCheckout(c.env, c.redirect.bind(c));
+  const creator = await activeCreatorByHandle(c.env.DB, cookieValue(c.req.header("cookie"), REF_COOKIE));
+  if (String(form.gift ?? "") === "1") return giftCheckout(c.env, c.redirect.bind(c), creator);
   const p = await getPreview(c.env, String(form.preview ?? ""));
   if (!p) return c.redirect("/");
   const tier = p.birth_time ? "full" : "notime";
@@ -430,7 +450,7 @@ app.post("/checkout", async (c) => {
     try { bumpPrice = await ensurePrice(c.env, { product: "bump", cents: bump, name: BUMP_NAME, description: BUMP_DESCRIPTION }); }
     catch (e) { await log(c.env, "error", p.id, { where: "bump-price", e: String(e) }); }
   }
-  const session = await s.checkout.sessions.create({
+  const session = await createPaymentSession(c.env, {
     mode: "payment",
     line_items: [line],
     ...(bumpPrice ? { optional_items: [{ price: bumpPrice, quantity: 1 }] } : {}),
@@ -439,9 +459,8 @@ app.post("/checkout", async (c) => {
     metadata: { preview_id: p.id, tier, ...(arm ? { arm } : {}), ...(bumpPrice ? { bump_price: bumpPrice } : {}) },
     success_url: `${c.env.SITE_URL}/thanks?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${c.env.SITE_URL}/p/${p.id}`,
-    allow_promotion_codes: true,
-  });
-  await log(c.env, "checkout", p.id, { tier, amount, ref: p.ref, sign: p.natal_sign, ...(arm ? { arm } : {}), bump: !!bumpPrice, tax: taxOn(c.env) });
+  }, creator, p.id);
+  await log(c.env, "checkout", p.id, { tier, amount, ref: p.ref, sign: p.natal_sign, ...(arm ? { arm } : {}), bump: !!bumpPrice, tax: taxOn(c.env), ...(creator ? { creator: creator.id } : {}) });
   return c.redirect(session.url!, 303);
 });
 
@@ -487,9 +506,29 @@ async function ensurePrice(env: Env, o: { product: PriceProduct; cents: number; 
   return priceId;
 }
 
-async function giftCheckout(env: Env, redirect: (url: string, status: 302 | 303) => Response) {
+/**
+ * Create a one-time Checkout Session. With a creator's link cookie on the browser (build 8) their promotion code is applied
+ * up front (`discounts`, which Stripe doesn't allow together with allow_promotion_codes) and the session carries
+ * metadata.creator; without one, buyers can type any promotion code, as before. If Stripe refuses the code (deactivated,
+ * deleted), the session is made again without it, so a creator problem never blocks a sale.
+ */
+async function createPaymentSession(env: Env, params: Stripe.Checkout.SessionCreateParams, creator: CreatorRow | null, ref: string | null) {
+  const s = stripe(env);
+  if (creator) {
+    const meta = { ...(params.metadata ?? {}), creator: creator.id };
+    try { return await s.checkout.sessions.create({ ...params, metadata: meta, ...(creator.promo_code_id ? { discounts: [{ promotion_code: creator.promo_code_id }] } : { allow_promotion_codes: true }) }); }
+    catch (e) {
+      if (!creator.promo_code_id) throw e;
+      await log(env, "error", ref, { where: "creator-checkout", creator: creator.id, e: String(e).slice(0, 300) });
+      return s.checkout.sessions.create({ ...params, metadata: meta, allow_promotion_codes: true });
+    }
+  }
+  return s.checkout.sessions.create({ ...params, allow_promotion_codes: true });
+}
+
+async function giftCheckout(env: Env, redirect: (url: string, status: 302 | 303) => Response, creator: CreatorRow | null = null) {
   const amount = parseInt(env.PRICE_FULL_CENTS, 10);
-  const session = await stripe(env).checkout.sessions.create({
+  const session = await createPaymentSession(env, {
     mode: "payment",
     line_items: [await readingLine(env, { product: "gift", cents: amount, name: "Rite — Saturn Return reading, as a gift", description: "A code they redeem with their own birth details. Works with or without a birth time." })],
     ...sessionTax(env),
@@ -500,9 +539,8 @@ async function giftCheckout(env: Env, redirect: (url: string, status: 302 | 303)
     metadata: { gift: "1" },
     success_url: `${env.SITE_URL}/thanks?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${env.SITE_URL}/gift`,
-    allow_promotion_codes: true,
-  });
-  await log(env, "checkout", null, { gift: true, amount, tax: taxOn(env) });
+  }, creator, null);
+  await log(env, "checkout", null, { gift: true, amount, tax: taxOn(env), ...(creator ? { creator: creator.id } : {}) });
   return redirect(session.url!, 303);
 }
 
@@ -782,10 +820,18 @@ app.get("/r/:tok/calendar.ics", async (c) => {
 const taxCents = (session: Stripe.Checkout.Session) => (typeof session.total_details?.amount_tax === "number" && (session.automatic_tax?.enabled || session.total_details.amount_tax > 0) ? session.total_details.amount_tax : null);
 const paymentIntentOf = (session: Stripe.Checkout.Session) => (typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null);
 
+/** Build 8: credit a creator with this paid session (their code on it, or their link cookie at checkout). Idempotent, never throws. */
+const creditCreator = (env: Env, session: Stripe.Checkout.Session, ref: { purchaseId?: string; giftCode?: string }) => attributeSale(env, {
+  paymentIntent: paymentIntentOf(session), amountCents: session.amount_total ?? 0, taxCents: taxCents(session), currency: session.currency ?? env.CURRENCY,
+  buyerEmail: session.customer_details?.email ?? session.customer_email ?? "",
+  promoCodeIds: (session.discounts ?? []).map((d) => (typeof d.promotion_code === "string" ? d.promotion_code : d.promotion_code?.id ?? "")).filter(Boolean),
+  linkCreatorId: session.metadata?.creator ?? null, purchaseId: ref.purchaseId ?? null, giftCode: ref.giftCode ?? null,
+}, log);
+
 async function fulfil(env: Env, session: Stripe.Checkout.Session): Promise<string | null> {
   if (session.metadata?.gift === "1") return fulfilGift(env, session);
   const existing = await env.DB.prepare("SELECT id FROM purchases WHERE stripe_session_id = ?").bind(session.id).first<{ id: string }>();
-  if (existing) { await fulfilBump(env, session, existing.id); return existing.id; } // a retry also finishes a bump gift that failed the first time
+  if (existing) { await fulfilBump(env, session, existing.id); await creditCreator(env, session, { purchaseId: existing.id }); return existing.id; } // a retry also finishes a bump gift (or a creator credit) that failed the first time
   const pid = session.metadata?.preview_id; const tier = session.metadata?.tier ?? "notime";
   if (!pid) return null;
   const email = session.customer_details?.email ?? session.customer_email ?? "";
@@ -799,6 +845,7 @@ async function fulfil(env: Env, session: Stripe.Checkout.Session): Promise<strin
   await log(env, "paid", tok, { pid, tier, amount: session.amount_total, ref: pv?.ref ?? null, sign: pv?.natal_sign ?? null, return_number: pv?.return_number ?? null,
     ...(tax != null ? { tax } : {}), ...(session.metadata?.arm ? { arm: session.metadata.arm } : {}) });
   await fulfilBump(env, session, tok);
+  await creditCreator(env, session, { purchaseId: tok });
   return tok; // the reading is written in its own invocation (kickGenerate / first view) to stay under the per-request CPU cap
 }
 
@@ -854,7 +901,7 @@ function kickGenerate(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, t
 /** Gift purchase: no birth details yet. Store a code, email it to the buyer. Returns the code. */
 async function fulfilGift(env: Env, session: Stripe.Checkout.Session): Promise<string | null> {
   const existing = await env.DB.prepare("SELECT code FROM gifts WHERE stripe_session_id = ?").bind(session.id).first<{ code: string }>();
-  if (existing) return existing.code;
+  if (existing) { await creditCreator(env, session, { giftCode: existing.code }); return existing.code; }
   const email = session.customer_details?.email ?? session.customer_email ?? "";
   const from = session.custom_fields?.find((f) => f.key === "from_name")?.text?.value?.trim() || null;
   const message = session.custom_fields?.find((f) => f.key === "message")?.text?.value?.trim() || null;
@@ -863,6 +910,7 @@ async function fulfilGift(env: Env, session: Stripe.Checkout.Session): Promise<s
   await env.DB.prepare("INSERT INTO gifts (code, created_at, buyer_email, buyer_name, message, stripe_session_id, stripe_payment_intent, amount_cents, tax_cents) VALUES (?,?,?,?,?,?,?,?,?)")
     .bind(code, now(), email, from, message, session.id, paymentIntentOf(session), session.amount_total ?? 0, tax).run();
   await log(env, "gift_paid", code, { amount: session.amount_total, ...(tax != null ? { tax } : {}) });
+  await creditCreator(env, session, { giftCode: code });
   if (email) {
     const m = giftEmail({ code, link: `${env.SITE_URL}/gift/${code}`, from, cardUrl: `${env.SITE_URL}/gift/card/${code}.png` });
     const ok = await sendEmail(env, email, m.subject, m.text);
@@ -1100,6 +1148,9 @@ app.post("/webhook/stripe", async (c) => {
   } else if (event.type === "charge.refunded") {
     const ch = event.data.object as Stripe.Charge;
     const pi = typeof ch.payment_intent === "string" ? ch.payment_intent : ch.payment_intent?.id;
+    // Build 8: a creator's commission follows every refund on an attributed payment, full or partial (pro rata), even where
+    // the reading itself ignores a partial refund below. Idempotent on Stripe's cumulative amount_refunded.
+    if (pi) await reverseCommission(c.env, pi, ch.amount_refunded ?? 0, log);
     if (pi) {
       // Readings and gifts are only ever refunded in full; a partial refund on one is logged and changes nothing. A reading
       // bought with the order bump is one payment: a full refund refunds the reading and voids its unredeemed gift code; a
@@ -1167,6 +1218,7 @@ app.post("/admin/refund", async (c) => {
 async function refundPurchase(env: Env, pu: { id: string; stripe_payment_intent: string }) {
   await stripe(env).refunds.create({ payment_intent: pu.stripe_payment_intent });
   await env.DB.prepare("UPDATE purchases SET status='refunded' WHERE id=?").bind(pu.id).run();
+  await reverseCommission(env, pu.stripe_payment_intent, Number.MAX_SAFE_INTEGER, log); // full refund; charge.refunded's echo then adds nothing
   // the order-bump gift on the same payment is refunded with it (unless already redeemed); charge.refunded does the same
   await env.DB.prepare("UPDATE gifts SET redeemed_at='refunded' WHERE stripe_payment_intent=? AND redeemed_at IS NULL").bind(pu.stripe_payment_intent).run();
   await log(env, "refund", pu.id);
@@ -1174,6 +1226,7 @@ async function refundPurchase(env: Env, pu: { id: string; stripe_payment_intent:
 async function refundGift(env: Env, g: { code: string; stripe_payment_intent: string }) {
   await stripe(env).refunds.create({ payment_intent: g.stripe_payment_intent });
   await env.DB.prepare("UPDATE gifts SET redeemed_at='refunded' WHERE code=?").bind(g.code).run();
+  await reverseCommission(env, g.stripe_payment_intent, Number.MAX_SAFE_INTEGER, log);
   await log(env, "refund", g.code, { gift: true });
 }
 /** Stop Saturn Season now (closeSeasonSubscription: cancel, and refund unused full months of a yearly plan), as /admin/refund {season}. */
@@ -1315,6 +1368,109 @@ app.post("/admin/inbox/t/:id/state", async (c) => {
   const ok = await changeThread(c.env.DB, k, a);
   if (ok) await log(c.env, "support_thread", null, { thread: k.slice(0, 120), do: a });
   return back(`/admin/inbox/t/${c.req.param("id")}`, s.key, `f=${ok ? a : "migrate"}`);
+});
+
+// ---------- creator program (build 8: src/creators.ts, src/creator-ops.ts, src/views/creators.ts) ----------
+const creatorsCfg = (env: Env) => ({ pct: commissionPct(env), off: discountPct(env), holdDays: holdDays(env), minCents: minPayoutCents(env) });
+const PRIVATE_HDRS = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" };
+app.get("/creators", (c) => c.html(creatorsPage({ siteUrl: c.env.SITE_URL, ...creatorsCfg(c.env), done: c.req.query("ok") === "1" })));
+// Applications: stored as pending and emailed to Mick. A honeypot field and at most 5 a day per IP (KV) keep bots out.
+app.post("/creators/apply", async (c) => {
+  const f = await c.req.parseBody();
+  const form = Object.fromEntries(["email", "handle", "name", "platform", "profile_url", "audience", "country", "note"].map((k) => [k, formStr(f[k]).slice(0, 1000)]));
+  const again = (error: string, status: 400 | 429 | 503 = 400) => c.html(creatorsPage({ siteUrl: c.env.SITE_URL, ...creatorsCfg(c.env), error, form }), status);
+  if (formStr(f.website)) return c.redirect("/creators?ok=1#apply", 303);
+  const tkey = `creatorapply:${c.req.header("cf-connecting-ip") ?? "unknown"}`;
+  const n = parseInt((await c.env.CACHE.get(tkey)) ?? "0", 10) || 0;
+  if (n >= 5) return again("That's a lot of applications from one place today. Try again tomorrow, or reply to any Rite email.", 429);
+  let r;
+  try { r = await applyCreator(c.env, form as unknown as Parameters<typeof applyCreator>[1], log); }
+  catch (e) {
+    if (/no such table/i.test(String(e))) return again("Applications open in a few days. Reply to any Rite email in the meantime.", 503);
+    await log(c.env, "error", null, { where: "creator-apply", e: String(e).slice(0, 300) });
+    return again("Something went wrong on our side; nothing was saved. Try again in a minute.", 503);
+  }
+  if (!r.ok) return again(r.error);
+  await c.env.CACHE.put(tkey, String(n + 1), { expirationTtl: 86400 });
+  return c.redirect("/creators?ok=1#apply", 303);
+});
+// A creator's dashboard: the token in the link is the secret (like /r/:tok). Approved creators only.
+async function creatorFromUrl(env: Env, tok: string) {
+  const cr = await creatorByToken(env.DB, tok).catch(() => null);
+  return cr && (cr.status === "active" || cr.status === "paused") ? cr : null;
+}
+app.get("/creators/d/:tok", async (c) => {
+  let cr = await creatorFromUrl(c.env, c.req.param("tok"));
+  if (!cr) return c.notFound();
+  const q = c.req.query("connect");
+  if (q === "done" && cr.connect_account_id) { await refreshConnect(c.env, cr, log); cr = (await creatorFromUrl(c.env, cr.token)) ?? cr; }
+  const [n, payouts] = await Promise.all([creatorNumbers(c.env.DB, cr.id), payoutsOf(c.env.DB, cr.id)]);
+  return c.html(dashboardPage({ siteUrl: c.env.SITE_URL, c: cr, n, payouts, nextPayout: nextPayoutDate(new Date()), minCents: minPayoutCents(c.env), holdDays: holdDays(c.env),
+    connect: q === "done" || q === "unavailable" || q === "failed" ? q : null }), 200, PRIVATE_HDRS);
+});
+// Payout setup: makes the Express account once (POST only, so a mail scanner opening a link can't), then sends them to
+// Stripe's onboarding. Stripe's refresh_url is the GET, which only ever makes a fresh link for an existing account.
+app.post("/creators/d/:tok/connect", async (c) => {
+  const cr = await creatorFromUrl(c.env, c.req.param("tok"));
+  if (!cr) return c.notFound();
+  const r = await connectLink(c.env, cr, log, true);
+  return c.redirect("url" in r ? r.url : `/creators/d/${cr.token}?connect=${r.error === "unavailable" ? "unavailable" : "failed"}`, 303);
+});
+app.get("/creators/d/:tok/connect", async (c) => {
+  const cr = await creatorFromUrl(c.env, c.req.param("tok"));
+  if (!cr) return c.notFound();
+  const r = cr.connect_account_id ? await connectLink(c.env, cr, log, false) : null;
+  return c.redirect(r && "url" in r ? r.url : `/creators/d/${cr.token}${r ? `?connect=${r.error === "unavailable" ? "unavailable" : "failed"}` : ""}`, 303);
+});
+
+// /admin/creators: applications, approve (makes the code), pause / resume / lift cap / reject, numbers and payouts.
+// Same auth as the inbox (ADMIN_KEY bearer or ?key=, or the /admin/login cookie; POSTs need the CSRF token).
+const CREATOR_FLASH: Record<string, { ok?: string; error?: string }> = {
+  approved: { ok: "Approved: code and free reading made, welcome email sent." }, pause: { ok: "Paused: their code no longer works and their link no longer counts. Earned commission stays." },
+  resume: { ok: "Resumed: their code works again." }, uncap: { ok: "Cap lifted: their whole balance can be paid." }, reject: { ok: "Rejected." },
+  payouts: { ok: "Payout run done; the summary is in your email and below." }, off: { error: "CREATORS is off: set it to \"dry\" or \"on\" in wrangler.toml and deploy." },
+  migrate: { error: "That needs migration 008: run npm run db:migrate:b8." },
+};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function renderCreators(c: Context<{ Bindings: Env }, any>, s: { sid: string; key: string | null }, flash?: { ok?: string; error?: string }, status: 200 | 400 = 200) {
+  const db = c.env.DB;
+  let rows: Array<{ c: CreatorRow; n: Awaited<ReturnType<typeof creatorNumbers>> }> = [], payouts: Awaited<ReturnType<typeof recentPayouts>> = [], missing = false, connectProblem: string | null = null;
+  try {
+    const list = (await db.prepare("SELECT * FROM creators ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'active' THEN 1 WHEN 'paused' THEN 2 ELSE 3 END, created_at DESC LIMIT 500").all<CreatorRow>()).results ?? [];
+    rows = await Promise.all(list.map(async (cr) => ({ c: cr, n: await creatorNumbers(db, cr.id) })));
+    payouts = await recentPayouts(db);
+    const cu = await db.prepare("SELECT at, detail FROM events WHERE kind='creator_connect_unavailable' AND at > ? ORDER BY id DESC LIMIT 1").bind(new Date(Date.now() - 30 * 86400000).toISOString()).first<{ at: string; detail: string | null }>();
+    if (cu) { let e = ""; try { e = JSON.parse(cu.detail ?? "{}").e ?? ""; } catch { /* keep empty */ } connectProblem = `Stripe said Connect isn't set up (${cu.at.slice(0, 16).replace("T", " ")} UTC${e ? `: ${e}` : ""}). No money has moved. Enable Connect (Express) in the Stripe dashboard.`; }
+  } catch (e) { if (/no such table/i.test(String(e))) missing = true; else throw e; }
+  return c.html(adminCreatorsPage({ rows, payouts, mode: creatorsMode(c.env), ...creatorsCfg(c.env), capCents: unpaidCapCents(c.env), csrf: await csrfToken(c.env.ADMIN_KEY!, s.sid), key: s.key, flash, missing, nextPayout: nextPayoutDate(new Date()), connectProblem }), status, INBOX_HDRS);
+}
+const creatorsLogin = (env: Env) => (env.ADMIN_KEY ? new Response(null, { status: 303, headers: { Location: `/admin/login?next=${encodeURIComponent("/admin/creators")}`, ...INBOX_HDRS } }) : null);
+app.get("/admin/creators", async (c) => {
+  const s = await adminSession(c);
+  if (!s.ok) return creatorsLogin(c.env) ?? c.notFound();
+  return renderCreators(c, s, CREATOR_FLASH[c.req.query("f") ?? ""]);
+});
+app.post("/admin/creators/payouts", async (c) => {
+  const s = await adminSession(c);
+  if (!s.ok) return creatorsLogin(c.env) ?? c.notFound();
+  if (!(await postOk(c, s, (await c.req.parseBody()).csrf))) return c.text("cross-site request refused", 403);
+  if (creatorsMode(c.env) === "off") return back("/admin/creators", s.key, "f=off");
+  await runCreatorPayouts(c.env, new Date(), { force: true }, log);
+  return back("/admin/creators", s.key, "f=payouts");
+});
+app.post("/admin/creators/:id/:what{approve|state}", async (c) => {
+  const s = await adminSession(c);
+  if (!s.ok) return creatorsLogin(c.env) ?? c.notFound();
+  const f = await c.req.parseBody();
+  if (!(await postOk(c, s, f.csrf))) return c.text("cross-site request refused", 403);
+  const id = c.req.param("id"), what = c.req.param("what");
+  const a = formStr(f.do) as CreatorAction;
+  if (what === "state" && !CREATOR_ACTIONS.includes(a)) return c.text("unknown action", 400);
+  let r: { ok: boolean; error?: string };
+  try { r = what === "approve" ? await approveCreator(c.env, id, formStr(f.code).trim() || null, log) : await changeCreator(c.env, id, a, log); }
+  catch (e) { if (/no such table/i.test(String(e))) return back("/admin/creators", s.key, "f=migrate"); throw e; }
+  if (r.ok) return back("/admin/creators", s.key, `f=${what === "approve" ? "approved" : a}`);
+  return renderCreators(c, s, { error: r.error }, 400);
 });
 
 // ---------- health + stats ----------
@@ -1574,7 +1730,7 @@ async function runCleanup(env: Env) {
   if (r.meta.changes) await log(env, "cleanup", null, { previews: r.meta.changes });
 }
 
-const kpiOpts = (env: Env) => ({ siteUrl: env.SITE_URL, visits: posthogVisits({ key: env.POSTHOG_PERSONAL_API_KEY, project: env.POSTHOG_PROJECT_ID, host: env.POSTHOG_HOST }) });
+const kpiOpts = (env: Env) => ({ siteUrl: env.SITE_URL, creatorsMode: env.CREATORS, visits: posthogVisits({ key: env.POSTHOG_PERSONAL_API_KEY, project: env.POSTHOG_PROJECT_ID, host: env.POSTHOG_HOST }) });
 
 /** Monday KPI email (build 6): Mondays 07:00–07:59 Brisbane, once a week (a non-forced `kpi_sent` row in the last 6 days skips it). */
 async function runKpiEmail(env: Env, nowD = new Date(), force = false): Promise<{ sent: boolean; reason?: string; headline?: string }> {
@@ -1591,6 +1747,12 @@ async function runKpiEmail(env: Env, nowD = new Date(), force = false): Promise<
     await log(env, "kpi_sent", null, { forced: force, headline: r.headline.slice(0, 200) });
     return { sent: true, headline: r.headline };
   } catch (e) { await log(env, "error", null, { where: "kpi-email", e: String(e) }); return { sent: false, reason: "error" }; }
+}
+
+/** Build 8: creator payouts on the 1st from 09:00 Brisbane (runCreatorPayouts decides; CREATORS off does nothing). Never throws. */
+async function runCreatorCron(env: Env) {
+  try { await runCreatorPayouts(env, new Date(), {}, log); }
+  catch (e) { await log(env, "error", null, { where: "creator-payouts", e: String(e).slice(0, 300) }); }
 }
 
 async function runErrorDigest(env: Env) {
@@ -1724,5 +1886,5 @@ export default {
     const raw = new Uint8Array(await new Response(message.raw).arrayBuffer());
     await handleSupportEmail(env, { raw, envelopeFrom: message.from, forward: (to, headers) => message.forward(to, headers) }, ctx, inboxDeps);
   },
-  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runFollowups(env), runErrorDigest(env), runKpiEmail(env), runCleanup(env), runPriceTest(env), runGiftSeason(env)])); },
+  scheduled: (_ev: ScheduledEvent, env: Env, ctx: ExecutionContext) => { ctx.waitUntil(Promise.all([runSeason(env), runReminders(env), runStageReminders(env), runFollowups(env), runErrorDigest(env), runKpiEmail(env), runCleanup(env), runPriceTest(env), runGiftSeason(env), runCreatorCron(env)])); },
 };

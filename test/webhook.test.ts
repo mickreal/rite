@@ -390,10 +390,10 @@ describe("schema and migrations", () => {
     let before = schema;
     for (const col of ["plan TEXT", "price_arm TEXT", "tax_cents INTEGER"]) before = before.replace(new RegExp(`,([ \\t]*--[^\\n]*)?\\n\\s*${col}[^\\n]*\\n(\\s*--[^\\n]*\\n)*`, "g"), "$1\n");
     before = before.replace(/CREATE TABLE IF NOT EXISTS campaign_sends \([\s\S]*?\n\);\n/, "");
-    before = before.replace(/CREATE TABLE IF NOT EXISTS (support_messages|support_threads|support_replies) \([\s\S]*?\n\);\n/g, "").replace(/CREATE INDEX IF NOT EXISTS idx_support_[^\n]*\n/g, "");
-    expect(before).not.toMatch(/\bplan TEXT|price_arm|tax_cents|campaign_sends \(|support_messages|support_threads|support_replies/);
+    before = before.replace(/CREATE TABLE IF NOT EXISTS (support_messages|support_threads|support_replies|creators|creator_sales|creator_ledger|creator_payouts) \([\s\S]*?\n\);\n/g, "").replace(/CREATE INDEX IF NOT EXISTS idx_(support|creator)_[^\n]*\n/g, "");
+    expect(before).not.toMatch(/\bplan TEXT|price_arm|tax_cents|campaign_sends \(|support_messages|support_threads|support_replies|TABLE IF NOT EXISTS creator/);
     old.db.exec(before);
     for (const f of migrationFiles()) old.db.exec(readFileSync(f, "utf8"));
-    for (const t of ["previews", "purchases", "subscriptions", "events", "gifts", "followups", "stories", "campaign_sends", "support_messages", "support_threads", "support_replies"]) expect(cols(old, t)).toEqual(cols(fresh, t));
+    for (const t of ["previews", "purchases", "subscriptions", "events", "gifts", "followups", "stories", "campaign_sends", "support_messages", "support_threads", "support_replies", "creators", "creator_sales", "creator_ledger", "creator_payouts"]) expect(cols(old, t)).toEqual(cols(fresh, t));
   });
 });

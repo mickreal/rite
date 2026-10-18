@@ -6,7 +6,11 @@ Compiled 17 Oct 2026 for `gtm-plan.md` §3 step 4: astrology creators with rough
 
 **I could not verify 20 in-band accounts.** There are 16 in-band accounts below (one is slightly over at ~57k), plus two accounts with confirmed Saturn-return content whose size I could not verify, and one confirmed-content account that is above the band. No handle on this list is invented: every one appears on a page I read today. Before sending any DM, open the profile and check the follower count and the last ten posts yourself; a listing from March can be stale.
 
-**The ask (same for everyone):** one gift code per creator, redeemed at `rite.report/gift/<CODE>` with their own birth details; no script, no deadline, no obligation to post; if they post, they tag @rite.report (or whatever the handle ends up being) and we repost with credit. Keep the DM to three lines. If a creator asks for payment, say no politely and move on; the budget is codes.
+**The ask (same for everyone):** one gift code per creator, redeemed at `rite.report/gift/<CODE>` with their own birth details; no script, no deadline, no obligation to post; if they post, they tag @rite.report (or whatever the handle ends up being) and we repost with credit. Keep the DM to three lines, plus one line about the creator program (build 8, `growth-plan.md` §6): a personal 10%-off code for their audience and 30% of every sale through it, paid monthly by Stripe. Add it after the third line of each DM below:
+
+> If you'd like your own code for your audience (10% off for them, 30% of each sale for you, paid monthly), apply at rite.report/creators.
+
+If a creator asks for payment up front, say no politely: the offer is the commission. When they apply, approve them at `/admin/creators`; that makes their code and sends the details. (They already have their gift code from the DM; approval makes a second free reading, which they can give away.)
 
 ---
 

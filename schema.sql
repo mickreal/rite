@@ -199,3 +199,68 @@ CREATE TABLE IF NOT EXISTS support_replies (
 );
 CREATE INDEX IF NOT EXISTS idx_support_replies_thread ON support_replies(thread_key, created_at);
 CREATE INDEX IF NOT EXISTS idx_support_threads_status ON support_threads(status, updated_at);
+
+-- Creator and affiliate program (build 8, docs/automation-builds.md §8, migration 008). Comments in migrations/008-creators.sql.
+CREATE TABLE IF NOT EXISTS creators (
+  id TEXT PRIMARY KEY,
+  handle TEXT NOT NULL UNIQUE,
+  email TEXT NOT NULL,
+  name TEXT,
+  platform TEXT,
+  profile_url TEXT,
+  audience TEXT,
+  note TEXT,
+  country TEXT,
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  approved_at TEXT,
+  code TEXT UNIQUE,
+  promo_code_id TEXT UNIQUE,
+  gift_code TEXT,
+  token TEXT NOT NULL UNIQUE,
+  connect_account_id TEXT,
+  payouts_enabled INTEGER NOT NULL DEFAULT 0,
+  uncapped INTEGER NOT NULL DEFAULT 0,
+  cap_notified_at TEXT
+);
+CREATE TABLE IF NOT EXISTS creator_sales (
+  payment_intent TEXT PRIMARY KEY,
+  creator_id TEXT NOT NULL,
+  purchase_id TEXT,
+  gift_code TEXT,
+  created_at TEXT NOT NULL,
+  via TEXT NOT NULL,
+  currency TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  tax_cents INTEGER NOT NULL DEFAULT 0,
+  refunded_cents INTEGER NOT NULL DEFAULT 0,
+  rate_pct INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_creator_sales_creator ON creator_sales(creator_id, created_at);
+CREATE TABLE IF NOT EXISTS creator_ledger (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  creator_id TEXT NOT NULL,
+  payment_intent TEXT,
+  kind TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  currency TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  available_at TEXT NOT NULL,
+  payout_id TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_creator_ledger_unpaid ON creator_ledger(creator_id, payout_id, available_at);
+CREATE INDEX IF NOT EXISTS idx_creator_ledger_pi ON creator_ledger(payment_intent);
+CREATE TABLE IF NOT EXISTS creator_payouts (
+  id TEXT PRIMARY KEY,
+  creator_id TEXT NOT NULL,
+  period TEXT NOT NULL,
+  currency TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  attempts INTEGER NOT NULL DEFAULT 1,
+  transfer_id TEXT,
+  created_at TEXT NOT NULL,
+  paid_at TEXT,
+  error TEXT,
+  UNIQUE(creator_id, period, currency)
+);

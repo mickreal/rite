@@ -45,6 +45,16 @@ SUPPORT_EMAIL = "hello@rite.report"
 INBOX_AUTO = "off"
 INBOX_REFUNDS_PER_DAY = "20"         # automatic refunds per rolling 24h; past either cap, refunds go to Mick
 INBOX_REFUND_CENTS_PER_DAY = "50000" # $500
+# Creator program (docs/automation-builds.md §8). CREATORS switches payouts only: "off" (default) runs none, "dry" works out
+# the 1st-of-month payouts and emails them to ADMIN_EMAIL without calling Stripe, "on" sends Stripe Connect transfers.
+# Attribution (code or ?c= link, 30-day cookie) and the commission ledger run in every mode. Needs migration 008
+# (npm run db:migrate:b8) and, for "on", Stripe Connect (Express) enabled on the account (launch checklist B15).
+CREATORS = "off"
+CREATOR_COMMISSION_PCT = "30"        # of what the buyer paid, net of tax, less refunds
+CREATOR_DISCOUNT_PCT = "10"          # the creator code's coupon (made once in Stripe as rite-creator-<pct>)
+CREATOR_HOLD_DAYS = "15"             # past the 14-day refund window before a commission can be paid
+CREATOR_MIN_PAYOUT_CENTS = "2500"    # $25; less carries to the next month
+CREATOR_UNPAID_CAP_CENTS = "50000"   # $500 a creator can be paid before Mick lifts their cap in /admin/creators
 # Automated data deletion (macro 5) needs an R2 bucket for the D1 export it takes first. Without this binding, delete
 # requests go to Mick. To enable: wrangler r2 bucket create rite-support-exports, then uncomment:
 # [[r2_buckets]]

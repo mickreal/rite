@@ -59,7 +59,7 @@ $29 vs $39 for the reading with a birth time ($19 vs $25 without), 50/50 by prev
 
 ## 6. Creators
 
-`creators.md` has 16+ accounts and the three-line ask. With build 8 the ask becomes: a free reading (gift code), a personal 10%-off code for their audience, and 30% of every sale through it, paid monthly by Stripe automatically (decided 17 Oct; 30% is within the usual 20–50% for digital products). That replaces "the budget is codes" in `creators.md`. Outreach is by hand (DMs can't be automated without breaking platform rules): 10 DMs a week in November, from the list, then inbound through `/creators`.
+`creators.md` has 16+ accounts and the three-line ask. With build 8 the ask becomes: a free reading (gift code), a personal 10%-off code for their audience, and 30% of every sale through it, paid monthly by Stripe automatically (decided 17 Oct; 30% is within the usual 20–50% for digital products). That replaces "the budget is codes" in `creators.md`. Outreach is by hand (DMs can't be automated without breaking platform rules): 10 DMs a week in November, from the list, then inbound through `/creators`. Built (build 8): applications at `/creators` come to Mick, who approves each one at `/admin/creators`; approval makes the code, the free reading and the welcome email, and the creator sets up Stripe payouts from their dashboard. Payouts run on the 1st once `CREATORS = "on"` (launch checklist B15–B17).
 
 ## 7. Waiting list and the next cohorts
 
