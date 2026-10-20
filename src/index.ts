@@ -298,9 +298,10 @@ app.get("/season", (c) => {
 app.get("/sitemap.xml", (c) => {
   const urls = ["/", "/second", "/season", "/gift", "/creators", "/privacy", "/terms", "/refunds", "/saturn-return/when", "/saturn-return/first-vs-second", ...SIGNS.map((x) => `/saturn-return/saturn-in/${x.toLowerCase()}`),
     bornPath(), ...[...new Set(BORN_ALL.map((m) => m.ym.slice(0, 4)))].map((y) => bornPath(y)), ...BORN_ALL.map((m) => bornPath(m.ym))];
-  return c.body(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join("")}</urlset>`, 200, { "content-type": "application/xml" });
+  const base = new URL(c.req.url).origin; // the domain it was fetched on: Search Console only takes a sitemap of its own domain
+  return c.body(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map((u) => `<url><loc>${base}${u}</loc></url>`).join("")}</urlset>`, 200, { "content-type": "application/xml" });
 });
-app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\nDisallow: /p/\nDisallow: /r/\nDisallow: /admin/\nDisallow: /creators/d/\nSitemap: ${c.env.SITE_URL}/sitemap.xml\n`));
+app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\nDisallow: /p/\nDisallow: /r/\nDisallow: /admin/\nDisallow: /creators/d/\nSitemap: ${new URL(c.req.url).origin}/sitemap.xml\n`));
 
 app.get("/favicon.svg", (c) => c.body(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" fill="none"><rect width="44" height="44" fill="#111418"/><g stroke="#d4b66a" stroke-width="2" fill="none"><circle cx="22" cy="22" r="7.5" fill="#d4b66a"/><ellipse cx="22" cy="22" rx="19" ry="7.8" transform="rotate(-28 22 22)"/></g></svg>`, 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=604800" }));
 
