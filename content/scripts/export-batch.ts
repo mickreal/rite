@@ -25,6 +25,10 @@
 // day (slot "Fallback: …", `fallback_for` in manifest.json) unless the post has `"use": "original"`; a post with
 // `interim` exports its `asset` when that's rendered, else the interim version (`interim: true` in manifest.json).
 //
+// --source master: export the 4K masters in content/out/master/ instead (scripts/scale.ts; same names, same manifests,
+// music mixed into out/master/music/). render-batch.ts with SCALE=2 writes this as <dest>-master/ next to the 1080 upload
+// folder. The master folder is for YouTube Shorts and the archive: upload-week.ts and the scheduler take the 1080 one.
+//
 // Default order alternates a dial clip with a card, so the first week is the soft-launch mix in gtm-plan.md §2.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, resolve, isAbsolute } from "node:path";
@@ -37,19 +41,22 @@ const CONTENT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(CONTENT, "out");
 const argv = process.argv.slice(2);
 const arg = (n: string) => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1] : undefined; };
+const source = arg("source") ?? "renders";
+if (source !== "renders" && source !== "master") { console.error('--source must be "master" (or left out)'); process.exit(1); }
+const SRC = source === "master" ? join(OUT, "master") : OUT; // where the renders are read from
 
 // asset id → file(s) under content/out/
 const files = new Map<string, string[]>();
 for (const dir of ["clips", "signs", "cohorts", "quotes", "stills", "presenter"]) {
-  const d = join(OUT, dir); if (!existsSync(d)) continue;
+  const d = join(SRC, dir); if (!existsSync(d)) continue;
   for (const f of readdirSync(d)) if (/\.(mp4|png)$/.test(f)) files.set(basename(f, extname(f)), [join(d, f)]);
 }
-const cdir = join(OUT, "carousels");
+const cdir = join(SRC, "carousels");
 if (existsSync(cdir)) for (const f of readdirSync(cdir).sort()) {
   const m = /^(.*)-(\d{2})\.png$/.exec(f); if (!m) continue;
   files.set(m[1], [...(files.get(m[1]) ?? []), join(cdir, f)]);
 }
-if (!files.size) { console.error("Nothing in content/out/ yet. Render first (see content/README.md)."); process.exit(1); }
+if (!files.size) { console.error(`Nothing in ${SRC.replace(CONTENT + "/", "content/")}/ yet. Render first (see content/README.md).`); process.exit(1); }
 
 // captions: clip hooks from cohorts.json; cards get a plain line + CTA (edit in the manifest before scheduling)
 const cohorts = JSON.parse(readFileSync(join(CONTENT, "clips", "cohorts.json"), "utf8")).cohorts as Array<{ id: string; hook: string }>;
@@ -90,7 +97,7 @@ if (library) planMusic(plan.posts.map((p) => ({ ...p, asset: effective(p) })), l
 }).forEach((c, i) => choices.set(plan.posts[i], c));
 type MusicInfo = { track: string; direction: string; use: string; offset: number; file: string; source: string; versions: Record<string, { voice: boolean; lufs: number; tp: number }> } | { off: string };
 const musicOf = new Map<Post, MusicInfo>();
-const MUSIC_OUT = join(OUT, "music");
+const MUSIC_OUT = join(SRC, "music");
 // CSV column: "<track>@<offset>s" (or "off") for videos, empty for stills and text posts
 const musicCol = (p: Post) => { const m = musicOf.get(p); return !m ? "" : "off" in m ? "off" : `${m.track}@${m.offset}s`; };
 

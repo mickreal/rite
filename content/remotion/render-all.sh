@@ -7,13 +7,18 @@
 #   (ELEVENLABS_API_KEY, or VO_PROVIDER=files VO_DIR=<dir> with <dir>/cards/<card id>.wav, <dir>/signs/<slug>.wav)
 #   each also gets a <name>_vo.mp4 next to the silent one.
 #   ONLY=signs|cohorts|quotes|videos|carousels|verticals bash remotion/render-all.sh   (or a comma list: ONLY=cohorts,quotes)
+#   SCALE=2 bash remotion/render-all.sh        4K masters (cards 2160×2700, verticals 2160×3840, CRF 14) into
+#     content/out/master/<group>/; scripts/downscale.ts makes the 1080 upload copies (README "4K masters")
 #   VERTICALS="CohortCard:aries-first-return QuoteCard:aries-sign-line" bash remotion/render-all.sh
 #     a card on a 1080×1920 frame with a slow push-in, for the TikTok / Reels slot
 #     (→ cohorts/cohort-<id>-vertical.mp4, quotes/quote-<id>-vertical.mp4)
 set -euo pipefail
 cd "$(dirname "$0")"
 CHROME="${CHROMIUM:-/opt/pw-browsers/chromium}"
-OUT="../out"
+SCALE="${SCALE:-1}"
+[[ $SCALE == 1 || $SCALE == 2 ]] || { echo "SCALE must be 1 or 2"; exit 1; }
+OUT="../out"; CRF=20
+[[ $SCALE == 2 ]] && { OUT="../out/master"; CRF=14; }   # masters; the 1080 upload copies come from scripts/downscale.ts
 VIDEOS="${VIDEOS:-Aries Taurus}"
 SIGNS_OUT="${SIGNS_OUT:-$OUT/signs}"
 VERTICALS="${VERTICALS:-}"
@@ -24,6 +29,7 @@ mkdir -p "$OUT/signs" "$OUT/cohorts" "$OUT/quotes" "$OUT/carousels" "$SIGNS_OUT"
 bun scripts/build-data.ts
 npx remotion bundle src/index.ts --out-dir build --public-dir ../fonts >/dev/null
 R=(--browser-executable="$CHROME" --chrome-mode=chrome-for-testing --log=error)
+[[ $SCALE == 2 ]] && R+=(--scale=2)
 
 ids() { node -e "const d=require('./data/$1.json');console.log(d.$1.map(x=>x.$2).join('\n'))"; }
 cardvo() { (cd .. && bun scripts/card-vo.ts "$@"); }   # seconds <key> | mux <key> <in> <out> (paths absolute)
@@ -38,7 +44,7 @@ if has videos; then
   [[ $VIDEOS == all ]] && VIDEOS=$(ids signs sign)
   for s in $VIDEOS; do
     f="$(cd "$SIGNS_OUT" && pwd)/sign-${s,,}-vertical.mp4"; secs=$(cardvo seconds "signs/${s,,}")
-    npx remotion render build SignCardVertical "$f.v.mp4" --props="{\"sign\":\"$s\",\"seconds\":$secs}" --codec=h264 --crf=20 "${R[@]}"
+    npx remotion render build SignCardVertical "$f.v.mp4" --props="{\"sign\":\"$s\",\"seconds\":$secs}" --codec=h264 --crf=$CRF "${R[@]}"
     cardvo mux "signs/${s,,}" "$f.v.mp4" "$f"; rm -f "$f.v.mp4"
     echo "  $f (${secs} s)"
   done
@@ -66,7 +72,7 @@ if has verticals; then
   for v in $VERTICALS; do
     card=${v%%:*}; id=${v##*:}; dir=cohorts; pre=cohort; [[ $card == QuoteCard ]] && { dir=quotes; pre=quote; }
     f="$(cd "$OUT/$dir" && pwd)/$pre-$id-vertical.mp4"; secs=$(cardvo seconds "cards/$pre-$id")
-    npx remotion render build VerticalCard "$f.v.mp4" --props="{\"card\":\"$card\",\"id\":\"$id\",\"seconds\":$secs}" --codec=h264 --crf=20 "${R[@]}"
+    npx remotion render build VerticalCard "$f.v.mp4" --props="{\"card\":\"$card\",\"id\":\"$id\",\"seconds\":$secs}" --codec=h264 --crf=$CRF "${R[@]}"
     # silent version with a silent AAC track (some schedulers reject video with no audio stream), plus _vo with a take
     cardvo mux "cards/$pre-$id" "$f.v.mp4" "$f"; rm -f "$f.v.mp4"
     echo "  $dir/$pre-$id-vertical.mp4 (${secs} s)"

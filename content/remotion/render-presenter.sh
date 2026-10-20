@@ -6,21 +6,28 @@
 # An interim reel (`interimOf`: Anna taken out, no voice) needs no media: it gets a silent AAC track, and the brand
 # soundtrack at export like every other video.
 # Output: H.264 CRF 17, 30 fps, AAC 48 kHz, VO loudness-normalised to −16 LUFS / −2 dBTP like the other reels.
+# SCALE=2: a 2160×3840 master (CRF 14) to content/out/master/presenter/<id>.mp4 (media still read from out/presenter/<id>/);
+# scripts/downscale.ts makes the 1080 upload copy. The Anna lip-sync clips are 704×1280, so at 2160 wide they are
+# upscaled about 3× (the 1080 render already upscales them about 1.5×): the cards and captions gain, Anna doesn't.
 set -euo pipefail
 cd "$(dirname "$0")"
 ID="${1:?reel id from presenter.json}"
 PORT="${PORT:-8873}"
-OUT="../out/presenter"
+MEDIA="../out/presenter"   # the reel's clips and VO take, served to the renderer
+SCALE="${SCALE:-1}"
+[[ $SCALE == 1 || $SCALE == 2 ]] || { echo "SCALE must be 1 or 2"; exit 1; }
+OUT="$MEDIA"; CRF=17; XS=()
+[[ $SCALE == 2 ]] && { OUT="../out/master/presenter"; CRF=14; XS=(--scale=2); }
 CHROME="${CHROMIUM:-/opt/pw-browsers/chromium}"
 # what the reel needs: "audio media" flags from reels.ts (resolved: interim reels have neither)
 read -r HAS_AUDIO HAS_MEDIA < <(bun -e "import { getReel } from './src/reels.ts'; const r = getReel('$ID'); console.log(r.audio ? 1 : 0, r.audio || r.segments.some((s) => s.kind === 'presenter') ? 1 : 0)")
-mkdir -p "$OUT"
-if [[ $HAS_MEDIA == 1 ]]; then [[ -d "$OUT/$ID" ]] || { echo "missing $OUT/$ID (presenter clips + vo)"; exit 1; }; else mkdir -p "$OUT/$ID"; fi
-python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$OUT" >/dev/null 2>&1 &
+mkdir -p "$OUT" "$MEDIA"
+if [[ $HAS_MEDIA == 1 ]]; then [[ -d "$MEDIA/$ID" ]] || { echo "missing $MEDIA/$ID (presenter clips + vo)"; exit 1; }; else mkdir -p "$MEDIA/$ID"; fi
+python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$MEDIA" >/dev/null 2>&1 &
 SRV=$!; trap 'kill $SRV 2>/dev/null || true' EXIT
 sleep 0.5
 npx remotion render src/index.ts PresenterReel "$OUT/$ID.raw.mp4" --props="{\"id\":\"$ID\",\"base\":\"http://127.0.0.1:$PORT\"}" \
-  --browser-executable="$CHROME" --chrome-mode=chrome-for-testing --public-dir ../fonts --codec h264 --crf 17 --log=error
+  --browser-executable="$CHROME" --chrome-mode=chrome-for-testing --public-dir ../fonts --codec h264 --crf "$CRF" ${XS[@]+"${XS[@]}"} --log=error
 if [[ $HAS_AUDIO == 1 ]]; then
   # loudness: two-pass loudnorm on the VO, video copied
   M=$(ffmpeg -hide_banner -i "$OUT/$ID.raw.mp4" -af loudnorm=I=-16:TP=-2:LRA=11:print_format=json -f null - 2>&1 | sed -n '/^{/,/^}/p')
@@ -34,4 +41,4 @@ else
     -c:a aac -b:a 192k -shortest -movflags +faststart "$OUT/$ID.mp4"
 fi
 rm -f "$OUT/$ID.raw.mp4"
-echo "  presenter/$ID.mp4"
+echo "  ${OUT#../out/}/$ID.mp4"

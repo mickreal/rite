@@ -62,6 +62,38 @@ Options:
 
 Dates depend on "today": the clip uses the site's live clock, and the card data uses the clock when `build-data.ts` runs. Pin it with `TODAY=2026-10-19 bun remotion/scripts/build-data.ts` (and `TODAY=` for `check-cohorts.ts`). Re-run the data step before each batch: a card made in October says "open now" or "opens April 2028" as of the day it was built.
 
+## 4K masters
+
+Everything can be rendered at twice its layout size and kept as a master, with the upload files made from it:
+
+```bash
+TODAY=2026-10-26 bun scripts/render-batch.ts --plan scripts/plan-2026-10-weeks-1-2.json --dest 2026-10-weeks-1-2 --scale 2
+```
+
+- **Masters** go to `content/out/master/<group>/` (same names as always): cards and carousel slides 2160×2700 PNG,
+  card, sign and dial-clip verticals and presenter reels 2160×3840 H.264 CRF 14 (level 5.1), dial-clip summary stills
+  2160×3840. The dial clips are the same 1080×1920 page captured at `deviceScaleFactor` 2, so text and the dial are
+  drawn at full resolution, not upscaled.
+- **Upload files**: `scripts/downscale.ts` (run by render-batch) writes the 1080-wide copy of every master to
+  `content/out/<group>/`, which is what the export has always read: H.264 high, CRF 18, level 4.2, lanczos, +faststart,
+  audio copied untouched; PNGs lanczos to 1080×1350 / 1080×1920. So `<dest>/`, its manifests, the media keys and
+  `upload-week.ts` are exactly as at SCALE 1.
+- **Master export**: `<dest>-master/` is the same export from the masters (same file names, manifests and music), for
+  YouTube Shorts (which keeps 4K) and the archive. Not zipped unless `--zip-master`; don't upload it with
+  `upload-week.ts` (the week manifest and the scheduler use the 1080 files). Posting Shorts from the 4K file
+  automatically is a TODO: `upload-week.ts` would need a per-platform source folder.
+- **Music** is mixed once per file at export, from the clean render, with the same track and offset at both sizes;
+  a downscale copies the audio, so the 1080 file and the master carry the identical mix (−16 LUFS, ≤ −1.5 dBTP).
+- **Presenter reels**: the Anna lip-sync clips are 704×1280, so a 2160-wide master upscales Anna about 3× (the 1080
+  render already does about 1.5×). Cards and captions in those reels gain; Anna's face doesn't.
+- **Cost**: about 2–3× the render time of SCALE 1 (a 3 s vertical: 12 s → 27 s here), plus the downscale and a second
+  export; masters are roughly 3–4× the file size.
+
+The pieces can be run on their own: `SCALE=2 bash remotion/render-all.sh`, `SCALE=2 bash remotion/render-presenter.sh <id>`,
+`SCALE=2 bun clips/render-clip.ts --only <id>`, then `bun scripts/downscale.ts` and
+`bun scripts/export-batch.ts --plan … --dest <dest>-master --source master`. Without `SCALE` (or `SCALE=1`) every
+command behaves exactly as before.
+
 ## How a clip is made
 
 `render-clip.ts` opens `/start?r=content-render` in a 1080×1920 viewport (deviceScaleFactor 1), with the 480 px mobile column zoomed 2× and pushed below a 430 px caption band, and **renders it frame by frame on a virtual clock** instead of screen-recording it:
