@@ -2,9 +2,13 @@ name = "rite"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
+# rite.report is a Custom Domain on this Worker (Cloudflare makes the DNS record and certificate). workers.dev stays on so
+# the Stripe webhook endpoint (rite.mickreal.workers.dev/webhook/stripe) and old links keep working.
+routes = [{ pattern = "rite.report", custom_domain = true }]
+workers_dev = true
 
 [vars]
-SITE_URL = "https://rite.mickreal.workers.dev"   # switch to https://rite.report once the domain is attached
+SITE_URL = "https://rite.report"
 PRICE_FULL_CENTS = "2900"
 PRICE_NOTIME_CENTS = "1900"
 PRICE_SEASON_MONTHLY_CENTS = "700"
