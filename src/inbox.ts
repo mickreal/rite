@@ -375,6 +375,14 @@ export async function handleSupportEmail(env: Env, input: InboundEmail, exec: { 
   try {
     const loop = loopReason(m, from, env);
     if (loop) return await finish("ignored", { action: "ignore", outcome: loop });
+    // Mail from ADMIN_EMAIL is Mick replying to an alert (or testing from it): it would otherwise open a "customer" thread
+    // and never reach the customer. Keep it out of the inbox and tell him where replies go.
+    const admin = addressOf(env.ADMIN_EMAIL);
+    if (admin && from === admin) {
+      await sendEmail(env, admin, `Not sent: replies go from the Rite inbox (${subject || "no subject"})`.slice(0, 160),
+        `Your email to ${addressOf(env.SUPPORT_EMAIL) ?? "hello@"} wasn't sent to anyone: alerts are notifications only.\n\nReply to customers in the inbox, which sends from ${addressOf(env.SUPPORT_EMAIL) ?? "hello@"} and keeps the thread:\n${env.SITE_URL}/admin/inbox\n\n(To test the inbox, write from an address other than this one.)`);
+      return await finish("ignored", { action: "ignore", outcome: "from ADMIN_EMAIL" });
+    }
 
     const own = stripQuoted(body) || body;
     const threadCount = Number((await env.DB.prepare("SELECT COUNT(*) n FROM support_messages WHERE thread_key=? AND from_addr=?").bind(threadKey, from).first<{ n: number }>())?.n ?? 1);

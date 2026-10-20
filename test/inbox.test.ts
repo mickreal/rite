@@ -136,6 +136,19 @@ describe("guards", () => {
   });
 });
 
+describe("mail from ADMIN_EMAIL", () => {
+  it("a reply to an alert from the admin address opens no thread, reaches no customer, and tells Mick where replies go", async () => {
+    (h.env as { ADMIN_EMAIL: string }).ADMIN_EMAIL = "rite.mick@gmail.test"; // as live: a Gmail address, not on the support domain
+    await deliver(eml({ from: "Mick <rite.mick@gmail.test>", subject: "Re: [Rite inbox] refund: Sam", body: "Sure, refund them" }), "rite.mick@gmail.test");
+    expect(lastSupport()).toMatchObject({ action: "ignore", outcome: "from ADMIN_EMAIL" });
+    expect(h.emails().filter((e) => e.to[0] !== "rite.mick@gmail.test")).toHaveLength(0);
+    expect(forwarded).toHaveLength(0);
+    const note = h.emails().filter((e) => e.to[0] === "rite.mick@gmail.test").at(-1)!;
+    expect(note.subject).toMatch(/^Not sent: replies go from the Rite inbox/);
+    expect(note.text).toContain("/admin/inbox");
+  });
+});
+
 describe("refunds", () => {
   it("a refund request at day 13 refunds through the refund function and replies with macro 1, threaded", async () => {
     purchaseAged(13, { pi: "pi_reading_1" });
