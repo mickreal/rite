@@ -14,24 +14,18 @@ const CASES = [
   ["1997-08-14", "one pass ahead, with a turn"],
 ] as const;
 
-describe("result chart window band", () => {
+describe("result chart window", () => {
   for (const [date, what] of CASES) {
-    it(`spans windowStart to windowEnd exactly (${date}, ${what})`, async () => {
+    it(`no shaded window box; "closes" sits at windowEnd (${date}, ${what})`, async () => {
       const c = compute({ date, time: null, place }, today);
       const page = String(await resultPage({ siteUrl: "https://rite.test", id: "abc", c, text: "", placeLabel: "Melbourne", birthLabel: date, hasTime: false, today }));
-      const m = page.match(/<rect data-band data-start="([^"]+)" data-end="([^"]+)" x="([\d.]+)" y="16" width="([\d.]+)" height="244" rx="14" fill="rgba\(242,181,68,\.05\)"\/>/);
-      expect(m, "band rect present").toBeTruthy();
-      const [, start, end, x, width] = m!;
-      expect(start).toBe(c.window.windowStart);
-      expect(end).toBe(c.window.windowEnd);
+      expect(page).not.toMatch(/<rect data-band/); // the shaded window box was removed (21 Oct 2026)
+      expect(page).not.toMatch(/width="[\d.]+" height="244" rx="8"/); // old pass-span rect is gone too
       const chart = windowChart(c.natalLon, c.window, today);
-      const x0 = chart.x(Date.parse(c.window.windowStart)), x1 = chart.x(Date.parse(c.window.windowEnd));
-      expect(+x).toBeCloseTo(x0, 1);
-      expect(+x + +width).toBeCloseTo(x1, 0);
+      const x1 = chart.x(Date.parse(c.window.windowEnd));
       const closes = page.match(/<text x="([\d.]+)" y="288" text-anchor="middle" fill="#A7A196"[^>]*>closes<\/text>/);
       expect(closes, "closes label present").toBeTruthy();
-      expect(+closes![1]).toBeCloseTo(Math.min(x1, 936), 0);
-      expect(page).not.toMatch(/width="[\d.]+" height="244" rx="8"/); // old pass-span rect is gone
+      expect(+closes![1]).toBeCloseTo(Math.min(Math.max(x1, 64), 936), 0);
     });
   }
 });

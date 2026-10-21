@@ -63,7 +63,6 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
 <section class="wrap" style="padding-bottom:32px">
   <div style="background:#14171D;border-radius:32px;padding:clamp(20px,3vw,40px);overflow-x:auto">
     <svg viewBox="0 0 1000 300" style="width:100%;min-width:640px;display:block" role="img" aria-label="Saturn's path across your natal degree">
-      <rect data-band data-start="${w.windowStart}" data-end="${w.windowEnd}" x="${band.x0.toFixed(1)}" y="16" width="${band.width.toFixed(1)}" height="244" rx="14" fill="rgba(242,181,68,.05)"/>
       <line x1="40" y1="${chart.y0.toFixed(1)}" x2="960" y2="${chart.y0.toFixed(1)}" stroke="rgba(237,230,214,.4)" stroke-dasharray="4 6"/>
       <text x="${natal.x.toFixed(1)}" y="${natal.y.toFixed(1)}" text-anchor="${natal.anchor}" fill="#A7A196" font-size="13" font-family="Hanken Grotesk, sans-serif">${natalText}</text>
       <line x1="40" y1="260" x2="960" y2="260" stroke="rgba(237,230,214,.15)"/>
