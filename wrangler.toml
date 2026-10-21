@@ -9,6 +9,7 @@ workers_dev = true
 
 [vars]
 SITE_URL = "https://rite.report"
+SELF_URL = "https://rite.mickreal.workers.dev"   # self-calls (/internal/*): a Worker can't fetch its own Custom Domain (522)
 PRICE_FULL_CENTS = "2900"
 PRICE_NOTIME_CENTS = "1900"
 PRICE_SEASON_MONTHLY_CENTS = "700"

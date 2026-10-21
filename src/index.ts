@@ -62,6 +62,7 @@ export interface Env {
   MODEL_REPORT: string; MODEL_PREVIEW: string;
   FROM_EMAIL: string; SUPPORT_EMAIL: string;
   STRIPE_SECRET_KEY: string; STRIPE_WEBHOOK_SECRET: string; ADMIN_KEY?: string; ANTHROPIC_API_KEY: string; RESEND_API_KEY: string;
+  SELF_URL?: string; // the Worker's own workers.dev URL for self-calls: a Worker can't fetch its own Custom Domain (Cloudflare answers 522)
   ADMIN_TOTP_SECRET?: string; // base32; when set, /admin/login asks for an authenticator code after the key (npm run admin:totp)
   AI?: Ai; TTS_MODEL?: string; TTS_VOICE?: string; ELEVENLABS_API_KEY?: string; ADMIN_EMAIL?: string; POSTHOG_KEY?: string; POSTHOG_HOST?: string;
   POSTHOG_PERSONAL_API_KEY?: string; POSTHOG_PROJECT_ID?: string; // optional: visits in the Monday KPI email (HogQL query API)
@@ -941,12 +942,14 @@ async function bumpGiftOf(env: Env, pu: Pick<PurchaseRow, "stripe_session_id">) 
 }
 
 /** Ask the worker to write a reading in a fresh invocation (own CPU budget). Fire-and-forget. */
+/** Where the Worker calls itself (/internal/*): SELF_URL (workers.dev), else SITE_URL. */
+export const selfUrl = (env: Pick<Env, "SELF_URL" | "SITE_URL">) => (env.SELF_URL || env.SITE_URL).replace(/\/$/, "");
 function kickGenerate(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, tok: string) {
   ctx.waitUntil((async () => {
     // Preferred: a fresh invocation via the worker's own URL. Cloudflare refuses some self-calls (error 1042 on
     // workers.dev), so if that fails for any reason we write the reading inline instead of silently doing nothing.
     try {
-      const res = await fetch(`${env.SITE_URL}/internal/generate/${tok}`, { method: "POST", headers: { authorization: `Bearer ${env.STRIPE_WEBHOOK_SECRET}` } });
+      const res = await fetch(`${selfUrl(env)}/internal/generate/${tok}`, { method: "POST", headers: { authorization: `Bearer ${env.STRIPE_WEBHOOK_SECRET}` } });
       if (res.ok) return;
       await log(env, "error", tok, { where: "kick-generate", status: res.status, body: (await res.text()).slice(0, 200) });
     } catch (e) { await log(env, "error", tok, { where: "kick-generate", e: String(e) }); }
@@ -1150,7 +1153,7 @@ const lockYear = async (env: Env, yid: string) => !!(await env.DB.prepare(YEAR_L
 function kickYearAhead(env: Env, ctx: { waitUntil(p: Promise<unknown>): void }, yid: string) {
   ctx.waitUntil((async () => {
     try {
-      const res = await fetch(`${env.SITE_URL}/internal/year/${yid}`, { method: "POST", headers: { authorization: `Bearer ${env.STRIPE_WEBHOOK_SECRET}` } });
+      const res = await fetch(`${selfUrl(env)}/internal/year/${yid}`, { method: "POST", headers: { authorization: `Bearer ${env.STRIPE_WEBHOOK_SECRET}` } });
       if (res.ok) return;
       await log(env, "error", yid, { where: "kick-year-ahead", status: res.status, body: (await res.text()).slice(0, 200) });
     } catch (e) { await log(env, "error", yid, { where: "kick-year-ahead", e: String(e) }); }
