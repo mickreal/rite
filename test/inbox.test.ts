@@ -172,6 +172,31 @@ describe("refunds", () => {
     expect(msgs()[0]).toMatchObject({ status: "handled", class: "refund", action: "refund", outcome: "refunded", reply_message_id: "email_test" });
   });
 
+  it("someone refunded before (same address) is never refunded automatically: it goes to Mick, flagged", async () => {
+    purchaseAged(40, { id: "tok_old_refunded_0000000000000001", pi: "pi_old" });
+    h.db.prepare("UPDATE purchases SET status='refunded' WHERE id='tok_old_refunded_0000000000000001'").runSync();
+    purchaseAged(3, { pi: "pi_reading_1" });
+    label = { class: "refund", confidence: 0.96 };
+    await deliver(eml({ subject: "Refund" }));
+    expect(refunds).toEqual([]);
+    expect(toCustomer()).toHaveLength(0);
+    const mick = toMick();
+    expect(mick).toHaveLength(1);
+    expect(mick[0]!.subject).toContain("repeat_refunder");
+    expect(mick[0]!.text).toContain("1 earlier refund on this address");
+    expect(lastSupport()).toMatchObject({ action: "forward", outcome: "repeat_refunder" });
+  });
+
+  it("the same birth details refunded under another address also count as a repeat", async () => {
+    purchaseAged(40, { id: "tok_other_addr_00000000000000001", email: "second@example.org", pi: "pi_other" });
+    h.db.prepare("UPDATE purchases SET status='refunded' WHERE id='tok_other_addr_00000000000000001'").runSync();
+    purchaseAged(2, { pi: "pi_reading_1" });
+    label = { class: "refund", confidence: 0.96 };
+    await deliver(eml({ subject: "Refund" }));
+    expect(refunds).toEqual([]);
+    expect(toMick()[0]!.text).toContain("1 on the same birth details under another address");
+  });
+
   it("at day 15 it goes to Mick with the history and a draft; nothing is refunded", async () => {
     purchaseAged(15);
     label = { class: "refund", confidence: 0.96 };
@@ -209,6 +234,8 @@ describe("refunds", () => {
     h.env.INBOX_REFUNDS_PER_DAY = "1";
     purchaseAged(1, { id: "tok_cap_a_000000000000000000000001", email: "a@example.com", pi: "pi_a" });
     purchaseAged(1, { id: "tok_cap_b_000000000000000000000001", email: "b@example.com", pi: "pi_b" });
+    // b is a different person (own birth details), so a's refund doesn't make b a repeat refunder
+    h.seedPreview({ id: "pv_test_b", date: "1990-02-02" }); h.db.prepare("UPDATE purchases SET preview_id='pv_test_b' WHERE id='tok_cap_b_000000000000000000000001'").runSync();
     label = { class: "refund", confidence: 0.95 };
     await deliver(eml({ from: "a@example.com" }), "a@example.com");
     await deliver(eml({ from: "b@example.com" }), "b@example.com");

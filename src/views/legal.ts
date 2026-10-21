@@ -83,7 +83,7 @@ export function legalPage(opts: { siteUrl: string; page: "privacy" | "terms" | "
       body: html`
 <p>${OPERATOR}. We'd rather refund you than have you keep something you don't want.</p>
 <h2>Readings</h2>
-<p>Full refund within <b>14 days</b> of purchase, for any reason. Email <a href="mailto:${e}">${e}</a> from the address you bought with, or reply to your delivery email. No form, no questions. Refunds go back to the original payment method and usually show within 5–10 business days depending on your bank.</p>
+<p>If your reading isn't right for you, write to us within <b>14 days</b> of purchase: email <a href="mailto:${e}">${e}</a> from the address you bought with, or reply to your delivery email. Tell us what's missing and we'll make it right, whether that's answering your questions, correcting something or a full refund. Refunds go back to the original payment method and usually show within 5–10 business days depending on your bank. Once a reading is refunded, its link closes, along with its narration, questions and calendar.</p>
 <h2>Gift codes</h2>
 <p>Unredeemed gift codes are refundable within 14 days of purchase. Once a code has been redeemed, the 14-day window applies to the recipient's reading instead.</p>
 <h2>Saturn Season</h2>

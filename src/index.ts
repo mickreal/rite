@@ -13,6 +13,7 @@ import BORN_SUMMARY from "./content/born-summary.json";
 import { SIGNS, type Sign } from "./astro/saturn";
 import { writePreview, writeReport, writeSeason, writeYearAhead, datesAreGrounded, parseJsonReply, answerQuestion } from "./llm";
 import { sendEmail, stopUrl, deliveryEmail, giftDeliveryEmail, seasonEmail, seasonCompleteEmail, stageReminderEmail, giftEmail, day3Email, day10Email, giftSeasonEmail, yearAheadDeliveryEmail, yearAheadOfferEmail } from "./email";
+import { refundedPage } from "./views/refunded";
 import { stopPage } from "./views/stop";
 import { followupSchedule, followupDue, followupSkip, stageSeasonLine, type FollowupKind } from "./followups";
 import { readingPage, type ReportJson } from "./views/reading";
@@ -706,6 +707,21 @@ function parseReport(md: string | null): ReportJson | null {
   try { return parseJsonReply<ReportJson>(md); } catch { return null; }
 }
 const birthLabelOf = (p: PreviewRow) => `${fmtDay(p.birth_date)}${p.birth_time ? ` at ${p.birth_time}` : ""}`;
+
+// A refunded reading closes: its page and everything under it (ask, story, narration, calendar, year-ahead) answer 410.
+// Saturn Season checkout from it is refused too (POST /season/:tok, below).
+const refundedGuard = async (c: Context<{ Bindings: Env }>, next: () => Promise<void>) => {
+  const tok = c.req.param("tok");
+  const pu = tok ? await c.env.DB.prepare("SELECT status FROM purchases WHERE id = ?").bind(tok).first<{ status: string }>() : null;
+  if (pu?.status === "refunded") {
+    const wantsHtml = c.req.method === "GET" && !/\.(mp3|ics)$/.test(c.req.path) && !/\/(status|stage)$/.test(c.req.path);
+    return wantsHtml ? c.html(refundedPage({ supportEmail: c.env.SUPPORT_EMAIL }), 410, { "cache-control": "no-store" }) : c.text("This reading was refunded.", 410);
+  }
+  await next();
+};
+app.use("/r/:tok", refundedGuard);
+app.use("/r/:tok/*", refundedGuard);
+app.use("/season/:tok", refundedGuard);
 
 app.get("/r/:tok", async (c) => {
   const pu = await getPurchase(c.env, c.req.param("tok"));

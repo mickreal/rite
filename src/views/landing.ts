@@ -27,7 +27,7 @@ function secondFaq(s: SecondReturn): Array<[string, string]> {
     ["Is the reading different from a first-return reading?", "Yes. It is written for someone around 58, not 29: no first-adulthood framing. The history chapter looks back over the checkpoints since your first return, at about 37, 44 and 51."],
     ["How accurate are the dates?", "They are calculated from actual planetary positions, checked against Swiss Ephemeris, and given to the day."],
     ["Is this a subscription?", "No. You pay once and the reading is yours, including a printable copy."],
-    ["What if it isn't useful?", "Email us within 14 days for a full refund."],
+    ["What if it isn't useful?", "Write to us within 14 days and we'll make it right, refund included."],
   ];
 }
 
@@ -166,7 +166,7 @@ const FAQ: Array<[string, string]> = [
   ["How accurate are the dates?", "They are calculated from actual planetary positions, checked against Swiss Ephemeris, and given to the day."],
   ["Tropical or sidereal?", "Tropical, the Western default. It is the system behind the April 1996 to June 1998 window."],
   ["Is this a subscription?", "No. You pay once and the reading is yours, including a printable copy."],
-  ["What if it isn't useful?", "Email us within 14 days for a full refund."],
+  ["What if it isn't useful?", "Write to us within 14 days and we'll make it right, refund included."],
 ];
 
 export function landingPage(opts: { siteUrl: string; ref?: string; error?: string; form?: { date?: string; place?: string; time?: string }; gift?: { code: string; from: string | null; message: string | null } | null; season?: { monthly: number; yearly: number; saturnNow: string }; variant?: "second"; second?: SecondReturn; prices?: { full: number; notime: number }; banner?: boolean }) {

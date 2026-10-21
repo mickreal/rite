@@ -115,7 +115,7 @@ export function resultPage(opts: { siteUrl: string; id: string; c: Computed; tex
         <div><button type="submit" class="cta dark">Open my reading</button></div></form>`
       : html`<form method="post" action="/checkout" style="display:flex;flex-wrap:wrap;gap:14px 20px;align-items:center"><input type="hidden" name="preview" value="${opts.id}"><button type="submit" class="cta dark">Unlock the full reading</button><a href="/gift" style="color:#14110A;font-weight:500">Buy one as a gift</a></form>
       ${opts.gift?.state === "used" ? html`<p style="margin:0;font-size:15px;color:#8A3B1E">That gift code has already been used.</p>` : opts.gift?.state === "bad" ? html`<p style="margin:0;font-size:15px;color:#8A3B1E">That gift code doesn't match anything. Check it and try the link again.</p>` : ""}
-      <p style="margin:0;font-size:14px;color:rgba(20,17,10,.6)">Not useful? Full refund within 14 days.${opts.hasTime ? "" : " Add a birth time first and the house chapter comes with it, $" + fullPrice + "."}</p>`}
+      <p style="margin:0;font-size:14px;color:rgba(20,17,10,.6)">Not right for you? Write within 14 days and we'll make it right.${opts.hasTime ? "" : " Add a birth time first and the house chapter comes with it, $" + fullPrice + "."}</p>`}
     </div>
     <div style="flex:1 1 380px;display:flex;flex-direction:column">
       <div class="lock">${raw(LOCK)}<span><strong>Your Saturn.</strong> Sign${opts.hasTime ? ", house" : ""} and the exact degree your return is measured against.</span></div>

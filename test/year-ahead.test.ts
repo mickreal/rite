@@ -201,7 +201,7 @@ describe("checkout", () => {
   it("only for a written, unrefunded reading; and one per reading per year", async () => {
     const made = stripeStub();
     h.db.prepare("UPDATE purchases SET status='refunded'").runSync();
-    expect((await post(`/r/${TOK}/year/checkout`)).headers.get("location")).toBe(`/r/${TOK}`);
+    expect((await post(`/r/${TOK}/year/checkout`)).status).toBe(410); // a refunded reading is closed (test/refund-close.test.ts)
     h.db.prepare("UPDATE purchases SET status='generated'").runSync();
     h.db.prepare("INSERT INTO year_aheads (id, purchase_id, year, start_date, end_date, created_at, email, amount_cents, status) VALUES ('ya1',?,2026,'2026-11-01','2027-11-01',?, 'reader@example.com', 1900, 'generated')").bind(TOK, new Date().toISOString()).runSync();
     // this year's is running until Nov 2027: the next one isn't on sale, so checkout sends you to the offer page, which says when

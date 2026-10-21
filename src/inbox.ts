@@ -115,7 +115,9 @@ export async function classify(env: Env, subject: string, body: string): Promise
 interface PurchaseLite { id: string; preview_id: string; created_at: string; first_name: string | null; status: string; amount_cents: number; tier: string; stripe_payment_intent: string | null; delivered_at: string | null }
 interface SubLite { id: string; plan: string | null; status: string; purchase_id: string }
 interface GiftLite { code: string; created_at: string; buyer_name: string | null; amount_cents: number; stripe_payment_intent: string | null; redeemed_at: string | null; redeemed_purchase_id: string | null }
-export interface Customer { purchases: PurchaseLite[]; subs: SubLite[]; gifts: GiftLite[]; reminderPreviews: string[]; events: Array<{ at: string; kind: string; ref: string | null }>; earlier: number }
+/** priorRefunds: refunds already given to this person. byEmail: readings and gifts refunded on this address. byBirth: refunded
+ * readings bought under OTHER addresses with the same birth date and place as one of theirs (one person, a second email). */
+export interface Customer { purchases: PurchaseLite[]; subs: SubLite[]; gifts: GiftLite[]; reminderPreviews: string[]; events: Array<{ at: string; kind: string; ref: string | null }>; earlier: number; priorRefunds: { byEmail: number; byBirth: number } }
 
 export async function customer(env: Env, email: string): Promise<Customer> {
   const db = env.DB;
@@ -130,7 +132,12 @@ export async function customer(env: Env, email: string): Promise<Customer> {
   const events = refs.length
     ? (await db.prepare(`SELECT at, kind, ref FROM events WHERE ref IN (${refs.map(() => "?").join(",")}) AND kind NOT IN ('season_note','ask','narrated') ORDER BY id DESC LIMIT 40`).bind(...refs).all<{ at: string; kind: string; ref: string | null }>()).results
     : [];
-  return { purchases: pu.results, subs: subs.results, gifts: gifts.results, reminderPreviews: rem.results.map((r) => r.preview_id), events, earlier: Math.max(0, Number(earlier?.n ?? 0) - 1) };
+  const byEmail = pu.results.filter((p) => p.status === "refunded").length + gifts.results.filter((g) => g.redeemed_at === "refunded").length;
+  const pv = [...new Set(pu.results.map((p) => p.preview_id).filter(Boolean))];
+  const byBirth = pv.length ? Number((await db.prepare(`SELECT COUNT(*) n FROM purchases p2 JOIN previews v2 ON v2.id = p2.preview_id
+      JOIN previews v ON v.birth_date = v2.birth_date AND lower(v.place_label) = lower(v2.place_label)
+      WHERE v.id IN (${pv.map(() => "?").join(",")}) AND p2.status = 'refunded' AND lower(p2.email) != ?`).bind(...pv, email).first<{ n: number }>())?.n ?? 0) : 0;
+  return { purchases: pu.results, subs: subs.results, gifts: gifts.results, reminderPreviews: rem.results.map((r) => r.preview_id), events, earlier: Math.max(0, Number(earlier?.n ?? 0) - 1), priorRefunds: { byEmail, byBirth } };
 }
 
 const money = (cents: number) => `$${cents % 100 ? (cents / 100).toFixed(2) : String(cents / 100)}`;
@@ -138,8 +145,12 @@ const ageDays = (iso: string) => (Date.now() - Date.parse(iso)) / DAY;
 const short = (id: string) => `${id.slice(0, 8)}…`;
 const day = (iso: string) => iso.slice(0, 10);
 
+export const repeatRefunder = (c: Customer) => c.priorRefunds.byEmail + c.priorRefunds.byBirth > 0;
+const repeatLine = (c: Customer) => `REPEAT REFUNDER: ${[c.priorRefunds.byEmail ? `${c.priorRefunds.byEmail} earlier refund${c.priorRefunds.byEmail === 1 ? "" : "s"} on this address` : "", c.priorRefunds.byBirth ? `${c.priorRefunds.byBirth} on the same birth details under another address` : ""].filter(Boolean).join("; ")}`;
+
 export function history(c: Customer): string {
   const L: string[] = [];
+  if (repeatRefunder(c)) L.push(`  ⚠ ${repeatLine(c)}`);
   L.push(`  Purchases: ${c.purchases.length ? c.purchases.map((p) => `${short(p.id)} ${day(p.created_at)} ${p.status} ${money(p.amount_cents)} ${p.tier} (${Math.floor(ageDays(p.created_at))}d ago)`).join("; ") : "none"}`);
   L.push(`  Season: ${c.subs.length ? c.subs.map((s) => `${s.status} ${s.plan ?? "?"} on ${short(s.purchase_id)}`).join("; ") : "none"}`);
   L.push(`  Gifts bought: ${c.gifts.length ? c.gifts.map((g) => `${g.code} ${day(g.created_at)} ${money(g.amount_cents)} ${g.redeemed_at === "refunded" ? "refunded" : g.redeemed_at ? "redeemed" : "unused"}`).join("; ") : "none"}`);
@@ -178,6 +189,7 @@ export const REASONS: Record<string, string> = {
   low_confidence: "the classifier wasn't sure",
   needs_judgement: "this kind always needs you",
   no_purchase: "there's no purchase on this address",
+  repeat_refunder: "they've been refunded before (this address, or the same birth details under another), so a refund always needs you",
   no_live_purchase: "there's no live (unrefunded) reading on this address",
   over_14_days: "the purchase is past the 14-day refund window",
   nothing_to_refund: "there's nothing refundable on this address",
@@ -231,6 +243,8 @@ async function decide(x: Ctx): Promise<Plan> {
           } };
       }
       const inWindow = live.find((p) => p.stripe_payment_intent && p.amount_cents > 0 && ["paid", "writing", "generated", "failed"].includes(p.status) && ageDays(p.created_at) <= 14);
+      // Someone who's been refunded before never gets an automatic refund: Mick decides (and can talk to them first).
+      if (inWindow && repeatRefunder(cust)) return { auto: false, reason: "repeat_refunder", what: `refund ${money(inWindow.amount_cents)} on ${short(inWindow.id)} (${repeatLine(cust).toLowerCase()})`, draft: macros.holding(name) };
       if (inWindow) {
         if (!(await refundCapOk(env, inWindow.amount_cents))) return { auto: false, reason: "cap", what: `refund ${money(inWindow.amount_cents)} on ${short(inWindow.id)}`, draft: macros.refund(name, inWindow.amount_cents) };
         return { auto: true, action: "refund", what: `refund ${money(inWindow.amount_cents)} on ${short(inWindow.id)} (bought ${Math.floor(ageDays(inWindow.created_at))} days ago)`, draft: macros.refund(name, inWindow.amount_cents),
