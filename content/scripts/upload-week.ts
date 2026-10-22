@@ -62,7 +62,7 @@ function slotUtc(date: string, time: string): string {
 }
 
 // ---------- files ----------
-const AUTO = new Set(["tiktok", "reels", "shorts", "instagram", "x", "threads"]);
+const AUTO = new Set(["tiktok", "reels", "shorts", "instagram", "facebook", "x", "threads"]);
 const TYPE: Record<string, string> = { ".mp4": "video/mp4", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg" };
 const ALPHA = "abcdefghijklmnopqrstuvwxyz0123456789";
 const rid = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => ALPHA[b % ALPHA.length]).join("");

@@ -20,7 +20,7 @@
     "**Fallbacks and interim reels.** A post that depends on someone else (a reader's quote, a creator's repost) keeps its intent in `note` and stays a hand-made, manual post (`auto: false`). Its `fallback` is a ready video in Rite's own voice that is exported and uploaded as a post of its own the same day (slot \"Fallback: …\", `fallback_for` in the manifests) and goes out automatically, so the slot is never empty. Choosing: if the original is in hand before that week's Thursday render, set `\"use\": \"original\"` on the post (the fallback is dropped from the render, export and upload) and post the original by hand; if it arrives after the week is uploaded, post it by hand and cancel that day's fallback in the queue; `\"use\": \"both\"` posts both. Talking-head slots (`asset` = an Anna presenter reel) carry `interim`: until the reel is rendered (needs ElevenLabs credits: `npm run presenter:prep -- <id>`), the export uses the interim version (same cut, no Anna, no voice, music only; `interim: true` in the manifests), and the finished reel replaces it on the next export. See content/scripts/plan-posts.ts."
   ],
   "posts": [
-    { "date": "2026-11-02", "day": "Day 15", "slot": "TikTok + Reels: Script 8 (Simone Biles, three passes), style 5 stand-in", "kit": "(c) script 8; dates from (h)", "asset": "celeb-simone-1997", "platforms": ["tiktok", "reels"],
+    { "date": "2026-11-02", "day": "Day 15", "slot": "TikTok + Reels: Script 8 (Simone Biles, three passes), style 5 stand-in", "kit": "(c) script 8; dates from (h)", "asset": "celeb-simone-1997", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Simone Biles has three Saturn return passes: 23 Apr, 22 Nov and 29 Dec 2026. Computed at noon in Columbus, Ohio, no birth time claimed. The dates are public maths, and yours are too. Free preview at rite.report",
       "alt": "Screen recording of the Rite site: a birth date of 14 March 1997 and Columbus, Ohio are entered, the dial places Saturn at 8 degrees Aries, and the result shows three exact passes in April, November and December 2026. Captions: Born 14 Mar 1997, Saturn at 8° Aries; 23 Apr 2026, 22 Nov 2026; and once more: 29 Dec 2026; closest turn: 11 Dec 2026, 0.3° from hers.",
       "note": "The calendar wants a creator's green-screen reaction (style 5, needs a person). Provided: this captioned dial clip of her dates (post as-is) and the caption-free result screen below as the backdrop. VO lines written (Anna); this export is silent. Post before 22 Nov (the clip treats 22 Nov, 11 Dec and 29 Dec as ahead). Don't say what she's going through." },
@@ -30,7 +30,7 @@
     { "date": "2026-11-02", "slot": "X / Threads: Post 3 (11 Dec station, closest turn)", "kit": "(d) post 3, corrected", "platforms": ["x", "threads"],
       "caption": "Saturn stops on 11 December at 7.9° Aries. Born 24 Jun – 11 Aug 1996, or 4 – 19 Mar 1997? That's within a degree of your natal Saturn. The reading calls it your closest turn.",
       "note": "Kit text minus \"the closest it gets without crossing\": people with natal Saturn at 7.9–8.9° Aries (part of that band) are crossed, three times." },
-    { "date": "2026-11-02", "slot": "Instagram: Carousel 3 (the three passes)", "kit": "(e) carousel 3", "asset": "carousel-3-three-passes", "platforms": ["instagram"],
+    { "date": "2026-11-02", "slot": "Instagram: Carousel 3 (the three passes)", "kit": "(e) carousel 3", "asset": "carousel-3-three-passes", "platforms": ["instagram", "facebook"],
       "caption": "Why some people get three Saturn return dates in a year. Swipe for this year's loop and who's in it. Your passes, dated, free at rite.report",
       "alt": [
         "Cream card with a gold orbit dial. Large text: Why some people get three Saturn return dates in a year. Small text: Saturn turns direct 11 Dec 2026.",
@@ -46,12 +46,12 @@
     { "date": "2026-11-02", "slot": "Other: gift-code DMs", "kit": "(i) week 3", "platforms": ["other"],
       "caption": "Send gift-code DMs to the first ten creators in docs/creators.md. No asset." },
 
-    { "date": "2026-11-03", "day": "Day 16", "slot": "TikTok + Reels: Script 4 (born 1968, second return)", "kit": "(c) script 4, style 1", "asset": "aries-second-return-1967", "platforms": ["tiktok", "reels"],
+    { "date": "2026-11-03", "day": "Day 16", "slot": "TikTok + Reels: Script 4 (born 1968, second return)", "kit": "(c) script 4, style 1", "asset": "aries-second-return-1967", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Born in 1967 or 68? Your second Saturn return is running now, on the same calendar as your kids' first. Free preview at rite.report",
       "alt": "Screen recording of the Rite site: a birth date of 1 September 1967 and London are entered, the dial swings Saturn to 11 degrees Aries, and the result shows a second return with three exact passes in May 2026, October 2026 and February 2027. Captions: Second return, 11° Aries; 21 May 2026, 4 Oct 2026; and once more: 11 Feb 2027.",
       "note": "VO lines written (Anna, spelled out); this export is silent. VO says \"May and October this year\": post in 2026." },
 
-    { "date": "2026-11-04", "day": "Day 17", "slot": "TikTok + Reels: Script 9 (Aniston + Jenner), style 5 stand-in card", "kit": "(c) script 9; dates from (h)", "asset": "quote-aniston-jenner-vertical", "platforms": ["tiktok", "reels"],
+    { "date": "2026-11-04", "day": "Day 17", "slot": "TikTok + Reels: Script 9 (Aniston + Jenner), style 5 stand-in card", "kit": "(c) script 9; dates from (h)", "asset": "quote-aniston-jenner-vertical", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Jennifer Aniston and Kylie Jenner are in the same Saturn return, one week apart: 28 Apr 2027 and 5 May 2027. Computed at noon in Los Angeles, no birth times claimed. Free preview at rite.report",
       "alt": "Cream card with a faint gold dial. Text: Jennifer Aniston and Kylie Jenner are in the same Saturn return. One week apart. 28 Apr 2027, 5 May 2027. rite.report",
       "note": "The calendar wants a creator's split-screen green-screen reaction (needs a person). Provided: this card vertical as a no-person stand-in (VO written, silent here), the still below, and both caption-free result screens as backdrops." },
@@ -79,7 +79,7 @@
         "alt": "Screen recording of the Rite site: a birth date of 1 April 1998 and London are entered, the dial swings Saturn to 21 degrees Aries, and the result shows three exact passes in May 2027, November 2027 and January 2028. Captions: Saturn at 21° Aries when you were born; 11 May 2027, 23 Nov 2027; last pass: 22 Jan 2028.",
         "note": "Fallback for the creator repost: style 1 dial clip (born 1 Apr 1998, London), silent with music only (no VO script for this cohort)."
       } },
-    { "date": "2026-11-06", "day": "Day 19", "slot": "TikTok + Reels: Style 5, Sabrina Carpenter (Taurus 2028), stand-in", "kit": "(i) week 3; dates from (h)", "asset": "celeb-sabrina-1999", "platforms": ["tiktok", "reels"],
+    { "date": "2026-11-06", "day": "Day 19", "slot": "TikTok + Reels: Style 5, Sabrina Carpenter (Taurus 2028), stand-in", "kit": "(i) week 3; dates from (h)", "asset": "celeb-sabrina-1999", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Sabrina Carpenter's Saturn return hasn't started. Taurus opens 13 Apr 2028, and her first pass is 26 Jun 2028. Computed at noon in Quakertown, no birth time claimed. Free preview at rite.report",
       "alt": "Screen recording of the Rite site: a birth date of 11 May 1999 and Quakertown are entered, the dial places Saturn at 8 degrees Taurus, and the result shows the first return window opening in April 2028 with three exact passes in June 2028, October 2028 and March 2029. Captions: Born 11 May 1999, Saturn at 8° Taurus; window opens 13 Apr 2028; 26 Jun 2028, 21 Oct 2028; and once more: 16 Mar 2029.",
       "note": "Style 5 needs a creator; this captioned dial clip is the stand-in, the backdrop is below. VO written, silent here." },
@@ -87,7 +87,7 @@
       "caption": "Not a post: result screen for 11 May 1999, Quakertown.",
       "alt": "The Rite result screen: Saturn in Taurus, first return window opens April 2028, three exact passes in June 2028, October 2028 and March 2029." },
 
-    { "date": "2026-11-07", "day": "Day 20", "slot": "TikTok + Reels: Style 6, Taurus sign-line card", "kit": "(i) week 3; the Taurus sign page's about line", "asset": "quote-taurus-sign-line-vertical", "platforms": ["tiktok", "reels"],
+    { "date": "2026-11-07", "day": "Day 20", "slot": "TikTok + Reels: Style 6, Taurus sign-line card", "kit": "(i) week 3; the Taurus sign page's about line", "asset": "quote-taurus-sign-line-vertical", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Taurus is the sign of what lasts. Saturn there asks whether your security is real or just familiar. Saturn enters Taurus 13 Apr 2028. Free preview at rite.report",
       "alt": "Cream card with a faint gold dial. Text: Taurus is the sign of what lasts: money, land, the body, routine. Saturn there asks whether your security is real or just familiar. Saturn enters Taurus 13 Apr 2028. rite.report",
       "note": "VO written (Anna), silent here. The still is the `photo` file below." },
@@ -97,14 +97,14 @@
     { "date": "2026-11-07", "slot": "X / Threads: repost the best creator clip", "kit": "(i) week 3", "platforms": ["x", "threads"],
       "caption": "Repost the best creator clip of the week (with their permission), credit them by handle. No asset." },
 
-    { "date": "2026-11-08", "day": "Day 21", "slot": "TikTok + Reels: Script 3 re-cut, ending on Remind me", "kit": "(c) script 3, style 1", "asset": "taurus-2028-notify", "platforms": ["tiktok", "reels"],
+    { "date": "2026-11-08", "day": "Day 21", "slot": "TikTok + Reels: Script 3 re-cut, ending on Remind me", "kit": "(c) script 3, style 1", "asset": "taurus-2028-notify", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Born in 1999? Your Saturn return opens 13 April 2028. Tap Remind me on your result and it emails you a month before. Free preview at rite.report",
       "alt": "Screen recording of the Rite site: a birth date of 1 April 1999 and London are entered, the dial places Saturn at 3 degrees Taurus, and the result shows the first return window opening in April 2028 with one exact pass in May 2028. Captions: Natal: 3° Taurus; opens 13 Apr 2028; first exact pass: 10 May 2028; tap Remind me: one email before it opens.",
       "note": "The kit's \"You have eighteen months\" beat is left out: on 8 Nov it's 17 months, and the site's own result screen rounds it to \"opens in about 2 years\", so any month count on screen would contradict the page under it. The site's button on the result screen is \"Remind me\" (there's no \"Notify me\" screen in the /start flow, so the clip ends on the summary with that button, not on the email form). VO written, silent here." },
     { "date": "2026-11-08", "slot": "Other: funnel review by source", "kit": "(i) week 3", "platforms": ["other"],
       "caption": "Funnel review by source (/admin/stats). No asset." },
 
-    { "date": "2026-11-09", "day": "Day 22", "slot": "TikTok + Reels: Script 10 (closest turn card, Saturn stops 11 Dec)", "kit": "(c) script 10, style 6", "asset": "quote-closest-turn-vertical", "platforms": ["tiktok", "reels"],
+    { "date": "2026-11-09", "day": "Day 22", "slot": "TikTok + Reels: Script 10 (closest turn card, Saturn stops 11 Dec)", "kit": "(c) script 10, style 6", "asset": "quote-closest-turn-vertical", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Saturn stops on 11 December at 7.9° Aries. If your Saturn is within a degree, this is your closest turn. Born 24 Jun – 11 Aug 1996 or 4 – 19 Mar 1997 (second return: 30 Apr – 18 May 1967, 4 – 31 Oct 1967, 16 Jan – 9 Feb 1968)? That's you. Free preview at rite.report",
       "alt": "Cream card with a faint gold dial. Text: Saturn stops on 11 December at 7.9° Aries. If yours is within a degree, this is your closest turn. 11 Dec 2026, 7.9° Aries. rite.report",
       "note": "VO (Anna, written, silent here) reads the card and the first-return birth bands; the second-return bands are in the caption. Post before 11 Dec. The still is the `photo` file below." },
@@ -114,7 +114,7 @@
     { "date": "2026-11-09", "slot": "X / Threads: Post 3 variant (four weeks until Saturn stops)", "kit": "(d) post 3 variant", "platforms": ["x", "threads"],
       "caption": "Saturn stops on 11 December at 7.9° Aries, just over four weeks from now. Born 24 Jun – 11 Aug 1996, or 4 – 19 Mar 1997? It turns within a degree of your natal Saturn. The reading calls it your closest turn.",
       "note": "Time-sensitive: \"just over four weeks\" is true 7–12 Nov (32 days on the 9th)." },
-    { "date": "2026-11-09", "slot": "Instagram: Carousel 4 (first vs second return)", "kit": "(e) carousel 4", "asset": "carousel-4-first-vs-second", "platforms": ["instagram"],
+    { "date": "2026-11-09", "slot": "Instagram: Carousel 4 (first vs second return)", "kit": "(e) carousel 4", "asset": "carousel-4-first-vs-second", "platforms": ["instagram", "facebook"],
       "caption": "Born 1968 and born 1997 are in the same Saturn return: same maths, same window, different question. The reading is written for both. Free preview at rite.report",
       "alt": [
         "Cream card with a gold orbit dial. Large text: Born 1968 and born 1997 are in the same Saturn return. Small text: Saturn in Aries until 12 Apr 2028.",
@@ -128,7 +128,7 @@
     { "date": "2026-11-09", "slot": "Other: newsletter pitch 2", "kit": "(g) pitch 2", "platforms": ["email"],
       "caption": "Pitch 2 to three self-development letters: copy in docs/launch-kit-v2.md (g). No asset." },
 
-    { "date": "2026-11-10", "day": "Day 23", "slot": "TikTok + Reels: Style 5, Daniel Craig + Simone Biles, stand-in card", "kit": "(i) week 4, corrected; dates from (h)", "asset": "quote-craig-biles-vertical", "platforms": ["tiktok", "reels"],
+    { "date": "2026-11-10", "day": "Day 23", "slot": "TikTok + Reels: Style 5, Daniel Craig + Simone Biles, stand-in card", "kit": "(i) week 4, corrected; dates from (h)", "asset": "quote-craig-biles-vertical", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Daniel Craig and Simone Biles are in the same Saturn loop: his second return, her first, three passes each. Saturn turns on 11 Dec 2026, inside both. Computed at noon in their birth cities, no birth times claimed. Free preview at rite.report",
       "alt": "Cream card with a faint gold dial. Text: Daniel Craig and Simone Biles are in the same Saturn loop. His second return, her first. Three passes each, Saturn turns 11 Dec 2026. rite.report",
       "note": "Kit correction: the calendar says both have December passes; only Biles does (22 Nov, 29 Dec 2026). Craig's are 20 May 2026, 5 Oct 2026, 11 Feb 2027. Stand-in for the creator reaction; backdrops below (Biles from Day 15). VO says \"from May this year\": post in 2026, before 11 Dec." },
@@ -139,21 +139,21 @@
       "caption": "Not a post: result screen for 2 Mar 1968, Chester. Pair with the Simone Biles backdrop from Day 15.",
       "alt": "The Rite result screen: Saturn in Aries, inside the second return window, three exact passes in May 2026, October 2026 and February 2027." },
 
-    { "date": "2026-11-11", "day": "Day 24", "slot": "TikTok + Reels: Script 4 re-cut for 1969-born", "kit": "(c) script 4 re-cut; (b) second-return row", "asset": "aries-second-return-1969", "platforms": ["tiktok", "reels"],
+    { "date": "2026-11-11", "day": "Day 24", "slot": "TikTok + Reels: Script 4 re-cut for 1969-born", "kit": "(c) script 4 re-cut; (b) second-return row", "asset": "aries-second-return-1969", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Born in 1969? Your second Saturn return has one exact pass, and it's next April. Born 1 Jan 1969: 16 Apr 2027. Free preview at rite.report",
       "alt": "Screen recording of the Rite site: a birth date of 1 January 1969 and London are entered, the dial swings Saturn to 18 degrees Aries, and the result shows a second return with one exact pass in April 2027. Captions: Second return, 18° Aries; exact on 16 Apr 2027; window open until 12 Apr 2028.",
       "note": "\"Next April\" (hook and VO): post in 2026. VO written, silent here." },
     { "date": "2026-11-11", "slot": "X / Threads: Post 5 variant (born 1969?)", "kit": "(d) post 5 variant", "platforms": ["x", "threads"],
       "caption": "Born in 1969? Your second Saturn return is open now. Born 1 Jan 1969, it's one exact pass, on 16 Apr 2027; born a few weeks later, it can be three. rite.report gives yours to the day, free." },
 
-    { "date": "2026-11-12", "day": "Day 25", "slot": "TikTok + Reels: Style 3, what integration looks like (born 1996, separating)", "kit": "(i) week 4", "asset": "integration-1996", "interim": "integration-1996-interim", "platforms": ["tiktok", "reels"], "music": "A2@132",
+    { "date": "2026-11-12", "day": "Day 25", "slot": "TikTok + Reels: Style 3, what integration looks like (born 1996, separating)", "kit": "(i) week 4", "asset": "integration-1996", "interim": "integration-1996-interim", "platforms": ["tiktok", "reels", "shorts", "facebook"], "music": "A2@132",
       "caption": "Born in 1996? Your exact pass already happened. The window hasn't closed. Free preview at rite.report",
       "note": "Presenter reel, Anna-light (style 3): Anna for the 6 s hook (\"Born in 1996? Your exact pass already happened. The window hasn't closed.\"), then cards: born 8 Apr 1996 – 11 Mar 1997, last pass by 19 Apr 2026, open until 12 Apr 2028; the three phases with integration lit; \"boring on purpose\" (remotion/presenter.json \"integration-1996\"). INTERIM until the Anna take exists: integration-1996-interim (no Anna, no voice, music only). Finished reel: ELEVENLABS_API_KEY=… npm run presenter:prep -- integration-1996 (≈5.5k credits, ≈$1.10). The cut-in card below is no longer needed for this reel. Also: follow up creators who haven't replied, once." },
     { "date": "2026-11-12", "slot": "Cut-in card for the talking head (not a post on its own)", "kit": "(b) early-degrees row", "asset": "cohort-aries-1996-97-separating", "platforms": ["cutin"],
       "caption": "Not a post: a 1080×1350 card to cut into the day-25 talking head.",
       "alt": "Dark card with the Rite mark and a gold orbit dial. Text: Born 8 Apr to 24 Oct 1996? Or 11 Jan to 11 Mar 1997. Your Saturn return is open now. Exact pass Mar to Apr 2026. Saturn in Aries, window 25 May 2025 to 12 Apr 2028. Your exact days, free. rite.report" },
 
-    { "date": "2026-11-13", "day": "Day 26", "slot": "TikTok + Reels: Style 6, second-return quote card", "kit": "(i) week 4; (c) script 4 line", "asset": "quote-second-return-vertical", "platforms": ["tiktok", "reels"],
+    { "date": "2026-11-13", "day": "Day 26", "slot": "TikTok + Reels: Style 6, second-return quote card", "kit": "(i) week 4; (c) script 4 line", "asset": "quote-second-return-vertical", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "The first one was about what you had to prove. This one's about what outlasts you. Born Mar 1967 – Apr 1969? Your second Saturn return is open now, until 12 Apr 2028. Free preview at rite.report",
       "alt": "Cream card with a faint gold dial. Text: The first one was about what you had to prove. This one's about what outlasts you. Second Saturn return, born 1967 to 69. rite.report",
       "note": "VO written, silent here. The still is the `photo` file below." },
@@ -173,14 +173,14 @@
         "alt": "Dark card with the Rite mark and a gold orbit dial. Text: Saturn return in Pisces. Saturn in Pisces most recently 7 Mar 2023 to 13 Feb 2026, last pass back 1 Sep 2025 to 13 Feb 2026. First return, born Jan 1994 to Apr 1996, also May to Jun 1993. Second return, born Dec 1964 to Mar 1967, also Mar to Sep 1964. Find your exact passes. rite.report",
         "note": "Fallback for the creator repost: sign vertical (style 2), Pisces, the return that just finished. VO written in clips/card-vo.json, silent here (music only)."
       } },
-    { "date": "2026-11-15", "day": "Day 28", "slot": "TikTok + Reels: cohort card, born Mar – May 1997, third pass Dec – Mar (style 2)", "kit": "(i) week 4; (b) retrograde-pass band", "asset": "cohort-aries-1997-three-pass-vertical", "platforms": ["tiktok", "reels"],
+    { "date": "2026-11-15", "day": "Day 28", "slot": "TikTok + Reels: cohort card, born Mar – May 1997, third pass Dec – Mar (style 2)", "kit": "(i) week 4; (b) retrograde-pass band", "asset": "cohort-aries-1997-three-pass-vertical", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Born 12 Mar – 6 May 1997, or 10 Nov 1997 – 21 Jan 1998? Your Saturn return is open now, in three passes: Apr – Jul 2026, Aug – Dec 2026, and the third between Dec 2026 and Mar 2027. Your exact days, free at rite.report",
       "alt": "Dark card with the Rite mark and a gold orbit dial. Text: Born 12 Mar to 6 May 1997? Or 10 Nov 1997 to 21 Jan 1998. Your Saturn return is open now. Pass one Apr to Jul 2026, pass two Aug to Dec 2026, pass three Dec 2026 to Mar 2027. Saturn in Aries, window 25 May 2025 to 12 Apr 2028. Your exact days, free. rite.report",
       "note": "VO written, silent here. The still is the `photo` file below." },
     { "date": "2026-11-15", "slot": "Same card as a still (optional)", "asset": "cohort-aries-1997-three-pass", "platforms": ["photo"],
       "caption": "Optional: the same card as a 1080×1350 still. Same caption as the video.",
       "alt": "Dark card with the Rite mark and a gold orbit dial. Text: Born 12 Mar to 6 May 1997? Or 10 Nov 1997 to 21 Jan 1998. Your Saturn return is open now. Pass one Apr to Jul 2026, pass two Aug to Dec 2026, pass three Dec 2026 to Mar 2027. Saturn in Aries, window 25 May 2025 to 12 Apr 2028. Your exact days, free. rite.report" },
-    { "date": "2026-11-15", "slot": "Instagram: Carousel 5 (what to do in each phase)", "kit": "(e) carousel 5", "asset": "carousel-5-each-phase", "platforms": ["instagram"],
+    { "date": "2026-11-15", "slot": "Instagram: Carousel 5 (what to do in each phase)", "kit": "(e) carousel 5", "asset": "carousel-5-each-phase", "platforms": ["instagram", "facebook"],
       "caption": "Your Saturn return has three phases: approach, contact, integration. Swipe for the job in each, and which one you're in today. The workbook opens phase by phase at rite.report",
       "alt": [
         "Cream card with a gold orbit dial. Large text: Your Saturn return has three phases. Here's the job in each.",

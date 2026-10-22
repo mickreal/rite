@@ -20,12 +20,12 @@
     "**Fallbacks and interim reels.** A post that depends on someone else (a reader's quote, a creator's repost) keeps its intent in `note` and stays a hand-made, manual post (`auto: false`). Its `fallback` is a ready video in Rite's own voice that is exported and uploaded as a post of its own the same day (slot \"Fallback: …\", `fallback_for` in the manifests) and goes out automatically, so the slot is never empty. Choosing: if the original is in hand before that week's Thursday render, set `\"use\": \"original\"` on the post (the fallback is dropped from the render, export and upload) and post the original by hand; if it arrives after the week is uploaded, post it by hand and cancel that day's fallback in the queue; `\"use\": \"both\"` posts both. Talking-head slots (`asset` = an Anna presenter reel) carry `interim`: until the reel is rendered (needs ElevenLabs credits: `npm run presenter:prep -- <id>`), the export uses the interim version (same cut, no Anna, no voice, music only; `interim: true` in the manifests), and the finished reel replaces it on the next export. See content/scripts/plan-posts.ts."
   ],
   "posts": [
-    { "date": "2026-10-19", "day": "Day 1", "slot": "TikTok + Reels: Script 1 (born spring 1997, three dates)", "kit": "(c) script 1, style 1", "asset": "aries-three-pass-1997", "platforms": ["tiktok", "reels"],
+    { "date": "2026-10-19", "day": "Day 1", "slot": "TikTok + Reels: Script 1 (born spring 1997, three dates)", "kit": "(c) script 1, style 1", "asset": "aries-three-pass-1997", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Born in spring 1997? You don't get one Saturn return. You get three dates. Yours are different. Free preview at rite.report",
       "alt": "Screen recording of the Rite site: a birth date of 1 April 1997 and New York are entered, the orbit dial swings Saturn to 10 degrees Aries, and the result shows three exact passes in May 2026, October 2026 and February 2027. Captions: Saturn at 10° Aries when you were born; 13 May 2026, 15 Oct 2026; and once more: 3 Feb 2027; one season, three dates." },
     { "date": "2026-10-19", "slot": "X / Threads: Post 1", "kit": "(d) post 1", "platforms": ["x", "threads"],
       "caption": "Born in 1997? Your Saturn return isn't a vibe, it's a date. For most of you it's three dates. rite.report shows them free, no account." },
-    { "date": "2026-10-19", "slot": "Instagram: Carousel 2 (window by birth year)", "kit": "(e) carousel 2", "asset": "carousel-2-window-by-birth-year", "platforms": ["instagram"],
+    { "date": "2026-10-19", "slot": "Instagram: Carousel 2 (window by birth year)", "kit": "(e) carousel 2", "asset": "carousel-2-window-by-birth-year", "platforms": ["instagram", "facebook"],
       "caption": "Find your Saturn return by birth date. Swipe for your window: done, now or next. Exact passes to the day, free at rite.report",
       "alt": [
         "Cream card with a gold orbit dial. Large text: Find your Saturn return by birth date.",
@@ -40,11 +40,11 @@
     { "date": "2026-10-19", "slot": "Other: Mick's own network", "kit": "(i) week 1", "platforms": ["other"],
       "caption": "Share the preview link with your own network (rite.report/?r=… if you want it attributed in /admin/stats). No asset." },
 
-    { "date": "2026-10-20", "day": "Day 2", "slot": "TikTok + Reels: Script 2 (late 1997, approach)", "kit": "(c) script 2, style 1", "asset": "aries-approach-1997", "platforms": ["tiktok", "reels"],
+    { "date": "2026-10-20", "day": "Day 2", "slot": "TikTok + Reels: Script 2 (late 1997, approach)", "kit": "(c) script 2, style 1", "asset": "aries-approach-1997", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Born in the second half of 1997? Your Saturn return hasn't happened yet. It's dated. Free preview at rite.report",
       "alt": "Screen recording of the Rite site: a birth date of 1 August 1997 and London are entered, the dial swings Saturn to 20 degrees Aries, and the result shows one exact pass in April 2027. Captions: Today: 9° Aries, You: 20° Aries; turns direct 11 Dec 2026; exact on 29 Apr 2027.",
       "note": "Burned-in line is \"Today: 9° Aries\" (the site shows 9° from 21 Oct to 2 Nov; 10° before). Silent with music only: the VO line is now \"Saturn is at nine degrees Aries today\" (clips/cohorts.json) but its take isn't made yet (ElevenLabs credits). To add the voice: ELEVENLABS_API_KEY=… bun clips/render-clip.ts --only aries-approach-1997, then re-export (see the plan notes)." },
-    { "date": "2026-10-21", "day": "Day 3", "slot": "TikTok + Reels: cohort card, born Apr 96 – Jun 98 (style 2)", "kit": "(i) week 1; dates from (a) line 1 and (b)", "asset": "cohort-aries-first-return-vertical", "platforms": ["tiktok", "reels"],
+    { "date": "2026-10-21", "day": "Day 3", "slot": "TikTok + Reels: cohort card, born Apr 96 – Jun 98 (style 2)", "kit": "(i) week 1; dates from (a) line 1 and (b)", "asset": "cohort-aries-first-return-vertical", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Born 8 Apr 1996 – 9 Jun 1998, or 26 Oct 1998 – 1 Mar 1999? Your Saturn return is open now. Saturn is in Aries until 12 Apr 2028, with one or three exact passes for you inside that. Your exact days, free at rite.report",
       "alt": "Dark card with the Rite mark and a gold orbit dial. Text: Born 8 Apr 1996 to 9 Jun 1998? Or 26 Oct 1998 to 1 Mar 1999. Your Saturn return is open now. One or three exact passes between May 2025 and Apr 2028. Saturn in Aries, window 25 May 2025 to 12 Apr 2028. Your exact days, free. rite.report",
       "note": "10 s vertical (the 1080×1350 card on a 1080×1920 frame with a slow push-in). The 1080×1350 still is the `photo` file below if you'd rather post it in photo mode." },
@@ -56,17 +56,17 @@
     { "date": "2026-10-21", "slot": "Reddit 1 (r/astrology)", "kit": "(f) Reddit 1", "platforms": ["reddit"],
       "caption": "Body: docs/launch-kit-v2.md (f) Reddit 1, no link in the post. Read r/astrology's self-promotion rules that day. If asked how it's computed, answer in a comment with rite.report/?r=reddit." },
 
-    { "date": "2026-10-22", "day": "Day 4", "slot": "TikTok + Reels: Script 6 (not a day, a season), style 3", "kit": "(c) script 6", "asset": "script-6", "platforms": ["tiktok", "reels"],
+    { "date": "2026-10-22", "day": "Day 4", "slot": "TikTok + Reels: Script 6 (not a day, a season), style 3", "kit": "(c) script 6", "asset": "script-6", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Your Saturn return is not a birthday. Nobody's is. Free preview at rite.report gives you the day.",
       "note": "Presenter reel (style 3 with Anna, the AI presenter, labelled on screen): Anna for the hook, cards for the window, passes and phases, rite.report end card. Rendered by `bash remotion/render-presenter.sh script-6` (media in out/presenter/script-6/). On-screen date: Saturn in Aries, 25 May 2025 – 12 Apr 2028." },
 
-    { "date": "2026-10-23", "day": "Day 5", "slot": "TikTok + Reels: Script 5 (Nov 1998, last-degree pass)", "kit": "(c) script 5, style 1", "asset": "aries-last-degrees-1998", "platforms": ["tiktok", "reels"],
+    { "date": "2026-10-23", "day": "Day 5", "slot": "TikTok + Reels: Script 5 (Nov 1998, last-degree pass)", "kit": "(c) script 5, style 1", "asset": "aries-last-degrees-1998", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Born in November 1998? Your Saturn return is the last thing Saturn does before it leaves Aries. Free preview at rite.report",
       "alt": "Screen recording of the Rite site: a birth date of 15 November 1998 and London are entered, the dial swings Saturn to 28 degrees Aries, and the result shows one exact pass in March 2028. Captions: Saturn at 28° Aries when you were born; exact on 31 Mar 2028; window closes 12 Apr 2028." },
     { "date": "2026-10-23", "slot": "X / Threads: Post 2 (myth-busting)", "kit": "(d) post 2", "platforms": ["x", "threads"],
       "caption": "\"Your Saturn return hits at 29\" is like saying summer hits on a Tuesday. It's a two-to-three-year season with one or three exact passes. Ask for the day. If someone can't give it, they're guessing." },
 
-    { "date": "2026-10-24", "day": "Day 6", "slot": "TikTok + Reels: Style 5 quick cut, Lisa (BLACKPINK), last pass ahead", "kit": "(i) week 1; dates from (h) celebrity table", "asset": "celeb-lisa-1997", "platforms": ["tiktok", "reels"],
+    { "date": "2026-10-24", "day": "Day 6", "slot": "TikTok + Reels: Style 5 quick cut, Lisa (BLACKPINK), last pass ahead", "kit": "(i) week 1; dates from (h) celebrity table", "asset": "celeb-lisa-1997", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Lisa's Saturn return has three passes. The first two are behind her; the last one lands on 25 Jan 2027. Computed at noon in Buriram, no birth time claimed. The dates are public maths, and yours are too. Free preview at rite.report",
       "alt": "Screen recording of the Rite site: a birth date of 27 March 1997 and Buriram are entered, the dial places Saturn at 9 degrees Aries, and the result shows three exact passes in May 2026, October 2026 and January 2027. Captions: Lisa's Saturn return has three passes, two are behind her and the last is 25 Jan 2027; the first two, in May and October 2026; and once more: 25 Jan 2027.",
       "note": "Calendar wants a creator's green-screen reaction (style 5), which needs a person. Provided instead: this captioned dial clip of her dates (post as-is), and the caption-free result screen below as the green-screen backdrop. Post between 25 Oct 2026 and 24 Jan 2027: the clip, its VO and the caption say her first two passes (6 May, 24 Oct 2026) are behind her and the last (25 Jan 2027) is ahead. The caption and alt text name the October pass by month only, so the caption check (which fails any date written as ahead on 17 Oct that has passed by the posting day) passes; the burned-in \"6 May 2026 · 24 Oct 2026\" is in the past tense on screen and in the VO, which is right on any day in that range. Don't say what she's going through." },
@@ -74,7 +74,7 @@
       "caption": "Not a post: 1080×1920 screenshot of the result screen for 27 Mar 1997, Buriram, for a green-screen reaction.",
       "alt": "The Rite result screen: Saturn in Aries, inside the first return window (May 2025 to Apr 2028), three exact passes in May 2026, October 2026 and January 2027." },
 
-    { "date": "2026-10-25", "day": "Day 7", "slot": "TikTok + Reels: cohort card, born Oct 98 – Feb 99 (style 2)", "kit": "(i) week 1; dates from (a) and (b)", "asset": "cohort-aries-1998-99-vertical", "platforms": ["tiktok", "reels"],
+    { "date": "2026-10-25", "day": "Day 7", "slot": "TikTok + Reels: cohort card, born Oct 98 – Feb 99 (style 2)", "kit": "(i) week 1; dates from (a) and (b)", "asset": "cohort-aries-1998-99-vertical", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Born 26 Oct 1998 – 1 Mar 1999? Your Saturn return is open now. Your exact pass or passes fall between July 2027 and April 2028, and the window closes 12 Apr 2028. Your exact days, free at rite.report",
       "alt": "Dark card with the Rite mark and a gold orbit dial. Text: Born 26 Oct 1998 to 1 Mar 1999? Your Saturn return is open now. One or three exact passes between Jul 2027 and Apr 2028. Saturn in Aries, window 25 May 2025 to 12 Apr 2028. Your exact days, free. rite.report",
       "note": "This stretch mixes one-pass (last-degree) and three-pass birth dates, so the card gives the span rather than pass months." },
@@ -84,12 +84,12 @@
     { "date": "2026-10-25", "slot": "X / Threads: Post 6 (window closes 12 Apr 2028)", "kit": "(d) post 6", "platforms": ["x", "threads"],
       "caption": "Saturn leaves Aries on 12 April 2028. If you're Aries-Saturn (born Apr 96 – Jun 98, or Oct 98 – Feb 99), that's when your window closes, whatever else is going on. Everything before it is still the season." },
 
-    { "date": "2026-10-26", "day": "Day 8", "slot": "TikTok + Reels: Script 7 (the retrograde pass), style 3", "kit": "(c) script 7", "asset": "script-7", "interim": "script-7-interim", "platforms": ["tiktok", "reels"], "music": "A1@100",
+    { "date": "2026-10-26", "day": "Day 8", "slot": "TikTok + Reels: Script 7 (the retrograde pass), style 3", "kit": "(c) script 7", "asset": "script-7", "interim": "script-7-interim", "platforms": ["tiktok", "reels", "shorts", "facebook"], "music": "A1@100",
       "caption": "If you were born in spring 1997, Saturn is crossing your degree right now, backwards, and most of you don't know. Free preview at rite.report",
       "note": "Presenter reel, Anna-light (style 3): Anna for the 9 s hook, cards for the loop dates and the three passes (remotion/presenter.json \"script-7\"). INTERIM until the Anna take exists: script-7-interim is the same cut with the hook as a title card, no voice, music only. Finished reel: ELEVENLABS_API_KEY=… npm run presenter:prep -- script-7 (≈8.4k credits, ≈$1.70), then the export uses it. On-screen dates: 27 Jul 2026 (14.7° Aries), turns direct 11 Dec 2026 (7.9°); born 12 Mar – 6 May 1997. Post between 28 Jul and 10 Dec 2026 (\"right now, backwards\")." },
     { "date": "2026-10-26", "slot": "X / Threads: Post 10 (the accuracy line)", "kit": "(d) post 10", "platforms": ["x", "threads"],
       "caption": "Dates to the day, checked against Swiss Ephemeris. Preview is free. Reading is $29. Weekly note is $7 and cancels itself when your window closes. That's the whole business." },
-    { "date": "2026-10-26", "slot": "Instagram: Carousel 1 (what it actually is)", "kit": "(e) carousel 1", "asset": "carousel-1-what-it-is", "platforms": ["instagram"],
+    { "date": "2026-10-26", "slot": "Instagram: Carousel 1 (what it actually is)", "kit": "(e) carousel 1", "asset": "carousel-1-what-it-is", "platforms": ["instagram", "facebook"],
       "caption": "A Saturn return is not a birthday. It's a season of two to three years with one or three dated passes. Your window and your passes, free, in ten seconds: rite.report",
       "alt": [
         "Cream card with a gold orbit dial. Large text: A Saturn return is not a birthday. Small text: Saturn in Aries until 12 Apr 2028.",
@@ -102,7 +102,7 @@
         "Closing slide: Your window and your passes, free, in ten seconds. rite.report"
       ] },
 
-    { "date": "2026-10-27", "day": "Day 9", "slot": "TikTok + Reels: Script 6 re-cut, vertical captions, style 3", "kit": "(c) script 6", "asset": "script-6-recut", "platforms": ["tiktok", "reels"], "music": "A3@100",
+    { "date": "2026-10-27", "day": "Day 9", "slot": "TikTok + Reels: Script 6 re-cut, vertical captions, style 3", "kit": "(c) script 6", "asset": "script-6-recut", "platforms": ["tiktok", "reels", "shorts", "facebook"], "music": "A3@100",
       "caption": "Your Saturn return is not a birthday. Nobody's is. Free preview at rite.report gives you the day.",
       "note": "Presenter reel re-cut from script 6's own take and Anna clip (no new credits): 25 s, captions-forward, opens on the challenge (\"ask them which day\"), then Anna's hook, then one pass or three with the window dates, ending on the rite.report card. Built by bash scripts/presenter-recut.sh && bash remotion/render-presenter.sh script-6-recut. On-screen date: Saturn in Aries, 25 May 2025 – 12 Apr 2028." },
     { "date": "2026-10-27", "slot": "X / Threads: Post 9 (no predictions)", "kit": "(d) post 9", "platforms": ["x", "threads"],
@@ -111,7 +111,7 @@
       "caption": "Show HN: Saturn return calculator checked against Swiss Ephemeris. Accuracy line: \"Dates to the day, from the same ephemeris professional astrologers use, tested against Swiss Ephemeris. No AI guessing at positions: the model only writes, the code only computes.\"",
       "note": "No asset in the calendar. Product Hunt gallery images were not asked for; the carousels or a sign card can stand in." },
 
-    { "date": "2026-10-28", "day": "Day 10", "slot": "TikTok + Reels: Style 6, bonus sign-line card", "kit": "(c) bonus style 6", "asset": "quote-aries-sign-line-vertical", "platforms": ["tiktok", "reels"],
+    { "date": "2026-10-28", "day": "Day 10", "slot": "TikTok + Reels: Style 6, bonus sign-line card", "kit": "(c) bonus style 6", "asset": "quote-aries-sign-line-vertical", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Aries is the sign of starting things. Saturn there asks for the slower version. Saturn in Aries until 12 Apr 2028. Free preview at rite.report",
       "alt": "Cream card with a faint gold dial. Text: Aries is the sign of starting things, acting on your own and going first. Saturn there asks for the slower version of that: leadership that holds up over time. Saturn in Aries until 12 Apr 2028. rite.report",
       "note": "10 s vertical with a slow push-in; the still is the `photo` file below." },
@@ -121,7 +121,7 @@
     { "date": "2026-10-28", "slot": "Reddit 2 (r/AskAstrologers)", "kit": "(f) Reddit 2", "platforms": ["reddit"],
       "caption": "Body: docs/launch-kit-v2.md (f) Reddit 2, no link in the post. Read the subreddit's rules that day." },
 
-    { "date": "2026-10-29", "day": "Day 11", "slot": "TikTok + Reels: Script 3 (born 1999, Taurus opens 2028)", "kit": "(c) script 3, style 1", "asset": "taurus-2028", "platforms": ["tiktok", "reels"],
+    { "date": "2026-10-29", "day": "Day 11", "slot": "TikTok + Reels: Script 3 (born 1999, Taurus opens 2028)", "kit": "(c) script 3, style 1", "asset": "taurus-2028", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Born in 1999? Everyone's talking about Saturn returns and yours hasn't started. Free preview at rite.report. It'll email you when it starts.",
       "alt": "Screen recording of the Rite site: a birth date of 1 April 1999 and London are entered, the dial places Saturn at 3 degrees Taurus, and the result shows the first return window opening in about two years with one exact pass in May 2028. Captions: Saturn at 3° Taurus when you were born; window opens 13 Apr 2028; first exact pass: 10 May 2028." },
     { "date": "2026-10-29", "slot": "X / Threads: Post 7 (Taurus, 13 Apr 2028)", "kit": "(d) post 7", "platforms": ["x", "threads"],
@@ -129,7 +129,7 @@
     { "date": "2026-10-29", "slot": "Other: newsletter pitch 1", "kit": "(g) pitch 1", "platforms": ["email"],
       "caption": "Pitch 1 to the first three astrology letters: copy in docs/launch-kit-v2.md (g). No asset." },
 
-    { "date": "2026-10-30", "day": "Day 12", "slot": "TikTok + Reels: Style 3, what the closest turn is", "kit": "(c) script 10 text, to camera", "asset": "closest-turn-talk", "interim": "closest-turn-talk-interim", "platforms": ["tiktok", "reels"], "music": "C2@164",
+    { "date": "2026-10-30", "day": "Day 12", "slot": "TikTok + Reels: Style 3, what the closest turn is", "kit": "(c) script 10 text, to camera", "asset": "closest-turn-talk", "interim": "closest-turn-talk-interim", "platforms": ["tiktok", "reels", "shorts", "facebook"], "music": "C2@164",
       "caption": "Saturn stops on 11 December at 7.9° Aries. If yours is within a degree of that, this is your closest turn. Free preview at rite.report",
       "note": "Presenter reel, Anna-light (style 3, kit script 10 to camera): Anna for the 7 s hook, then cards: 11 Dec 2026 at 7.9° Aries, the birth bands within a degree (24 Jun – 11 Aug 1996, 4 – 19 Mar 1997; second return in the foot), what a station is (remotion/presenter.json \"closest-turn-talk\"). INTERIM until the Anna take exists: closest-turn-talk-interim (no Anna, no voice, music only). Finished reel: ELEVENLABS_API_KEY=… npm run presenter:prep -- closest-turn-talk (≈6.7k credits, ≈$1.35). Post before 11 Dec 2026. The cut-in card below is no longer needed for this reel (its dates are cards in the cut)." },
     { "date": "2026-10-30", "slot": "Cut-in card for the talking head (not a post on its own)", "kit": "(c) script 10", "asset": "quote-closest-turn", "platforms": ["cutin"],
@@ -149,7 +149,7 @@
     { "date": "2026-10-31", "slot": "X / Threads: Post 8 (three phases)", "kit": "(d) post 8", "platforms": ["x", "threads"],
       "caption": "A Saturn return has three phases: approach (pressure, no verdict), contact (the dated pass or passes), integration (what you chose becomes structure). Most of the content you'll see is about contact. Most of your window is the other two." },
 
-    { "date": "2026-11-01", "day": "Day 14", "slot": "TikTok + Reels: cohort card, born Mar 1967 – Apr 1969 (style 2)", "kit": "(i) week 2; (b) second-return hook", "asset": "cohort-aries-second-return-vertical", "platforms": ["tiktok", "reels"],
+    { "date": "2026-11-01", "day": "Day 14", "slot": "TikTok + Reels: cohort card, born Mar 1967 – Apr 1969 (style 2)", "kit": "(i) week 2; (b) second-return hook", "asset": "cohort-aries-second-return-vertical", "platforms": ["tiktok", "reels", "shorts", "facebook"],
       "caption": "Born in 1968? Your second Saturn return is running right now, on the same dates as the 1997 kids. Born 4 Mar 1967 – 29 Apr 1969: your window is open until 12 Apr 2028. Free preview at rite.report",
       "alt": "Dark card with the Rite mark and a gold orbit dial. Text: Born 4 Mar 1967 to 29 Apr 1969? Your second Saturn return is open now. One or three exact passes between May 2025 and Apr 2028. Saturn in Aries, window 25 May 2025 to 12 Apr 2028. Your exact days, free. rite.report",
       "note": "The still is the `photo` file below." },
