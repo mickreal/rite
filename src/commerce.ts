@@ -16,9 +16,13 @@ export interface CommerceEnv {
 /** Stripe Tax is on only when the var says exactly "on" (wrangler.toml sets "on"; anything else, or unset, is today's behaviour). */
 export const taxOn = (env: Pick<CommerceEnv, "STRIPE_TAX">) => env.STRIPE_TAX === "on";
 
-/** The extra Checkout Session params when Stripe Tax is on: tax worked out from the buyer's address, collected every time. */
+/**
+ * The extra Checkout Session params when Stripe Tax is on. Billing address "auto": Checkout asks only for what the tax
+ * calculation needs (usually country and postcode, which the card form collects anyway), not a full street address,
+ * so checkout doesn't get longer. No session passes an existing `customer`, so no `customer_update` is needed.
+ */
 export const sessionTax = (env: Pick<CommerceEnv, "STRIPE_TAX">) =>
-  taxOn(env) ? { automatic_tax: { enabled: true }, billing_address_collection: "required" as const } : {};
+  taxOn(env) ? { automatic_tax: { enabled: true }, billing_address_collection: "auto" as const } : {};
 
 // ---------- local prices ----------
 /** Products a LOCAL_PRICES entry can price. `gift` falls back to `full`; arm B of the price test uses `full_b` / `notime_b`; `year_ahead` is build 11. */

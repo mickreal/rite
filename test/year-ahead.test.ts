@@ -170,7 +170,7 @@ describe("checkout", () => {
     expect(made.prices[0]).toMatchObject({ unit_amount: "1900", currency: "usd", tax_behavior: "inclusive", lookup_key: "rite_year_ahead_1900_usd_test_v2" });
     expect(made.lists[0]).toContain("lookup_keys");
     expect(made.products[0]).toMatchObject({ name: "Rite — Your year ahead", tax_code: "txcd_10000000" });
-    expect(made.sessions[0]).toMatchObject({ mode: "payment", "automatic_tax[enabled]": "true", billing_address_collection: "required", "line_items[0][price]": "price_ya_2", "line_items[0][quantity]": "1",
+    expect(made.sessions[0]).toMatchObject({ mode: "payment", "automatic_tax[enabled]": "true", billing_address_collection: "auto", "line_items[0][price]": "price_ya_2", "line_items[0][quantity]": "1",
       customer_email: "reader@example.com", allow_promotion_codes: "true", "metadata[year_ahead]": "1", "metadata[purchase_id]": TOK, "metadata[start]": "2026-11-01", "metadata[year]": "2026",
       success_url: `${SITE_URL}/thanks?session_id={CHECKOUT_SESSION_ID}`, cancel_url: `${SITE_URL}/r/${TOK}/year?c=1` });
     await post(`/r/${TOK}/year/checkout`);

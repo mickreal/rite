@@ -37,14 +37,14 @@ beforeEach(() => { h = new Harness({ POSTHOG_KEY: undefined, PRICE_BUMP_CENTS: "
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("Stripe Tax on the Checkout Sessions", () => {
-  it("STRIPE_TAX=on: the reading session has automatic tax, a required billing address, tax-inclusive price_data and the tax code; the bump is an optional item", async () => {
+  it("STRIPE_TAX=on: the reading session has automatic tax, billing address auto, tax-inclusive price_data and the tax code; the bump is an optional item", async () => {
     h.env.STRIPE_TAX = "on"; h.seedPreview();
     const made = stripeStub();
     const r = await post("/checkout", { preview: "pv_test_0001" });
     expect(r.status).toBe(303);
     expect(r.headers.get("location")).toBe("https://checkout.stripe.test/pay/cs_new");
     const s = made.sessions[0];
-    expect(s).toMatchObject({ "automatic_tax[enabled]": "true", billing_address_collection: "required", "line_items[0][price_data][tax_behavior]": "inclusive",
+    expect(s).toMatchObject({ "automatic_tax[enabled]": "true", billing_address_collection: "auto", "line_items[0][price_data][tax_behavior]": "inclusive",
       "line_items[0][price_data][product_data][tax_code]": "txcd_10000000", "line_items[0][price_data][unit_amount]": "2900", "line_items[0][price_data][currency]": "usd",
       "optional_items[0][price]": BUMP, "optional_items[0][quantity]": "1", "metadata[bump_price]": BUMP, "metadata[preview_id]": "pv_test_0001" });
     // the bump Price: created once, tax-inclusive, $15, under a lookup key that says so; then cached in KV
@@ -83,7 +83,7 @@ describe("Stripe Tax on the Checkout Sessions", () => {
     const s = made.sessions[0];
     expect(s["metadata[gift]"]).toBe("1");
     expect(Object.keys(s).some((k) => k.startsWith("optional_items"))).toBe(false);
-    if (tax === "on") expect(s).toMatchObject({ "automatic_tax[enabled]": "true", billing_address_collection: "required", "line_items[0][price_data][tax_behavior]": "inclusive", "line_items[0][price_data][product_data][tax_code]": "txcd_10000000" });
+    if (tax === "on") expect(s).toMatchObject({ "automatic_tax[enabled]": "true", billing_address_collection: "auto", "line_items[0][price_data][tax_behavior]": "inclusive", "line_items[0][price_data][product_data][tax_code]": "txcd_10000000" });
     else for (const k of Object.keys(s)) expect(k).not.toMatch(/automatic_tax|billing_address_collection|tax_behavior|tax_code/);
   });
 
@@ -111,7 +111,7 @@ describe("Stripe Tax on the Checkout Sessions", () => {
     expect(decodeURIComponent(made.lists[0])).toContain("rite_season_month_700_usd_test_v2");
     expect(made.prices.map((p) => [p.lookup_key, p.tax_behavior])).toEqual([["rite_season_month_700_usd_test_v2", "inclusive"], ["rite_season_year_5900_usd_test_v2", "inclusive"]]);
     expect(made.products[0].tax_code).toBe("txcd_10000000");
-    expect(made.sessions[0]).toMatchObject({ mode: "subscription", "automatic_tax[enabled]": "true", billing_address_collection: "required" });
+    expect(made.sessions[0]).toMatchObject({ mode: "subscription", "automatic_tax[enabled]": "true", billing_address_collection: "auto" });
     expect(JSON.parse(h.kv.store.get("stripe:season:prices:_v2")!)).toEqual({ month: made.sessions[0]["line_items[0][price]"], year: expect.any(String) });
 
     h.env.STRIPE_TAX = "off"; made = stripeStub();

@@ -8,7 +8,7 @@ const base = { PRICE_FULL_CENTS: "2900", PRICE_NOTIME_CENTS: "1900", PRICE_TEST_
 describe("Stripe Tax switch", () => {
   it("is on only for exactly \"on\"", () => {
     expect([taxOn({ STRIPE_TAX: "on" }), taxOn({ STRIPE_TAX: "off" }), taxOn({}), taxOn({ STRIPE_TAX: "ON" })]).toEqual([true, false, false, false]);
-    expect(sessionTax({ STRIPE_TAX: "on" })).toEqual({ automatic_tax: { enabled: true }, billing_address_collection: "required" });
+    expect(sessionTax({ STRIPE_TAX: "on" })).toEqual({ automatic_tax: { enabled: true }, billing_address_collection: "auto" });
     expect(sessionTax({ STRIPE_TAX: "off" })).toEqual({});
   });
 });
