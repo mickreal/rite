@@ -17,11 +17,30 @@ Promise.all([
 ]).then((fs) => { fs.forEach((f) => document.fonts.add(f)); continueRender(handle); })
   .catch((e) => { console.error("font load failed", e); continueRender(handle); });
 
+/**
+ * Saturn as in the logo: the ring passes BEHIND the planet at the top and IN FRONT of it at the bottom. Three layers:
+ * the whole ring, the planet over it, then the ring's front half again on top. The front half is whichever half faces
+ * down on screen at the current angle, so a ring turning through 360° (LiveBrand's refresh) stays correct throughout.
+ * Same drawing as src/views/mark.ts on the site and the profile icon.
+ */
+export const Saturn: React.FC<{ cx: number; cy: number; r: number; rx: number; ry: number; planet: string; ring: string; sw: number; tilt?: number }> = ({ cx, cy, r, rx, ry, planet, ring, sw, tilt = -22 }) => {
+  const a = ((tilt % 360) + 360) % 360;
+  const lowerIsFront = a <= 90 || a >= 270; // the ring frame's +y half points down on screen
+  const front = `M${cx - rx} ${cy} A${rx} ${ry} 0 0 ${lowerIsFront ? 0 : 1} ${cx + rx} ${cy}`;
+  const t = `rotate(${tilt.toFixed(3)} ${cx} ${cy})`;
+  return (
+    <>
+      <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="none" stroke={ring} strokeWidth={sw} transform={t} />
+      <circle cx={cx} cy={cy} r={r} fill={planet} />
+      <path d={front} fill="none" stroke={ring} strokeWidth={sw} transform={t} />
+    </>
+  );
+};
+
 /** The Rite mark (planet + ring). `onCream` swaps to ink + accent. */
 export const Mark: React.FC<{ size: number; onCream?: boolean }> = ({ size, onCream }) => (
   <svg width={size} height={size} viewBox="0 0 30 30" style={{ display: "block", flex: "0 0 auto" }}>
-    <circle cx="15" cy="15" r="6.5" fill={onCream ? T.ink : T.cream} />
-    <ellipse cx="15" cy="15" rx="13.5" ry="4" fill="none" stroke={onCream ? T.accent : T.gold} strokeWidth="1.8" transform="rotate(-22 15 15)" />
+    <Saturn cx={15} cy={15} r={6.5} rx={13.5} ry={4} planet={onCream ? T.ink : T.cream} ring={onCream ? T.accent : T.gold} sw={1.8} />
   </svg>
 );
 
@@ -56,8 +75,7 @@ export const Dial: React.FC<{ size: number; angle: number; enter?: number; onCre
       <circle cx="300" cy="300" r="8" fill={planet} opacity={enter} />
       <g transform={`rotate(${angle.toFixed(2)} 300 300)`} opacity={enter}>
         <circle cx="300" cy="70" r={40 * (1 + 0.22 * pulse)} fill={gold} opacity={halo * (1 + 0.8 * pulse)} />
-        <circle cx="300" cy="70" r="20" fill={planet} />
-        <ellipse cx="300" cy="70" rx="38" ry="10" fill="none" stroke={gold} strokeWidth="3.5" transform="rotate(-22 300 70)" />
+        <Saturn cx={300} cy={70} r={20} rx={38} ry={10} planet={planet} ring={gold} sw={3.5} />
       </g>
     </svg>
   );
@@ -170,8 +188,7 @@ export const LiveBrand: React.FC<{ size?: number; onCream?: boolean; refresh?: b
   return (
     <div style={{ display: "flex", alignItems: "center", gap: size * 0.3, fontFamily: DISPLAY, fontWeight: 700, fontSize: size, letterSpacing: "-0.02em", color: onCream ? T.ink : T.cream, lineHeight: 1 }}>
       <svg width={size * 1.2} height={size * 1.2} viewBox="0 0 30 30" style={{ display: "block", flex: "0 0 auto", overflow: "visible" }}>
-        <circle cx="15" cy="15" r={6.5 * (1 + 0.06 * lift)} fill={onCream ? T.ink : T.cream} />
-        <ellipse cx="15" cy="15" rx="13.5" ry="4" fill="none" stroke={onCream ? T.accent : T.gold} strokeWidth="1.8" transform={`rotate(${(-22 + 360 * turn).toFixed(2)} 15 15)`} />
+        <Saturn cx={15} cy={15} r={6.5 * (1 + 0.06 * lift)} rx={13.5} ry={4} planet={onCream ? T.ink : T.cream} ring={onCream ? T.accent : T.gold} sw={1.8} tilt={-22 + 360 * turn} />
       </svg>Rite
     </div>
   );
