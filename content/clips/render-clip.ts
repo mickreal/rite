@@ -9,6 +9,9 @@
 //   RITE_ADMIN_KEY=… bun clips/render-clip.ts     with voiceover (POST /admin/tts on the live site; see clips/vo.ts)
 //   bun clips/render-clip.ts --silent             never try VO
 //   BASE_URL=http://localhost:8871 bun clips/render-clip.ts   use a server that's already running
+//   SCALE=2 bun clips/render-clip.ts …            4K master: the same 1080×1920 layout captured at deviceScaleFactor 2
+//                                                 (2160×3840, CRF 14) into out/master/clips/ (and out/master/stills/);
+//                                                 scripts/downscale.ts makes the 1080 upload copies
 //
 // How it stays smooth (all constants in ../timing.ts):
 //   - No screen recording. The page's timers, Date and rAF run on Playwright's fake clock and every CSS/Web animation is
@@ -23,12 +26,14 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { FPS, CLIP, ease, progress } from "../timing";
 import { provider, synthAll, mixVo, measure, type Audio } from "./vo";
+import { renderScale, renderRoot, x264Level, masterCrf } from "../scripts/scale";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CONTENT = resolve(HERE, "..");
 const REPO = resolve(CONTENT, "..");
 const FONTS = join(CONTENT, "fonts");
-const OUT = join(CONTENT, "out", "clips");
+const SCALE = renderScale();
+const OUT = join(renderRoot(CONTENT, SCALE), "clips");
 const WORK = join(CONTENT, "out", "frames");
 const require = createRequire(import.meta.url);
 const { chromium } = require(join(REPO, "node_modules", "playwright")) as typeof import("playwright");
@@ -46,7 +51,7 @@ const keepFrames = argv.includes("--keep-frames");
 // --stills also saves a caption-free 1080×1920 screenshot of the summary to out/stills/<id>-summary.png
 // (the backdrop for a style-5 green-screen reaction)
 const stills = argv.includes("--stills");
-const STILLS = join(CONTENT, "out", "stills");
+const STILLS = join(renderRoot(CONTENT, SCALE), "stills");
 const cohorts = only ? cfg.cohorts.filter((c) => only.includes(c.id)) : cfg.cohorts;
 if (only && cohorts.length !== only.length) { console.error(`Unknown cohort id in --only. Known: ${cfg.cohorts.map((c) => c.id).join(", ")}`); process.exit(1); }
 
@@ -209,7 +214,7 @@ function capState(t: number, a: number, b: number, last: boolean): [number, numb
 // ---------- capture ----------
 async function capture(browser: import("playwright").Browser, base: string, c: Cohort, tl: Timeline, dir: string) {
   rmSync(dir, { recursive: true, force: true }); mkdirSync(dir, { recursive: true });
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, locale: "en-GB", timezoneId: "Europe/London", reducedMotion: "no-preference" });
+  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: SCALE, locale: "en-GB", timezoneId: "Europe/London", reducedMotion: "no-preference" });
   await ctx.route(/fonts\.googleapis\.com/, (r) => r.fulfill({ status: 200, contentType: "text/css", body: FONT_CSS }));
   await ctx.route(/fonts\.gstatic\.com|posthog\.com/, (r) => r.abort());
   await ctx.addInitScript(pageDriver, LAYOUT_CSS);
@@ -285,7 +290,7 @@ function crossfade(dir: string, switches: number[], frames: number) {
       const a = ease.inOutCubic((i + 1) / (n + 1));
       const out = join(dir, `x.png`);
       // blend below the caption band only (captions run on their own timing)
-      const g = `[0:v]format=gbrp[o];[1:v]format=gbrp,split[n1][n2];[o][n1]blend=all_expr='A*${(1 - a).toFixed(4)}+B*${a.toFixed(4)}'[m];[n2]crop=${W}:${BAND}:0:0[top];[m][top]overlay=0:0,format=rgb24`;
+      const g = `[0:v]format=gbrp[o];[1:v]format=gbrp,split[n1][n2];[o][n1]blend=all_expr='A*${(1 - a).toFixed(4)}+B*${a.toFixed(4)}'[m];[n2]crop=${W * SCALE}:${BAND * SCALE}:0:0[top];[m][top]overlay=0:0,format=rgb24`;
       const r = spawnSync("ffmpeg", ["-y", "-hide_banner", "-loglevel", "error", "-i", held, "-i", f(k + i), "-filter_complex", g, "-frames:v", "1", out]);
       if (r.status !== 0) throw new Error(`crossfade failed at frame ${k + i}: ${r.stderr}`);
       renameSync(out, f(k + i));
@@ -301,7 +306,7 @@ function encode(dir: string, frames: number, out: string, audio?: string) {
   if (audio) args.push("-i", audio); else args.push("-f", "lavfi", "-t", dur, "-i", "anullsrc=r=48000:cl=stereo");
   args.push("-map", "0:v", "-map", "1:a",
     "-vf", "scale=out_color_matrix=bt709:out_range=tv:flags=lanczos+accurate_rnd+full_chroma_int,format=yuv420p",
-    "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-profile:v", "high", "-level", "4.2", "-pix_fmt", "yuv420p",
+    "-c:v", "libx264", "-preset", "slow", "-crf", String(masterCrf(SCALE, 17)), "-profile:v", "high", "-level", x264Level(W * SCALE, H * SCALE), "-pix_fmt", "yuv420p",
     "-r", String(FPS), "-fps_mode", "cfr", "-g", String(FPS * 2), "-bf", "2",
     "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv",
     "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-t", dur, "-movflags", "+faststart", out);
