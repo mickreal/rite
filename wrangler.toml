@@ -18,7 +18,7 @@ CURRENCY = "usd"
 # Stripe Tax (docs/automation-builds.md §1). "on": automatic_tax + required billing address on every Checkout, tax-inclusive
 # prices (tax_behavior "inclusive", tax code txcd_10000000). Stripe Tax must be activated in the dashboard first, or every
 # Checkout errors: set "off" until then (launch checklist B10). "off" = exactly the behaviour before tax.
-STRIPE_TAX = "off"
+STRIPE_TAX = "on"
 # Local prices (GBP/EUR/AUD/CAD), off by default. Set to JSON of currency -> cents per product, e.g.
 # '{"gbp":{"full":2300,"notime":1500,"gift":2300,"bump":1200,"season_month":600,"season_year":4700}}' (also full_b / notime_b
 # for arm B of the price test). When set, Checkout uses Stripe Prices with currency_options, so buyers see their own currency.
