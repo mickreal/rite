@@ -1,3 +1,4 @@
+import { UPRIGHT_JS } from "./mark";
 // Shown at /r/:tok while the reading is being written (and if writing failed).
 import { html } from "hono/html";
 import { shell } from "./theme";
@@ -35,9 +36,11 @@ export function writingPage(opts: { token: string; c: Computed; state: "writing"
     <g class="vb ${opts.state === "writing" ? "orbit" : ""}" style="transform:rotate(${angle}deg)">
       ${opts.state === "writing" ? html`<circle class="tail" cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" stroke-dasharray="260 2000" transform="rotate(-150 300 300)"/>` : ""}
       <circle class="halo" cx="300" cy="70" r="40" fill="#F2B544"/>
+      <g data-upright="300 70" transform="rotate(${-angle} 300 70)">
       <g class="ringtilt"><ellipse cx="300" cy="70" rx="38" ry="10" fill="none" stroke="#F2B544" stroke-width="3.5"/></g>
       <circle cx="300" cy="70" r="20" fill="#EDE6D6"/>
       <g class="ringtilt"><ellipse cx="300" cy="70" rx="38" ry="10" fill="none" stroke="none"/><path d="M262 70 A38 10 0 0 0 338 70" fill="none" stroke="#F2B544" stroke-width="3.5"/></g>
+      </g>
     </g>
   </svg>
   ${opts.state === "writing" ? html`
@@ -70,5 +73,5 @@ function finish(){clearInterval(stepT);clearInterval(dotT);lines.forEach(functio
 function tick(){n++;arc.style.strokeDasharray=Math.min(1300,n*55)+' 2000';if(n===18)document.getElementById('slow').style.display='';if(n%50===0){location.replace('/r/'+TOK);return}
  fetch('/r/'+TOK+'/status',{cache:'no-store'}).then(function(r){return r.json()}).then(function(s){if(s.ready){finish();setTimeout(function(){location.replace('/r/'+TOK)},900)}else if(s.failed){location.replace('/r/'+TOK)}else setTimeout(tick,4000)}).catch(function(){setTimeout(tick,6000)})}
 setTimeout(tick,4000)})();` : "";
-  return shell({ title: opts.state === "writing" ? "Writing your reading · Rite" : "One moment · Rite", body, extraCss: CSS, script, nav: html``, noFooter: true });
+  return shell({ title: opts.state === "writing" ? "Writing your reading · Rite" : "One moment · Rite", body, extraCss: CSS, script: UPRIGHT_JS + script, nav: html``, noFooter: true });
 }

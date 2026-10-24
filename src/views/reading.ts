@@ -1,4 +1,4 @@
-import { saturn } from "./mark";
+import { saturn, upright, UPRIGHT_JS } from "./mark";
 import { html, raw } from "hono/html";
 import { shell } from "./theme";
 import type { Computed, Cycle } from "../compute";
@@ -151,7 +151,7 @@ export function readingPage(opts: { siteUrl: string; token: string; c: Computed;
         <g font-family="Hanken Grotesk, sans-serif" font-size="14" text-anchor="middle" dominant-baseline="middle">${WHEEL_LABELS.map((l, i) => html`<text class="wl" data-i="${i}" x="${WHEEL_POS[i][0]}" y="${WHEEL_POS[i][1]}" fill="${i === stage.idx ? "#F2B544" : "#8A857B"}">${l}</text>`)}</g>
         <text id="ageNow" x="250" y="232" text-anchor="middle" fill="#EDE6D6" font-family="Bricolage Grotesque, serif" font-size="64" font-weight="800" letter-spacing="-2">${stage.age}</text>
         <text x="250" y="276" text-anchor="middle" fill="#A7A196" font-family="Hanken Grotesk, sans-serif" font-size="15">years old</text>
-        <g id="wsat" class="wsat" style="transform:rotate(${stage.wa.toFixed(1)}deg);transform-origin:250px 250px"><circle cx="250" cy="50" r="22" fill="#F2B544" opacity=".16"/>${raw(saturn({ cx: 250, cy: 50, r: 11, rx: 21, ry: 5.5, planet: "#EDE6D6", ring: "#F2B544", sw: 2 }))}</g>
+        <g id="wsat" class="wsat" style="transform:rotate(${stage.wa.toFixed(1)}deg);transform-origin:250px 250px"><circle cx="250" cy="50" r="22" fill="#F2B544" opacity=".16"/>${raw(upright(250, 50, saturn({ cx: 250, cy: 50, r: 11, rx: 21, ry: 5.5, planet: "#EDE6D6", ring: "#F2B544", sw: 2 }), stage.wa))}</g>
         <circle cx="250" cy="50" r="4" fill="#0E1014" stroke="#F2B544" stroke-width="2"/>
       </svg>
     </div>
@@ -396,6 +396,6 @@ $('#askForm').addEventListener('submit',function(e){e.preventDefault();var q=$('
  var el=document.createElement('div');el.className='ans swap';el.innerHTML='<b></b><span style="color:#CFC8BA;line-height:1.6"></span>';el.querySelector('b').textContent=q;el.querySelector('span').textContent=d.a;$('#askList').appendChild(el);$('#askq').value='';$('#askLeft').textContent=d.left;btn.disabled=d.left<=0}).catch(function(){btn.textContent='Ask';btn.disabled=false;var er=$('#askErr');er.textContent="Couldn't reach the server. Check your connection and try again.";er.style.display=''})});
 })();`;
 
-  return shell({ title: `Your Saturn return · Rite`, body, extraCss: CSS, script, nav, description: r.cover_line, banner: opts.banner });
+  return shell({ title: `Your Saturn return · Rite`, body, extraCss: CSS, script: UPRIGHT_JS + script, nav, description: r.cover_line, banner: opts.banner });
 
 }

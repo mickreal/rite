@@ -1,4 +1,4 @@
-import { saturn, markSvg } from "./mark";
+import { saturn, markSvg, upright, UPRIGHT_JS } from "./mark";
 import { html, raw } from "hono/html";
 import { shell, ARROW, MARK } from "./theme";
 import { dollars } from "../commerce";
@@ -156,7 +156,7 @@ const ORBIT = `<svg viewBox="0 0 600 600" style="width:100%;height:100%;display:
 <g class="eDrop" style="animation-delay:1.3s"><line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="2"/><circle cx="300" cy="70" r="5" fill="#0E1014" stroke="#F2B544" stroke-width="2"/></g>
 <g class="vb satEnter"><g id="sat" class="sat vb free" style="transform:rotate(0deg)">
 <circle class="tail" cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" stroke-dasharray="200 2000" transform="rotate(-140 300 300)"/>
-<g class="pIn"><circle class="halo" cx="300" cy="70" r="34" fill="#F2B544"/><g class="ringtilt"><ellipse cx="300" cy="70" rx="32" ry="8" fill="none" stroke="#F2B544" stroke-width="2.5"/></g><circle cx="300" cy="70" r="17" fill="#EDE6D6"/><g class="ringtilt"><ellipse cx="300" cy="70" rx="32" ry="8" fill="none" stroke="none"/><path d="M268 70 A32 8 0 0 0 332 70" fill="none" stroke="#F2B544" stroke-width="2.5"/></g></g>
+<g class="pIn"><circle class="halo" cx="300" cy="70" r="34" fill="#F2B544"/><g data-upright="300 70"><g class="ringtilt"><ellipse cx="300" cy="70" rx="32" ry="8" fill="none" stroke="#F2B544" stroke-width="2.5"/></g><circle cx="300" cy="70" r="17" fill="#EDE6D6"/><g class="ringtilt"><ellipse cx="300" cy="70" rx="32" ry="8" fill="none" stroke="none"/><path d="M268 70 A32 8 0 0 0 332 70" fill="none" stroke="#F2B544" stroke-width="2.5"/></g></g></g>
 </g></g>
 </svg>`;
 
@@ -292,7 +292,7 @@ export function landingPage(opts: { siteUrl: string; ref?: string; error?: strin
       <circle class="vb pring" cx="300" cy="300" r="230" fill="none" stroke="rgba(20,17,10,.14)" stroke-dasharray="2 7"/><circle class="vb pring" cx="300" cy="300" r="168" fill="none" stroke="rgba(20,17,10,.06)" style="animation-delay:.15s"/>
       <circle id="arc2" class="arc parc" cx="300" cy="300" r="230" fill="none" stroke="#B9861F" stroke-width="2.5" stroke-linecap="round" transform="rotate(-90 300 300)" style="stroke-dasharray:0 2000;transition:stroke-dasharray 1.6s"/>
       <circle cx="300" cy="300" r="6" fill="rgba(20,17,10,.3)"/><g class="pmark"><line x1="300" y1="46" x2="300" y2="94" stroke="#B9861F" stroke-width="2"/><circle cx="300" cy="70" r="5" fill="#EDE6D6" stroke="#B9861F" stroke-width="2"/></g>
-      <g class="vb psat"><g id="sat2" class="vb" style="transform:rotate(0deg);transition:transform 1.6s cubic-bezier(.3,.7,.2,1)"><circle cx="300" cy="70" r="30" fill="#B9861F" opacity=".14"/>${raw(saturn({ cx: 300, cy: 70, r: 15, rx: 29, ry: 7.5, planet: "#14110A", ring: "#B9861F", sw: 2.5 }))}</g></g>
+      <g class="vb psat"><g id="sat2" class="vb" style="transform:rotate(0deg);transition:transform 1.6s cubic-bezier(.3,.7,.2,1)"><circle cx="300" cy="70" r="30" fill="#B9861F" opacity=".14"/>${raw(upright(300, 70, saturn({ cx: 300, cy: 70, r: 15, rx: 29, ry: 7.5, planet: "#14110A", ring: "#B9861F", sw: 2.5 })))}</g></g>
     </svg>
     <div style="flex:1 1 380px;display:flex;flex-direction:column;gap:22px;position:relative">
       <div class="disp" style="display:flex;align-items:flex-start;font-size:clamp(104px,12vw,176px);font-weight:800;letter-spacing:-.05em;line-height:.82"><span style="font-size:.4em;font-weight:600;margin:.1em .06em 0 0">$</span><span>${full}</span></div>
@@ -411,7 +411,7 @@ document.querySelectorAll('a[href="#start"]').forEach(function(a){a.addEventList
 })();`;
 
   return shell({
-    title: second ? "Your second Saturn return, dated. · Rite" : "Rite · Your Saturn return report, dated", body, extraCss: CSS, script,
+    title: second ? "Your second Saturn return, dated. · Rite" : "Rite · Your Saturn return report, dated", body, extraCss: CSS, script: UPRIGHT_JS + script,
     head: second ? undefined : brandLd(opts.siteUrl),
     description: second ? `Born ${bornRanges(second.born)}? Your second Saturn return is open now. Your window and every exact pass, free in ten seconds.` : undefined,
     canonical: opts.siteUrl + (second ? "/second" : "/"), og: opts.siteUrl + "/og.png", banner: opts.banner,

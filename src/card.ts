@@ -1,4 +1,4 @@
-import { saturn, markSvgInner } from "./views/mark";
+import { saturn, markSvgInner, upright } from "./views/mark";
 // Share card (1080×1920, Stories) and link-preview image (1200×630) as SVG, in the Rite design.
 // The SVG is served as-is and rasterised to PNG by src/png.ts (resvg, in the Worker) and
 // scripts/gen-og.ts. resvg can't fetch Google Fonts, so it is handed the subset TTFs in
@@ -27,7 +27,7 @@ function dial(x: number, y: number, size: number, angle: number, opacity = 1): s
 <circle cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" transform="rotate(-90 300 300)" stroke-dasharray="${(angle / 360 * Cw).toFixed(1)} 2000"/>
 <line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="2.5"/>
 <circle cx="300" cy="300" r="8" fill="#EDE6D6"/>
-<g transform="rotate(${angle.toFixed(1)} 300 300)"><circle cx="300" cy="70" r="34" fill="#F2B544" opacity=".18"/>${saturn({ cx: 300, cy: 70, r: 18, rx: 34, ry: 9, planet: "#EDE6D6", ring: "#F2B544", sw: 3 })}</g>
+<g transform="rotate(${angle.toFixed(1)} 300 300)"><circle cx="300" cy="70" r="34" fill="#F2B544" opacity=".18"/>${upright(300, 70, saturn({ cx: 300, cy: 70, r: 18, rx: 34, ry: 9, planet: "#EDE6D6", ring: "#F2B544", sw: 3 }), angle)}</g>
 </g>`;
 }
 

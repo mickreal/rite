@@ -45,3 +45,17 @@ export const markSvgInner = (planet = "#EDE6D6", ring = "#F2B544") =>
 
 export const markSvg = (size = 30, planet = "#EDE6D6", ring = "#F2B544", extra = "") =>
   `<svg width="${size}" height="${size}" viewBox="0 0 30 30" aria-hidden="true"${extra}>${markSvgInner(planet, ring)}</svg>`;
+
+/**
+ * A dial Saturn that keeps the logo's tilt wherever its dial rotates it (CSS animations, transitions and scripts all
+ * rotate a parent group). UPRIGHT_JS (loaded on every page by shell()) reads each wrapper's parent rotation every frame
+ * and turns the wrapper back by the same amount about the planet's centre. Without JS it simply turns with the orbit.
+ * `angle`: a known static rotation of the parent, applied up front so a static page is right before any script runs.
+ */
+export const upright = (cx: number, cy: number, inner: string, angle = 0) =>
+  `<g data-upright="${cx} ${cy}" transform="rotate(${(-angle).toFixed(2)} ${cx} ${cy})">${inner}</g>`;
+
+export const UPRIGHT_JS = `(function(){var els=[].slice.call(document.querySelectorAll('[data-upright]'));if(!els.length)return;
+function tick(){for(var i=0;i<els.length;i++){var e=els[i],p=e.parentNode,m=p&&p.getCTM&&p.getCTM(),s=p&&p.ownerSVGElement&&p.ownerSVGElement.getCTM&&p.ownerSVGElement.getCTM();if(!m)continue;
+var a=Math.atan2(m.b,m.a)*180/Math.PI-(s?Math.atan2(s.b,s.a)*180/Math.PI:0);e.setAttribute('transform','rotate('+(-a).toFixed(2)+' '+e.getAttribute('data-upright')+')')}requestAnimationFrame(tick)}
+requestAnimationFrame(tick)})();`;

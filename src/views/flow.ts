@@ -1,5 +1,5 @@
-import { saturn } from "./mark";
-const SAT20 = saturn({ cx: 300, cy: 70, r: 20, rx: 38, ry: 10, planet: "#EDE6D6", ring: "#F2B544", sw: 3.5 });
+import { saturn, upright, UPRIGHT_JS } from "./mark";
+const SAT20 = upright(300, 70, saturn({ cx: 300, cy: 70, r: 20, rx: 38, ry: 10, planet: "#EDE6D6", ring: "#F2B544", sw: 3.5 }));
 // Mobile stepper (/start): intro → date → place → time → building → redirects to /p/:id.
 import { html, raw } from "hono/html";
 import { shell, MARK } from "./theme";
@@ -151,5 +151,5 @@ function build(){if(busy||!ok(3))return;busy=true;T('preview_submit',{has_time:!
  var t0=Date.now();fetch('/preview',{method:'POST',body:new FormData($('#flowForm')),redirect:'follow'}).then(function(r){var wait=Math.max(0,3600-(Date.now()-t0));var url=r.redirected?r.url:null;
   if(!url)return r.text().then(function(h){var m=h.match(/<p class="err">([^<]*)</);var msg=m?m[1]:'Something went wrong. Try again.';var n=/place|city|find/i.test(msg)?2:/date/i.test(msg)?1:3;$('#e'+n).textContent=msg;$('#e'+n).style.display='';busy=false;show(n)});resultUrl=url;setTimeout(summary,wait)}).catch(function(){$('#e3').style.display='';busy=false;show(3)})}
 })();`;
-  return shell({ title: "Your Saturn return, dated · Rite", body, extraCss: CSS, script, canonical: `${opts.siteUrl}/start`, og: `${opts.siteUrl}/og.png`, noFooter: true, nav: html`` });
+  return shell({ title: "Your Saturn return, dated · Rite", body, extraCss: CSS, script: UPRIGHT_JS + script, canonical: `${opts.siteUrl}/start`, og: `${opts.siteUrl}/og.png`, noFooter: true, nav: html`` });
 }
