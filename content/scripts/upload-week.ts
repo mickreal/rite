@@ -23,6 +23,7 @@
 // A local copy of the manifest goes to out/weeks/<week>/manifest.json (rolling-plan.ts reads it when R2 isn't set).
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { postMeta, type MetaData } from "./post-meta";
@@ -38,6 +39,13 @@ const dryRun = argv.includes("--dry-run");
 const dirArg = arg("dir") ?? join("out", `week-${W}`);
 const dir = isAbsolute(dirArg) ? dirArg : resolve(CONTENT, dirArg);
 const exportManifest = join(dir, "manifest.json");
+// --master <dir>: the same export from the 4K masters (render-batch --scale 2 writes <dest>-master/). Each post then
+// also carries per-platform sizes (media.variants): "4k" = the master (YouTube, Facebook video), "ig" = the largest
+// Instagram's API takes, made from the master (reels 1908×3392: max 1920 px wide; images 1440 wide). The base files
+// (1080) stay for everything else (TikTok). Without --master the manifest is exactly as before.
+const masterArg = arg("master");
+const masterDir = masterArg ? (isAbsolute(masterArg) ? masterArg : resolve(CONTENT, masterArg)) : null;
+if (masterDir && !existsSync(masterDir)) { console.error(`--master ${masterDir} doesn't exist`); process.exit(1); }
 if (!existsSync(exportManifest)) { console.error(`no ${exportManifest}: export the week first (render-batch.ts / export-batch.ts write it)`); process.exit(1); }
 const r2 = r2FromEnv();
 if (!dryRun && !r2) { console.error("R2 credentials are not set (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY); use --dry-run to preview"); process.exit(1); }
@@ -70,10 +78,11 @@ const prefix = `weeks/${W}/${rid}/`;
 // name: the logical object name (as before, e.g. `<date>_<asset>_vo.mp4`); key/url: the content-hashed object.
 type File = { url: string; key: string; name: string; type: string; bytes: number; sha256: string };
 const uploads = new Map<string, { src: string; file: File }>(); // object name → upload
-function fileFor(post: ExportPost, platform: string, name: string): File {
-  const object = name.startsWith(`${post.date}_${platform}_`) ? `${post.date}_${name.slice(post.date.length + platform.length + 2)}` : name;
+function fileFor(post: ExportPost, platform: string, name: string, from = dir, tag = ""): File {
+  const base = name.startsWith(`${post.date}_${platform}_`) ? `${post.date}_${name.slice(post.date.length + platform.length + 2)}` : name;
+  const object = tag ? base.replace(/(\.[a-z0-9]+)$/i, `-${tag}$1`) : base;
   const have = uploads.get(object); if (have) return have.file;
-  const src = join(dir, name);
+  const src = join(from, name);
   if (!existsSync(src)) throw new Error(`${name} is in manifest.json but not in ${dir}`);
   const sha256 = createHash("sha256").update(readFileSync(src)).digest("hex");
   const key = prefix + contentHashedName(object, sha256);
@@ -90,16 +99,48 @@ const metaData: MetaData = {
   presenter: readJson("remotion/presenter.json").reels,
 };
 
+// "ig" copies made from the masters, cached next to them (<master>/_ig/)
+function igCopy(masterFile: string): string {
+  const out = join(dirname(masterFile), "_ig", masterFile.split("/").pop()!);
+  if (existsSync(out) && statSync(out).mtimeMs >= statSync(masterFile).mtimeMs) return out;
+  mkdirSync(dirname(out), { recursive: true });
+  const video = /\.mp4$/i.test(masterFile);
+  const args = video
+    ? ["-y", "-loglevel", "error", "-i", masterFile, "-vf", "scale=1908:-2:flags=lanczos", "-c:v", "libx264", "-preset", "slow", "-crf", "12", "-profile:v", "high", "-level", "5.1", "-pix_fmt", "yuv420p", "-maxrate", "24M", "-bufsize", "48M", "-c:a", "copy", "-map_metadata", "-1", "-movflags", "+faststart", out]
+    : ["-y", "-loglevel", "error", "-i", masterFile, "-vf", "scale=1440:-2:flags=lanczos", out];
+  const r = spawnSync("ffmpeg", args, { encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`ffmpeg ${masterFile}: ${r.stderr.slice(-300)}`);
+  return out;
+}
+type Variant = { vo: File | null; silent: File } | { files: File[] };
+function variantsFor(p: ExportPost, platform: string, names: string[], video: boolean): Record<string, Variant> | null {
+  if (!masterDir) return null;
+  const masters = names.map((n) => join(masterDir, n));
+  if (!masters.every((m) => existsSync(m))) return null; // no master for this post (e.g. a hand-made file): base only
+  const pick = (files: File[]): Variant => {
+    if (!video) return { files };
+    const vo = files.find((f) => /_vo(-[a-z0-9]+)?\.mp4$/.test(f.name)) ?? null;
+    return { vo, silent: files.find((f) => f !== vo) ?? files[0] };
+  };
+  const ig = names.map((n, k) => { const c = igCopy(masters[k]); return fileFor(p, platform, n, dirname(c), "ig"); });
+  const out: Record<string, Variant> = { ig: pick(ig) };
+  if (video) out["4k"] = pick(names.map((n) => fileFor(p, platform, n, masterDir, "4k")));
+  return out;
+}
+
 const posts = exp.posts.map((p, i) => {
   const first = Object.entries(p.files).find(([, names]) => names.length);
-  let media: null | { type: "video"; vo: File | null; silent: File } | { type: "image"; files: File[] } = null;
+  let media: null | ({ type: "video"; vo: File | null; silent: File } | { type: "image"; files: File[] }) & { variants?: Record<string, Variant> } = null;
   if (first) {
     const [platform, names] = first;
     const files = names.map((n) => fileFor(p, platform, n));
-    if (files[0].type.startsWith("video/")) {
+    const video = files[0].type.startsWith("video/");
+    if (video) {
       const vo = files.find((f) => /_vo\.mp4$/.test(f.name)) ?? null;
       media = { type: "video", vo, silent: files.find((f) => f !== vo) ?? files[0] };
     } else media = { type: "image", files };
+    const v = variantsFor(p, platform, names, video);
+    if (v) media.variants = v;
   }
   const textOnly = !p.asset;
   // auto: build 5 may post it without a person (every platform is one Postiz posts to, the media is there, or it's a
