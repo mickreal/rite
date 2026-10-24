@@ -156,7 +156,7 @@ const ORBIT = `<svg viewBox="0 0 600 600" style="width:100%;height:100%;display:
 <g class="eDrop" style="animation-delay:1.3s"><line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="2"/><circle cx="300" cy="70" r="5" fill="#0E1014" stroke="#F2B544" stroke-width="2"/></g>
 <g class="vb satEnter"><g id="sat" class="sat vb free" style="transform:rotate(0deg)">
 <circle class="tail" cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" stroke-dasharray="200 2000" transform="rotate(-140 300 300)"/>
-<g class="pIn"><circle class="halo" cx="300" cy="70" r="34" fill="#F2B544"/><g class="ringtilt"><ellipse cx="300" cy="70" rx="32" ry="8" fill="none" stroke="#F2B544" stroke-width="2.5"/></g><circle cx="300" cy="70" r="17" fill="#EDE6D6"/><path d="M285 64 Q300 60 315 64" stroke="rgba(14,16,20,.18)" stroke-width="2.5" fill="none"/><path d="M284 74 Q300 78 316 74" stroke="rgba(14,16,20,.12)" stroke-width="2" fill="none"/><g class="ringtilt"><ellipse cx="300" cy="70" rx="32" ry="8" fill="none" stroke="none"/><path d="M268 70 A32 8 0 0 0 332 70" fill="none" stroke="#F2B544" stroke-width="2.5"/></g></g>
+<g class="pIn"><circle class="halo" cx="300" cy="70" r="34" fill="#F2B544"/><g class="ringtilt"><ellipse cx="300" cy="70" rx="32" ry="8" fill="none" stroke="#F2B544" stroke-width="2.5"/></g><circle cx="300" cy="70" r="17" fill="#EDE6D6"/><g class="ringtilt"><ellipse cx="300" cy="70" rx="32" ry="8" fill="none" stroke="none"/><path d="M268 70 A32 8 0 0 0 332 70" fill="none" stroke="#F2B544" stroke-width="2.5"/></g></g>
 </g></g>
 </svg>`;
 
