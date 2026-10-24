@@ -16,7 +16,7 @@ echo "2/3 Rows now:"
 # one statement per table: D1 refuses a 20-term UNION ("too many terms in compound SELECT")
 SQL=""; for t in "${TABLES[@]}"; do SQL+="SELECT '$t' t, COUNT(*) n FROM $t; "; done
 counts() { npx wrangler d1 execute rite --remote --json --command "$SQL" | python3 -c 'import json,sys
-for r in json.load(sys.stdin): x=r["results"][0]; print(f"    {x[\"t\"]:<18} {x[\"n\"]}")'; }
+for r in json.load(sys.stdin): x=r["results"][0]; print("    " + x["t"].ljust(18), x["n"])'; }
 counts
 read -r -p "Delete all of these rows (admin_state is kept)? Type WIPE to continue: " ok
 [ "$ok" = "WIPE" ] || { echo "Not wiped."; exit 0; }
