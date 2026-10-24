@@ -24,6 +24,11 @@ export type PlanPost = {
 };
 
 /** The posts a plan publishes: each post, followed by its fallback post when it has one (and `use` isn't "original"). */
+/** A fallback is one of Rite's own videos, so it goes everywhere Rite videos go: the slot's platforms plus YouTube Shorts and
+ * Facebook whenever the slot is a short-video slot (TikTok / Reels). */
+export const fallbackPlatforms = (platforms: string[]) =>
+  platforms.some((x) => x === "tiktok" || x === "reels") ? [...new Set([...platforms, "shorts", "facebook"])] : platforms;
+
 export function expandPosts<T extends PlanPost>(posts: T[]): PlanPost[] {
   const out: PlanPost[] = [];
   for (const p of posts) {
@@ -33,7 +38,7 @@ export function expandPosts<T extends PlanPost>(posts: T[]): PlanPost[] {
     if (!f.asset) throw new Error(`${p.date} ${p.slot ?? ""}: fallback without an asset`);
     out.push({
       date: p.date, ...(p.time ? { time: p.time } : {}), slot: f.slot ?? `Fallback: ${p.slot ?? p.date}`, kit: p.kit,
-      asset: f.asset, platforms: p.platforms, caption: f.caption, alt: f.alt, note: f.note,
+      asset: f.asset, platforms: fallbackPlatforms(p.platforms), caption: f.caption, alt: f.alt, note: f.note,
       ...(f.music ? { music: f.music } : {}), fallback_for: p.slot ?? p.date,
     });
   }

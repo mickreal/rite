@@ -18,7 +18,7 @@ describe("fallback posts", () => {
     const out = expandPosts([post, { date: "2026-11-08", asset: "x" }]);
     expect(out).toHaveLength(3);
     expect(out[0]).toBe(post);
-    expect(out[1]).toMatchObject({ date: "2026-11-07", time: "18:00", asset: "quote-aries-opener-vertical", platforms: ["tiktok", "reels"], caption: "c", alt: "a", music: "B1@52", slot: "Fallback: TikTok + Reels: reader's line", fallback_for: "TikTok + Reels: reader's line" });
+    expect(out[1]).toMatchObject({ date: "2026-11-07", time: "18:00", asset: "quote-aries-opener-vertical", platforms: ["tiktok", "reels", "shorts", "facebook"], caption: "c", alt: "a", music: "B1@52", slot: "Fallback: TikTok + Reels: reader's line", fallback_for: "TikTok + Reels: reader's line" });
     expect(out[1]).not.toHaveProperty("fallback");
   });
   it('are dropped with "use": "original", kept with "both"', () => {
