@@ -1708,17 +1708,17 @@ app.post("/admin/login", async (c) => {
   const secret = (c.env.ADMIN_TOTP_SECRET ?? "").trim();
   if (codeStep) {
     if (!secret) return loginHtml(c, { next });
-    if (!(await pendingValid(c.env.ADMIN_KEY, formStr(f.pending)))) return loginHtml(c, { next, notice: "expired", error: "That took longer than 5 minutes. Enter the key again." }, 401);
+    if (!(await pendingValid(c.env.ADMIN_KEY, formStr(f.pending)))) return loginHtml(c, { next, notice: "expired", error: "That took too long. Sign in again." }, 401);
     const code = formStr(f.code).replace(/\s/g, "");
-    if (!/^\d{6}$/.test(code)) return fail("code_format", { next, step: "code", pending: formStr(f.pending), error: "Enter the 6 digits your authenticator app shows for Rite." });
+    if (!/^\d{6}$/.test(code)) return fail("code_format", { next, step: "code", pending: formStr(f.pending), error: "Enter the 6-digit code." });
     const step = await verifyTotp(secret, code, Date.now());
-    if (step === null) return fail("code", { next, step: "code", pending: formStr(f.pending), error: "That code didn't match. Check your phone's time is set automatically, wait for the next code and try again." });
-    if (!(await claimTotpStep(c.env, step))) return fail("code_replay", { next, step: "code", pending: formStr(f.pending), error: "That code has already been used. Wait for the next one (they change every 30 seconds)." });
+    if (step === null) return fail("code", { next, step: "code", pending: formStr(f.pending), error: "That code didn't match. Try again." });
+    if (!(await claimTotpStep(c.env, step))) return fail("code_replay", { next, step: "code", pending: formStr(f.pending), error: "That code was already used. Wait for the next one." });
     return loginSucceeded(c, next, true);
   }
-  if (!adminAuthorized(c.env.ADMIN_KEY, undefined, formStr(f.key).trim())) return fail("key", { next, error: "That key didn't match. Check it's the whole ADMIN_KEY (no space at either end) and try again." });
+  if (!adminAuthorized(c.env.ADMIN_KEY, undefined, formStr(f.key).trim())) return fail("key", { next, error: "That didn't match. Try again." });
   if (secret) {
-    if (!totpSecretOk(secret)) return loginHtml(c, { next, error: "ADMIN_TOTP_SECRET is set but isn't a valid base32 secret, so sign-in is refused. Run npm run admin:totp and set it again." }, 503);
+    if (!totpSecretOk(secret)) return loginHtml(c, { next, error: "Sign-in is unavailable right now." }, 503);
     return loginHtml(c, { next, step: "code", pending: await makePending(c.env.ADMIN_KEY) });
   }
   return loginSucceeded(c, next, false);

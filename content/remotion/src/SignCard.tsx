@@ -107,3 +107,61 @@ export const SignCardVertical: React.FC<SignProps> = ({ sign }) => {
     </AbsoluteFill>
   );
 };
+
+// ---------- hook-first variant (24 Oct 2026, from the first reel's insights) ----------
+// SignHookVertical: the birth years on screen from frame 0 (the hook the VO opens with), then the sign card with its
+// build-up compressed into ~3.5 s so the tiles arrive early, and a follow prompt over the last seconds.
+export type SignHookProps = SignProps & { born: string; sub: string; hookSeconds?: number; cta?: string; ctaAt?: number };
+
+export const SignHookVertical: React.FC<SignHookProps> = ({ sign, born, sub, hookSeconds = 2.8, cta = "Follow for your sign", ctaAt }) => {
+  const s = get(sign);
+  const f = useCurrentFrame(); const { fps, durationInFrames } = useVideoConfig();
+  const t = f / fps, d = durationInFrames / fps;
+  const hookOut = interpolate(t, [hookSeconds - 0.35, hookSeconds + 0.15], [1, 0], { easing: sine, extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const cardIn = interpolate(t, [hookSeconds - 0.2, hookSeconds + 0.3], [0, 1], { easing: sine, extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const fout = interpolate(f, [durationInFrames - 1 - CARD.fadeOut * fps, durationInFrames - 1], [1, 0], { easing: sine, extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const tc = Math.max(0, t - hookSeconds);
+  const scale = interpolate(tc, [0, Math.max(1, d - hookSeconds)], [CARD.pushFrom, 1.02], { easing: inOut, extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const ctaStart = ctaAt ?? d - 3.6;
+  const ctaP = interpolate(t, [ctaStart, ctaStart + 0.6], [0, 1], { easing: sine, extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const [a, b] = born.includes("–") ? [born.split("–")[0].trim() + " –", born.split("–")[1].trim()] : [born, ""];
+  return (
+    <AbsoluteFill style={{ background: T.bg }}>
+      {cardIn > 0 && (
+        <AbsoluteFill style={{ opacity: Math.min(cardIn, fout), transform: `scale(${scale.toFixed(5)})`, willChange: "transform" }}>
+          <Clock.Provider value={{ t: tc, d: 8.5 }}>
+            <AbsoluteFill style={{ padding: "150px 80px 130px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <LiveBrand size={46} />
+              <div style={{ marginTop: 56, fontFamily: DISPLAY, fontWeight: 800, letterSpacing: "-0.05em", lineHeight: 0.9 }}>
+                <div style={{ fontSize: 112, color: T.cream }}>Saturn return</div>
+                <div style={{ fontSize: signSize(s.sign, 184, 920), color: T.gold }}>in {s.sign}</div>
+              </div>
+              <div style={{ alignSelf: "center", marginTop: 36 }}><LiveDial size={540} angle={s.angle} /></div>
+              <div style={{ marginTop: 28 }}><Transit s={s} big={66} live /></div>
+              <div style={{ marginTop: "auto", paddingTop: 32, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                <Rise f={0.3} dy={20} style={{ display: "flex" }}><Tile label="First return, born" main={s.firstBorn.main} also={s.firstBorn.also} size={40} style={{ flex: 1 }} /></Rise>
+                <Rise f={0.45} dy={20} style={{ display: "flex" }}><Tile label="Second return, born" main={s.secondBorn.main} also={s.secondBorn.also} size={40} style={{ flex: 1 }} /></Rise>
+              </div>
+              <Footer style={{ marginTop: 36 }} live />
+            </AbsoluteFill>
+          </Clock.Provider>
+        </AbsoluteFill>
+      )}
+      {hookOut > 0 && (
+        <AbsoluteFill style={{ opacity: hookOut, padding: "150px 80px", display: "flex", flexDirection: "column" }}>
+          <Brand size={46} />
+          <div style={{ marginTop: "auto", marginBottom: "auto", display: "flex", flexDirection: "column", gap: 34 }}>
+            <span style={{ fontFamily: TEXT, fontWeight: 500, fontSize: 64, color: T.muted }}>Born</span>
+            <span style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 168, letterSpacing: "-0.05em", lineHeight: 0.95, color: T.gold }}>{a}{b && <><br />{b}</>}</span>
+            <span style={{ fontFamily: DISPLAY, fontWeight: 600, fontSize: 64, letterSpacing: "-0.02em", lineHeight: 1.1, color: T.cream, whiteSpace: "pre-line" }}>{sub}</span>
+          </div>
+        </AbsoluteFill>
+      )}
+      {ctaP > 0 && (
+        <div style={{ position: "absolute", left: 0, right: 0, top: 790, display: "flex", justifyContent: "center", opacity: Math.min(ctaP, fout), transform: `translateY(${((1 - ctaP) * 24).toFixed(1)}px)` }}>
+          <span style={{ background: T.gold, color: T.bg, fontFamily: DISPLAY, fontWeight: 700, fontSize: 54, letterSpacing: "-0.02em", padding: "26px 48px", borderRadius: 999, boxShadow: "0 20px 60px rgba(0,0,0,.55)" }}>{cta}</span>
+        </div>
+      )}
+    </AbsoluteFill>
+  );
+};

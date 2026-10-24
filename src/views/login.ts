@@ -2,7 +2,6 @@
 // The key is never echoed back into the page; only `next` (validated by safeNext) and the signed pending token are.
 import { html } from "hono/html";
 import { adminShell } from "./admin-shell";
-import { SESSION_DAYS } from "../admin";
 
 const CSS = `
 .lg{max-width:460px;margin:0 auto;padding:clamp(8px,6vh,64px) 16px 96px}
@@ -26,14 +25,14 @@ const CSS = `
 
 export type LoginNotice = "key-in-url" | "signed-out" | "signed-out-all" | "expired";
 const NOTICES: Record<LoginNotice, { cls: string; text: string }> = {
-  "key-in-url": { cls: "info", text: "That link had the admin key in it (?key=…). Keys in links end up in browser history, synced tabs and referrer headers, so admin pages no longer accept them. Sign in here instead: it lasts 14 days on this device." },
+  "key-in-url": { cls: "info", text: "Sign in to continue." },
   "signed-out": { cls: "ok", text: "Signed out." },
   "signed-out-all": { cls: "ok", text: "Signed out on every device. Sign in again to carry on." },
   "expired": { cls: "info", text: "Your session ended. Sign in again to carry on." },
 };
 
 const TOGGLE = `(function(){var b=document.querySelector('.pw-toggle'),i=document.getElementById('key');if(!b||!i)return;b.hidden=false;
-b.addEventListener('click',function(){var show=i.type==='password';i.type=show?'text':'password';b.textContent=show?'Hide':'Show';b.setAttribute('aria-pressed',String(show));b.setAttribute('aria-label',show?'Hide the key':'Show the key');i.focus()});
+b.addEventListener('click',function(){var show=i.type==='password';i.type=show?'text':'password';b.textContent=show?'Hide':'Show';b.setAttribute('aria-pressed',String(show));b.setAttribute('aria-label',show?'Hide password':'Show password');i.focus()});
 var f=i.form;if(f)f.addEventListener('submit',function(){i.type='password'})})();`;
 
 export function loginPage(d: { next: string; step?: "key" | "code"; pending?: string; error?: string; notice?: LoginNotice | null; status?: number }) {
@@ -43,26 +42,25 @@ export function loginPage(d: { next: string; step?: "key" | "code"; pending?: st
   const keyStep = html`<form method="post" action="/admin/login" autocomplete="on">
 <input type="hidden" name="next" value="${d.next}">
 <input class="vh" type="text" name="username" value="rite-admin" autocomplete="username" tabindex="-1" aria-hidden="true" readonly>
-<div class="field"><label for="key">Admin key</label>
+<div class="field"><label for="key">Password</label>
 <div class="pw"><input id="key" name="key" type="password" autocomplete="current-password" required autofocus spellcheck="false" autocapitalize="off" autocorrect="off"${d.error ? html` aria-invalid="true" aria-describedby="login-err"` : ""}>
-<button type="button" class="pw-toggle" aria-controls="key" aria-pressed="false" aria-label="Show the key" hidden>Show</button></div></div>
+<button type="button" class="pw-toggle" aria-controls="key" aria-pressed="false" aria-label="Show password" hidden>Show</button></div></div>
 ${err}
 <button class="cta" type="submit">Sign in</button>
-</form>
-<p class="meta">The key is <code>ADMIN_KEY</code> (in <code>.dev.vars</code> and your password manager). You stay signed in on this device for ${SESSION_DAYS} days.</p>`;
+</form>`;
   const codeStep = html`<form method="post" action="/admin/login" autocomplete="off">
 <input type="hidden" name="next" value="${d.next}">
 <input type="hidden" name="pending" value="${d.pending ?? ""}">
-<div class="field"><label for="code">6-digit code from your authenticator app</label>
+<div class="field"><label for="code">Verification code</label>
 <input id="code" name="code" class="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required autofocus${d.error ? html` aria-invalid="true" aria-describedby="login-err"` : ""}></div>
 ${err}
 <button class="cta" type="submit">Verify</button>
 </form>
-<p class="meta">Key accepted. The code changes every 30 seconds and works once. This step times out after 5 minutes. <a href="/admin/login?next=${encodeURIComponent(d.next)}">Start again</a></p>`;
+<p class="meta"><a href="/admin/login?next=${encodeURIComponent(d.next)}">Start again</a></p>`;
   const body = html`<main class="lg"><section class="card lg-card" aria-labelledby="h-login">
-<h1 id="h-login">${step === "code" ? "Two-factor" : "Sign in"}</h1>
+<h1 id="h-login">${step === "code" ? "Verify" : "Sign in"}</h1>
 ${notice ? html`<p class="note ${notice.cls}" role="status">${notice.text}</p>` : ""}
 ${step === "code" ? codeStep : keyStep}
 </section></main>`;
-  return adminShell({ title: "Rite admin · Sign in", body, extraCss: CSS, nav: null, script: step === "key" ? TOGGLE : undefined });
+  return adminShell({ title: "Sign in", body, extraCss: CSS, nav: null, script: step === "key" ? TOGGLE : undefined });
 }

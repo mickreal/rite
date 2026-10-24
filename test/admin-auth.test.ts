@@ -89,7 +89,7 @@ describe("pages without a session, and ?key=", () => {
       expect(r.headers.get("cache-control")).toBe("no-store");
     }
   });
-  it("?key= is refused on every page, even the right key, and the login page explains why", async () => {
+  it("?key= is refused on every page, even the right key, and the login page just asks to sign in", async () => {
     for (const p of PAGES) {
       const u = new URL(p, "https://x"); u.searchParams.set("key", KEY);
       const r = await get(u.pathname + u.search);
@@ -98,7 +98,7 @@ describe("pages without a session, and ?key=", () => {
       expect(r.headers.get("location")).not.toContain(KEY);
     }
     const login = await (await get("/admin/login?next=%2Fadmin&why=key")).text();
-    expect(login).toContain("Keys in links end up in browser history");
+    expect(login).toContain("Sign in to continue."); expect(login).not.toMatch(/ADMIN_KEY|admin key/i);
     // and on the login page itself it's dropped from the address bar
     const l = await get(`/admin/login?key=${KEY}`);
     expect(l.status).toBe(303);
@@ -129,7 +129,7 @@ describe("the login page and next", () => {
     expect(html).toMatch(/<input id="key" name="key" type="password" autocomplete="current-password" required autofocus/);
     expect(html).toMatch(/name="username" value="rite-admin" autocomplete="username"/);
     expect(html).toContain('class="pw-toggle" aria-controls="key" aria-pressed="false"');
-    expect(html).toContain("<label for=\"key\">Admin key</label>");
+    expect(html).toContain("<label for=\"key\">Password</label>"); expect(html).not.toMatch(/ADMIN_KEY|dev\.vars|admin key/i);
     expect(html).not.toContain('aria-label="Admin sections"'); // no section nav before signing in
   });
   it("a wrong key gets a clear error, no cookie, and the key isn't echoed back", async () => {
@@ -137,7 +137,7 @@ describe("the login page and next", () => {
     expect(r.status).toBe(401);
     expect(r.headers.get("set-cookie")).toBeNull();
     const html = await r.text();
-    expect(html).toContain("That key didn&#39;t match");
+    expect(html).toContain("That didn&#39;t match");
     expect(html).not.toContain("wrong-key-typed-here");
     expect(field(html, "next")).toBe("/admin/inbox");
   });
@@ -186,7 +186,7 @@ describe("two-factor on (ADMIN_TOTP_SECRET)", () => {
     expect((await loginPost({ pending, code })).status).toBe(303);
     const replay = await loginPost({ pending, code });
     expect(replay.status).toBe(401);
-    expect(await replay.text()).toContain("already been used");
+    expect(await replay.text()).toContain("already used");
     // 30 s later the new code works, and then the previous step's code (still inside the ±1 window) doesn't
     at(Date.now() + 30000);
     expect((await loginPost({ pending, code: await totpCode(RFC, Date.now()) })).status).toBe(303);
@@ -195,7 +195,7 @@ describe("two-factor on (ADMIN_TOTP_SECRET)", () => {
     at(Date.now() + 6 * 60000);
     const stale = await loginPost({ pending, code: await totpCode(RFC, Date.now()) });
     expect(stale.status).toBe(401);
-    expect(await stale.text()).toContain("longer than 5 minutes");
+    expect(await stale.text()).toContain("took too long");
     // a forged pending token never works
     expect((await loginPost({ pending: "p1.9999999999.abcdefghij.forgedforgedforgedforged", code: await totpCode(RFC, Date.now() + 30000) })).status).toBe(401);
   });
