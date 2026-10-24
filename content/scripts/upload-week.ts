@@ -48,8 +48,8 @@ const masterDir = masterArg ? (isAbsolute(masterArg) ? masterArg : resolve(CONTE
 if (masterDir && !existsSync(masterDir)) { console.error(`--master ${masterDir} doesn't exist`); process.exit(1); }
 if (!existsSync(exportManifest)) { console.error(`no ${exportManifest}: export the week first (render-batch.ts / export-batch.ts write it)`); process.exit(1); }
 const r2 = r2FromEnv();
-if (!dryRun && !r2) { console.error("R2 credentials are not set (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY); use --dry-run to preview"); process.exit(1); }
-if (!dryRun && !r2!.publicBase) { console.error("R2_PUBLIC_BASE is not set (the bucket's public URL, e.g. https://pub-….r2.dev); the manifest needs it for file URLs"); process.exit(1); }
+if (!dryRun && !argv.includes("--emit") && !r2) { console.error("R2 credentials are not set (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY); use --dry-run to preview"); process.exit(1); }
+if (!dryRun && !argv.includes("--emit") && !r2!.publicBase) { console.error("R2_PUBLIC_BASE is not set (the bucket's public URL, e.g. https://pub-….r2.dev); the manifest needs it for file URLs"); process.exit(1); }
 
 type ExportPost = { date: string; day: string | null; slot: string | null; time: string | null; ref: string | null; asset: string | null; interim?: boolean; final_asset?: string | null; fallback_for?: string; kit: string | null; note: string | null; platforms: string[]; caption: string; alt: string[]; missing: boolean; files: Record<string, string[]>; music?: unknown };
 const exp = JSON.parse(readFileSync(exportManifest, "utf8")) as { title: string | null; from: string | null; to: string | null; posts: ExportPost[] };
@@ -177,6 +177,18 @@ const manifest = {
 };
 const body = JSON.stringify(manifest, null, 2) + "\n";
 const total = [...uploads.values()].reduce((n, u) => n + u.file.bytes, 0);
+
+// --emit <file>: write what an upload would do (files with keys + hashes, the manifest, latest.json) and stop, for
+// uploading where the R2 keys aren't (signed URLs from the machine that has them: scripts/r2-presign.mjs).
+const emit = arg("emit");
+if (emit) {
+  const latest = { week_start: W, manifest: manifestKey, manifest_url: publicUrl(r2, manifestKey), updated_at: manifest.generated_at };
+  writeFileSync(isAbsolute(emit) ? emit : resolve(CONTENT, emit), JSON.stringify({ bucket: process.env.R2_BUCKET ?? "rite-content", week: W,
+    uploads: [...uploads.values()].map((u) => ({ src: u.src, key: u.file.key, type: u.file.type, bytes: u.file.bytes, sha256: u.file.sha256 })),
+    manifestKey, manifest: body, latest }, null, 2));
+  console.log(`✓ upload plan: ${uploads.size} file(s), ${(total / 1048576).toFixed(1)} MB → ${emit}`);
+  process.exit(0);
+}
 
 if (dryRun) {
   console.log(`DRY RUN: nothing uploaded. Bucket ${r2?.bucket ?? process.env.R2_BUCKET ?? "rite-content"}, ${uploads.size} file(s), ${(total / 1048576).toFixed(1)} MB:`);
