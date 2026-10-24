@@ -1,3 +1,5 @@
+import { saturn } from "./mark";
+const SAT20 = saturn({ cx: 300, cy: 70, r: 20, rx: 38, ry: 10, planet: "#EDE6D6", ring: "#F2B544", sw: 3.5 });
 // Mobile stepper (/start): intro → date → place → time → building → redirects to /p/:id.
 import { html, raw } from "hono/html";
 import { shell, MARK } from "./theme";
@@ -41,7 +43,7 @@ export function flowPage(opts: { siteUrl: string; ref?: string; form?: { date?: 
       <circle class="vb eRing" cx="300" cy="300" r="150" fill="none" stroke="rgba(237,230,214,.07)" style="animation-delay:.55s"/>
       <circle class="vb eRing" cx="300" cy="300" r="8" fill="#EDE6D6" style="animation-delay:.2s"/>
       <g class="fade" style="animation-delay:1.2s"><line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="3"/><circle cx="300" cy="70" r="6" fill="#0E1014" stroke="#F2B544" stroke-width="3"/></g>
-      <g class="vb satEnter"><g class="vb orbit"><circle class="halo" cx="300" cy="70" r="40" fill="#F2B544"/><circle cx="300" cy="70" r="20" fill="#EDE6D6"/><ellipse cx="300" cy="70" rx="38" ry="10" fill="none" stroke="#F2B544" stroke-width="3.5" transform="rotate(-22 300 70)"/></g></g>
+      <g class="vb satEnter"><g class="vb orbit"><circle class="halo" cx="300" cy="70" r="40" fill="#F2B544"/>${raw(SAT20)}</g></g>
     </svg>
     <h1 class="disp" style="margin:0;font-size:46px;letter-spacing:-.045em;font-weight:700">
       <span style="display:block;overflow:hidden;font-size:.36em;font-weight:500;font-style:italic;letter-spacing:-.01em;line-height:1;color:#BDB6A8;padding:.1em 0 .12em .1em"><span class="w" style="animation-delay:.1s">Your</span></span>
@@ -87,7 +89,7 @@ export function flowPage(opts: { siteUrl: string; ref?: string; form?: { date?: 
       <circle cx="300" cy="300" r="230" fill="none" stroke="rgba(237,230,214,.18)" stroke-dasharray="2 7"/>
       <circle id="barc" cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" transform="rotate(-90 300 300)" style="stroke-dasharray:0 2000;transition:stroke-dasharray 3s cubic-bezier(.5,0,.2,1)"/>
       <line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="3"/><circle cx="300" cy="300" r="8" fill="#EDE6D6"/>
-      <g id="bsat" class="vb spin"><circle class="halo" cx="300" cy="70" r="40" fill="#F2B544"/><circle cx="300" cy="70" r="20" fill="#EDE6D6"/><ellipse cx="300" cy="70" rx="38" ry="10" fill="none" stroke="#F2B544" stroke-width="3.5" transform="rotate(-22 300 70)"/></g>
+      <g id="bsat" class="vb spin"><circle class="halo" cx="300" cy="70" r="40" fill="#F2B544"/>${raw(SAT20)}</g>
     </svg>
     <div role="status" style="display:flex;flex-direction:column;gap:12px;text-align:center;font-size:17px;color:#BDB6A8">
       <span class="ln" style="animation-delay:.2s">Placing Saturn on the day you were born</span>

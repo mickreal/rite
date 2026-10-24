@@ -1,3 +1,4 @@
+import { saturn, markSvgInner } from "./views/mark";
 // Share card (1080×1920, Stories) and link-preview image (1200×630) as SVG, in the Rite design.
 // The SVG is served as-is and rasterised to PNG by src/png.ts (resvg, in the Worker) and
 // scripts/gen-og.ts. resvg can't fetch Google Fonts, so it is handed the subset TTFs in
@@ -15,7 +16,7 @@ const monYY = (iso: string) => `${MON[parseInt(iso.slice(5, 7), 10) - 1]} ${iso.
 export const FONT_DISPLAY = "Bricolage Grotesque";
 export const FONT_TEXT = "Hanken Grotesk";
 const FONTS = `<style>@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap');</style><style>.d{font-family:'${FONT_DISPLAY}','Helvetica Neue',Arial,sans-serif}.h{font-family:'${FONT_TEXT}','Helvetica Neue',Arial,sans-serif}</style>`;
-const MARK = (x: number, y: number, s: number) => `<g transform="translate(${x} ${y}) scale(${s / 30})"><circle cx="15" cy="15" r="6.5" fill="#EDE6D6"/><ellipse cx="15" cy="15" rx="13.5" ry="4" fill="none" stroke="#F2B544" stroke-width="1.8" transform="rotate(-22 15 15)"/></g>`;
+const MARK = (x: number, y: number, s: number) => `<g transform="translate(${x} ${y}) scale(${s / 30})">${markSvgInner()}</g>`;
 
 /** The orbit dial: progress arc = how far round the cycle Saturn is (0–360°). */
 function dial(x: number, y: number, size: number, angle: number, opacity = 1): string {
@@ -26,7 +27,7 @@ function dial(x: number, y: number, size: number, angle: number, opacity = 1): s
 <circle cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" transform="rotate(-90 300 300)" stroke-dasharray="${(angle / 360 * Cw).toFixed(1)} 2000"/>
 <line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="2.5"/>
 <circle cx="300" cy="300" r="8" fill="#EDE6D6"/>
-<g transform="rotate(${angle.toFixed(1)} 300 300)"><circle cx="300" cy="70" r="34" fill="#F2B544" opacity=".18"/><circle cx="300" cy="70" r="18" fill="#EDE6D6"/><ellipse cx="300" cy="70" rx="34" ry="9" fill="none" stroke="#F2B544" stroke-width="3" transform="rotate(-22 300 70)"/></g>
+<g transform="rotate(${angle.toFixed(1)} 300 300)"><circle cx="300" cy="70" r="34" fill="#F2B544" opacity=".18"/>${saturn({ cx: 300, cy: 70, r: 18, rx: 34, ry: 9, planet: "#EDE6D6", ring: "#F2B544", sw: 3 })}</g>
 </g>`;
 }
 

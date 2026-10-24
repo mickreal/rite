@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { markSvgInner } from "./views/mark";
 import Stripe from "stripe";
 import { geocode } from "./geo";
 import { compute, cycle, reportInputs, fmtMonth, fmtDay, hitSentence, phaseSentence, houseLabel, type Computed, type Birth } from "./compute";
@@ -305,7 +306,7 @@ app.get("/sitemap.xml", (c) => {
 });
 app.get("/robots.txt", (c) => c.text(`User-agent: *\nAllow: /\nDisallow: /p/\nDisallow: /r/\nDisallow: /admin/\nDisallow: /creators/d/\nSitemap: ${new URL(c.req.url).origin}/sitemap.xml\n`));
 
-app.get("/favicon.svg", (c) => c.body(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" fill="none"><rect width="44" height="44" fill="#111418"/><g stroke="#d4b66a" stroke-width="2" fill="none"><circle cx="22" cy="22" r="7.5" fill="#d4b66a"/><ellipse cx="22" cy="22" rx="19" ry="7.8" transform="rotate(-28 22 22)"/></g></svg>`, 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=604800" }));
+app.get("/favicon.svg", (c) => c.body(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" fill="none"><rect width="44" height="44" fill="#111418"/><g transform="translate(2 2) scale(1.3333)">${markSvgInner()}</g></svg>`, 200, { "content-type": "image/svg+xml", "cache-control": "public, max-age=604800" }));
 
 app.post("/preview", async (c) => {
   const form = await c.req.parseBody();

@@ -34,9 +34,11 @@ export function writingPage(opts: { token: string; c: Computed; state: "writing"
     <line x1="300" y1="40" x2="300" y2="100" stroke="#F2B544" stroke-width="3"/><circle cx="300" cy="300" r="8" fill="#EDE6D6"/>
     <g class="vb ${opts.state === "writing" ? "orbit" : ""}" style="transform:rotate(${angle}deg)">
       ${opts.state === "writing" ? html`<circle class="tail" cx="300" cy="300" r="230" fill="none" stroke="#F2B544" stroke-width="3" stroke-linecap="round" stroke-dasharray="260 2000" transform="rotate(-150 300 300)"/>` : ""}
-      <circle class="halo" cx="300" cy="70" r="40" fill="#F2B544"/><circle cx="300" cy="70" r="20" fill="#EDE6D6"/>
-      <path d="M284 63 Q300 58 316 63" stroke="rgba(14,16,20,.18)" stroke-width="2.5" fill="none"/><path d="M283 75 Q300 80 317 75" stroke="rgba(14,16,20,.12)" stroke-width="2" fill="none"/>
+      <circle class="halo" cx="300" cy="70" r="40" fill="#F2B544"/>
       <g class="ringtilt"><ellipse cx="300" cy="70" rx="38" ry="10" fill="none" stroke="#F2B544" stroke-width="3.5"/></g>
+      <circle cx="300" cy="70" r="20" fill="#EDE6D6"/>
+      <path d="M284 63 Q300 58 316 63" stroke="rgba(14,16,20,.18)" stroke-width="2.5" fill="none"/><path d="M283 75 Q300 80 317 75" stroke="rgba(14,16,20,.12)" stroke-width="2" fill="none"/>
+      <g class="ringtilt"><ellipse cx="300" cy="70" rx="38" ry="10" fill="none" stroke="none"/><path d="M262 70 A38 10 0 0 0 338 70" fill="none" stroke="#F2B544" stroke-width="3.5"/></g>
     </g>
   </svg>
   ${opts.state === "writing" ? html`

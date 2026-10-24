@@ -1,8 +1,9 @@
+import { markSvg } from "./mark";
 // Design system ported from the Rite canvas: Bricolage Grotesque display, Hanken Grotesk body,
 // ground #0E1014, card #14171D, ink #EDE6D6, gold #F2B544, cream (offer) #EDE6D6 / #14110A.
 import { html, raw } from "hono/html";
 
-export const MARK = `<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="6.5" fill="#EDE6D6"></circle><ellipse cx="15" cy="15" rx="13.5" ry="4" fill="none" stroke="#F2B544" stroke-width="1.8" transform="rotate(-22 15 15)"></ellipse></svg>`;
+export const MARK = markSvg(30);
 export const ARROW = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h12M10 4l5 5-5 5"></path></svg>`;
 export const LOCK = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5 7V5a3 3 0 0 1 6 0v2"></path></svg>`;
 
