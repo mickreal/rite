@@ -55,7 +55,7 @@ export const Brand: React.FC<{ size?: number; onCream?: boolean }> = ({ size = 4
  * (the return point) round to Saturn. `angle` = how far round the cycle Saturn is, 0–360.
  * `enter` 0→1 plays the /start entrance (scale + spin in); `onCream` is the light-card variant.
  */
-export const Dial: React.FC<{ size: number; angle: number; enter?: number; onCream?: boolean; arc?: boolean; halo?: number; draw?: number; spin?: number; pulse?: number }> = ({ size, angle: full, enter = 1, onCream, arc = true, halo = 0.18, draw = 1, spin = 0, pulse = 0 }) => {
+export const Dial: React.FC<{ size: number; angle: number; enter?: number; onCream?: boolean; arc?: boolean; halo?: number; draw?: number; spin?: number; pulse?: number; upright?: boolean }> = ({ size, angle: full, enter = 1, onCream, arc = true, halo = 0.18, draw = 1, spin = 0, pulse = 0, upright = true }) => {
   const angle = full * draw; // Saturn travels round with the arc as it draws
   const Cw = 2 * Math.PI * 230;
   const ring = onCream ? "rgba(20,17,10,.3)" : "rgba(237,230,214,.32)";
@@ -75,7 +75,10 @@ export const Dial: React.FC<{ size: number; angle: number; enter?: number; onCre
       <circle cx="300" cy="300" r="8" fill={planet} opacity={enter} />
       <g transform={`rotate(${angle.toFixed(2)} 300 300)`} opacity={enter}>
         <circle cx="300" cy="70" r={40 * (1 + 0.22 * pulse)} fill={gold} opacity={halo * (1 + 0.8 * pulse)} />
-        <Saturn cx={300} cy={70} r={20} rx={38} ry={10} planet={planet} ring={gold} sw={3.5} />
+        {/* counter-rotated: the ring keeps the logo's tilt wherever Saturn is on the dial */}
+        <g transform={upright ? `rotate(${(-angle).toFixed(2)} 300 70)` : undefined}>
+          <Saturn cx={300} cy={70} r={20} rx={38} ry={10} planet={planet} ring={gold} sw={3.5} />
+        </g>
       </g>
     </svg>
   );

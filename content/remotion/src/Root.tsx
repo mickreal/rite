@@ -5,6 +5,7 @@ import { CohortCard, type CohortProps } from "./CohortCard";
 import { QuoteCard, type QuoteProps } from "./QuoteCard";
 import { CarouselSlide, type CarouselProps } from "./CarouselSlide";
 import { VerticalCard, type VerticalProps } from "./VerticalCard";
+import { DialPreview } from "./DialPreview";
 import { PresenterReel, reelSeconds, type PresenterProps } from "./PresenterReel";
 import { CARD } from "../../timing";
 
@@ -23,5 +24,6 @@ export const Root: React.FC = () => (
       calculateMetadata={({ props }) => ({ durationInFrames: Math.round(((props as VerticalProps).seconds ?? CARD.seconds) * 30) })} />
     <Composition id="PresenterReel" component={PresenterReel as React.FC<PresenterProps>} width={1080} height={1920} fps={30} durationInFrames={30 * 30} defaultProps={{ id: "script-6", base: "http://127.0.0.1:8873" }}
       calculateMetadata={({ props }) => ({ durationInFrames: Math.round(reelSeconds((props as PresenterProps).id) * 30) })} />
+    <Composition id="DialPreview" component={DialPreview} width={1920} height={1080} fps={30} durationInFrames={240} />
   </>
 );
