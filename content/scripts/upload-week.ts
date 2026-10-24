@@ -106,7 +106,7 @@ function igCopy(masterFile: string): string {
   mkdirSync(dirname(out), { recursive: true });
   const video = /\.mp4$/i.test(masterFile);
   const args = video
-    ? ["-y", "-loglevel", "error", "-i", masterFile, "-vf", "scale=1908:-2:flags=lanczos", "-c:v", "libx264", "-preset", "slow", "-crf", "12", "-profile:v", "high", "-level", "5.1", "-pix_fmt", "yuv420p", "-maxrate", "24M", "-bufsize", "48M", "-c:a", "copy", "-map_metadata", "-1", "-movflags", "+faststart", out]
+    ? ["-y", "-loglevel", "error", "-i", masterFile, "-vf", "scale=1908:-2:flags=lanczos", "-c:v", "libx264", "-preset", "medium", "-crf", "12", "-profile:v", "high", "-level", "5.1", "-pix_fmt", "yuv420p", "-maxrate", "24M", "-bufsize", "48M", "-c:a", "copy", "-map_metadata", "-1", "-movflags", "+faststart", out]
     : ["-y", "-loglevel", "error", "-i", masterFile, "-vf", "scale=1440:-2:flags=lanczos", out];
   const r = spawnSync("ffmpeg", args, { encoding: "utf8" });
   if (r.status !== 0) throw new Error(`ffmpeg ${masterFile}: ${r.stderr.slice(-300)}`);
@@ -115,6 +115,8 @@ function igCopy(masterFile: string): string {
 type Variant = { vo: File | null; silent: File } | { files: File[] };
 function variantsFor(p: ExportPost, platform: string, names: string[], video: boolean): Record<string, Variant> | null {
   if (!masterDir) return null;
+  // videos: only the file that gets posted (the VO version when there is one) needs the extra sizes
+  if (video) { const vo = names.find((n) => /_vo\.mp4$/.test(n)); names = [vo ?? names[0]]; }
   const masters = names.map((n) => join(masterDir, n));
   if (!masters.every((m) => existsSync(m))) return null; // no master for this post (e.g. a hand-made file): base only
   const pick = (files: File[]): Variant => {
