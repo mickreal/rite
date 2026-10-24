@@ -263,7 +263,7 @@ async function capture(browser: import("playwright").Browser, base: string, c: C
       throw new Error(`summary step never showed for ${c.id} (${err || "no error on page"}). If geocoding is blocked locally, run with BASE_URL=https://rite.mickreal.workers.dev`);
     }
     lastStep = step;
-    const shot = await cdp.send("Page.captureScreenshot", { format: "png", optimizeForSpeed: true });
+    const shot = await cdp.send("Page.captureScreenshot", { format: "png", optimizeForSpeed: true, clip: { x: 0, y: 0, width: W, height: H, scale: SCALE } }); // scale: CDP ignores deviceScaleFactor otherwise
     writeFileSync(join(dir, `${String(n).padStart(5, "0")}.png`), Buffer.from(shot.data, "base64"));
     if (n % 60 === 0) process.stdout.write(".");
   }
@@ -273,7 +273,7 @@ async function capture(browser: import("playwright").Browser, base: string, c: C
     await page.addStyleTag({ content: `body{padding-top:120px!important}#__cap,#__fade{display:none!important}` });
     await page.clock.runFor(100);
     await page.evaluate(([tt]) => (window as unknown as { __rite: { frame: (t: number, s: unknown) => string } }).__rite.frame(tt as number, { caps: [], fade: 0, push: 1 }), [tl.end + 10] as const);
-    const shot = await cdp.send("Page.captureScreenshot", { format: "png" });
+    const shot = await cdp.send("Page.captureScreenshot", { format: "png", clip: { x: 0, y: 0, width: W, height: H, scale: SCALE } });
     writeFileSync(join(STILLS, `${c.id}-summary.png`), Buffer.from(shot.data, "base64"));
   }
   await ctx.close();
