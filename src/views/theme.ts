@@ -86,7 +86,7 @@ footer.bottom a{color:#EDE6D6;text-decoration:none;font-weight:600;font-size:18p
 /** The gift-season banner (shown between GIFT_SEASON_START and GIFT_SEASON_END on /, /p/:id and /r/:tok). */
 export const giftBanner = () => html`<aside class="gbar noprint" aria-label="Gifts"><div class="in"><span><b>Give someone their Saturn return.</b> A gift code arrives by email the moment you pay, so it still works on Christmas morning.</span><a href="/gift" class="ghost" data-gift-banner>Give a reading</a></div></aside>`;
 
-export function shell(opts: { title: string; description?: string; canonical?: string; og?: string; body: unknown; extraCss?: string; script?: string; nav?: unknown; noFooter?: boolean; banner?: boolean }) {
+export function shell(opts: { title: string; description?: string; canonical?: string; og?: string; body: unknown; extraCss?: string; script?: string; nav?: unknown; noFooter?: boolean; banner?: boolean; head?: unknown }) {
   return html`<!doctype html>
 <html lang="en">
 <head>
@@ -99,11 +99,13 @@ ${opts.canonical ? html`<link rel="canonical" href="${opts.canonical}">` : ""}
 <meta property="og:title" content="${opts.title}">
 <meta property="og:description" content="${opts.description ?? "Your sign, window and every pass. Free in ten seconds."}">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Rite">
 ${opts.og ? html`<meta property="og:image" content="${opts.og}"><meta name="twitter:card" content="summary_large_image">` : ""}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Hanken+Grotesk:wght@400;500;600&display=swap">
 <style>${raw(THEME_CSS)}${raw(opts.extraCss ?? "")}</style>
+${opts.head ?? ""}
 </head>
 <body>
 <header class="top">

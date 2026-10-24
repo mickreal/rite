@@ -410,10 +410,34 @@ document.querySelectorAll('a[href="#start"]').forEach(function(a){a.addEventList
 })();`;
 
   return shell({
-    title: second ? "Your second Saturn return, dated. · Rite" : "Your Saturn return, dated. · Rite", body, extraCss: CSS, script,
+    title: second ? "Your second Saturn return, dated. · Rite" : "Rite · Your Saturn return report, dated", body, extraCss: CSS, script,
+    head: second ? undefined : brandLd(opts.siteUrl),
     description: second ? `Born ${bornRanges(second.born)}? Your second Saturn return is open now. Your window and every exact pass, free in ten seconds.` : undefined,
     canonical: opts.siteUrl + (second ? "/second" : "/"), og: opts.siteUrl + "/og.png", banner: opts.banner,
 
     nav: html`<nav class="main"><a href="#reading">The reading</a><a href="#price">Price</a><a href="#faq">Questions</a><a href="#start" class="ghost">Get my dates</a></nav>`,
   });
+}
+
+/** Profiles that are Rite's own, for Google's brand panel and site name. */
+export const SOCIAL_PROFILES = [
+  "https://www.instagram.com/rite.report",
+  "https://www.tiktok.com/@rite.report",
+  "https://www.youtube.com/channel/UCFeBq87ezPCmYjHhYL0JxXw",
+  "https://www.facebook.com/1379404771923561",
+];
+
+/** WebSite + Organization structured data on the home page: tells Google the site's name is "Rite" (also "Rite Report"). */
+export function brandLd(siteUrl: string) {
+  const ld = {
+    "@context": "https://schema.org",
+    "@graph": [
+      { "@type": "WebSite", "@id": `${siteUrl}/#website`, url: `${siteUrl}/`, name: "Rite", alternateName: ["Rite Report", "rite.report"],
+        publisher: { "@id": `${siteUrl}/#org` } },
+      { "@type": "Organization", "@id": `${siteUrl}/#org`, name: "Rite", alternateName: "Rite Report", url: `${siteUrl}/`,
+        logo: `${siteUrl}/logo-512.png`, email: "hello@rite.report", sameAs: SOCIAL_PROFILES,
+        description: "Personal Saturn return readings: when yours starts, how it unfolds and what it tends to ask of you." },
+    ],
+  };
+  return html`<script type="application/ld+json">${raw(JSON.stringify(ld).replace(/</g, "\\u003c"))}</script>`;
 }
